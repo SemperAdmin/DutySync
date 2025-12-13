@@ -57,6 +57,12 @@ export function deleteUnitSection(id: string): boolean {
 }
 
 // Helper functions for Personnel
+export function getAllPersonnel(): Personnel[] {
+  return Array.from(personnelStore.values()).sort((a, b) =>
+    a.last_name.localeCompare(b.last_name)
+  );
+}
+
 export function getPersonnelByUnit(unitId: string): Personnel[] {
   return Array.from(personnelStore.values()).filter(
     (p) => p.unit_section_id === unitId
@@ -71,6 +77,54 @@ export function getPersonnelByServiceId(serviceId: string): Personnel | undefine
   return Array.from(personnelStore.values()).find(
     (p) => p.service_id === serviceId
   );
+}
+
+export function createPersonnel(person: Personnel): Personnel {
+  personnelStore.set(person.id, person);
+  return person;
+}
+
+export function updatePersonnel(id: string, updates: Partial<Personnel>): Personnel | null {
+  const existing = personnelStore.get(id);
+  if (!existing) return null;
+
+  const updated = { ...existing, ...updates, updated_at: new Date() };
+  personnelStore.set(id, updated);
+  return updated;
+}
+
+export function deletePersonnel(id: string): boolean {
+  return personnelStore.delete(id);
+}
+
+export function bulkCreatePersonnel(personnel: Personnel[]): { created: number; updated: number; errors: string[] } {
+  let created = 0;
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (const person of personnel) {
+    try {
+      const existing = getPersonnelByServiceId(person.service_id);
+      if (existing) {
+        // Update existing record
+        updatePersonnel(existing.id, {
+          first_name: person.first_name,
+          last_name: person.last_name,
+          rank: person.rank,
+          unit_section_id: person.unit_section_id,
+        });
+        updated++;
+      } else {
+        // Create new record
+        personnelStore.set(person.id, person);
+        created++;
+      }
+    } catch (err) {
+      errors.push(`Failed to process ${person.service_id}: ${err}`);
+    }
+  }
+
+  return { created, updated, errors };
 }
 
 // Export user role store reference from auth
