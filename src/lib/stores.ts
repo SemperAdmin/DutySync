@@ -1,7 +1,7 @@
 // In-memory stores for MVP development
 // In production, these will be replaced with Hasura/Neon PostgreSQL
 
-import type { UnitSection, Personnel, DutyType, UserRole, DutyValue } from "@/types";
+import type { UnitSection, Personnel, DutyType, UserRole, DutyValue, DutyRequirement } from "@/types";
 
 // Unit Sections Store
 export const unitSectionStore: Map<string, UnitSection> = new Map();
@@ -14,6 +14,9 @@ export const dutyTypeStore: Map<string, DutyType> = new Map();
 
 // Duty Values Store
 export const dutyValueStore: Map<string, DutyValue> = new Map();
+
+// Duty Requirements Store (composite key: duty_type_id + qual_name)
+export const dutyRequirementStore: Map<string, DutyRequirement> = new Map();
 
 // Helper functions for Unit Sections
 export function getUnitSections(): UnitSection[] {
@@ -150,4 +153,112 @@ export function assignUnitAdminRole(
   );
 
   return [...filteredRoles, newRole];
+}
+
+// Helper functions for Duty Types
+export function getAllDutyTypes(): DutyType[] {
+  return Array.from(dutyTypeStore.values()).sort((a, b) =>
+    a.duty_name.localeCompare(b.duty_name)
+  );
+}
+
+export function getDutyTypesByUnit(unitId: string): DutyType[] {
+  return Array.from(dutyTypeStore.values()).filter(
+    (dt) => dt.unit_section_id === unitId
+  );
+}
+
+export function getDutyTypeById(id: string): DutyType | undefined {
+  return dutyTypeStore.get(id);
+}
+
+export function createDutyType(dutyType: DutyType): DutyType {
+  dutyTypeStore.set(dutyType.id, dutyType);
+  return dutyType;
+}
+
+export function updateDutyType(id: string, updates: Partial<DutyType>): DutyType | null {
+  const existing = dutyTypeStore.get(id);
+  if (!existing) return null;
+
+  const updated = { ...existing, ...updates, updated_at: new Date() };
+  dutyTypeStore.set(id, updated);
+  return updated;
+}
+
+export function deleteDutyType(id: string): boolean {
+  // Also delete associated requirements and values
+  const requirements = getDutyRequirements(id);
+  requirements.forEach((req) => {
+    deleteDutyRequirement(id, req.required_qual_name);
+  });
+
+  const dutyValue = getDutyValueByDutyType(id);
+  if (dutyValue) {
+    dutyValueStore.delete(dutyValue.id);
+  }
+
+  return dutyTypeStore.delete(id);
+}
+
+// Helper functions for Duty Values
+export function getAllDutyValues(): DutyValue[] {
+  return Array.from(dutyValueStore.values());
+}
+
+export function getDutyValueById(id: string): DutyValue | undefined {
+  return dutyValueStore.get(id);
+}
+
+export function getDutyValueByDutyType(dutyTypeId: string): DutyValue | undefined {
+  return Array.from(dutyValueStore.values()).find(
+    (dv) => dv.duty_type_id === dutyTypeId
+  );
+}
+
+export function createDutyValue(dutyValue: DutyValue): DutyValue {
+  dutyValueStore.set(dutyValue.id, dutyValue);
+  return dutyValue;
+}
+
+export function updateDutyValue(id: string, updates: Partial<DutyValue>): DutyValue | null {
+  const existing = dutyValueStore.get(id);
+  if (!existing) return null;
+
+  const updated = { ...existing, ...updates };
+  dutyValueStore.set(id, updated);
+  return updated;
+}
+
+export function deleteDutyValue(id: string): boolean {
+  return dutyValueStore.delete(id);
+}
+
+// Helper functions for Duty Requirements
+export function getDutyRequirements(dutyTypeId: string): DutyRequirement[] {
+  return Array.from(dutyRequirementStore.values()).filter(
+    (dr) => dr.duty_type_id === dutyTypeId
+  );
+}
+
+export function addDutyRequirement(dutyTypeId: string, qualName: string): DutyRequirement {
+  const key = `${dutyTypeId}:${qualName}`;
+  const requirement: DutyRequirement = {
+    duty_type_id: dutyTypeId,
+    required_qual_name: qualName,
+  };
+  dutyRequirementStore.set(key, requirement);
+  return requirement;
+}
+
+export function deleteDutyRequirement(dutyTypeId: string, qualName: string): boolean {
+  const key = `${dutyTypeId}:${qualName}`;
+  return dutyRequirementStore.delete(key);
+}
+
+export function clearDutyRequirements(dutyTypeId: string): void {
+  const requirements = getDutyRequirements(dutyTypeId);
+  requirements.forEach((req) => {
+    deleteDutyRequirement(dutyTypeId, req.required_qual_name);
+  });
 }
