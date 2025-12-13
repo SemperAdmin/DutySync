@@ -1,7 +1,7 @@
 // In-memory stores for MVP development
 // In production, these will be replaced with Hasura/Neon PostgreSQL
 
-import type { UnitSection, Personnel, DutyType, UserRole, DutyValue, DutyRequirement } from "@/types";
+import type { UnitSection, Personnel, DutyType, UserRole, DutyValue, DutyRequirement, DutySlot, NonAvailability, Qualification } from "@/types";
 
 // Unit Sections Store
 export const unitSectionStore: Map<string, UnitSection> = new Map();
@@ -17,6 +17,15 @@ export const dutyValueStore: Map<string, DutyValue> = new Map();
 
 // Duty Requirements Store (composite key: duty_type_id + qual_name)
 export const dutyRequirementStore: Map<string, DutyRequirement> = new Map();
+
+// Duty Slots Store (the scheduled duties)
+export const dutySlotStore: Map<string, DutySlot> = new Map();
+
+// Non-Availability Store
+export const nonAvailabilityStore: Map<string, NonAvailability> = new Map();
+
+// Qualifications Store (composite key: personnel_id + qual_name)
+export const qualificationStore: Map<string, Qualification> = new Map();
 
 // Helper functions for Unit Sections
 export function getUnitSections(): UnitSection[] {
@@ -260,5 +269,160 @@ export function clearDutyRequirements(dutyTypeId: string): void {
   const requirements = getDutyRequirements(dutyTypeId);
   requirements.forEach((req) => {
     deleteDutyRequirement(dutyTypeId, req.required_qual_name);
+  });
+}
+
+// Helper functions for Duty Slots
+export function getAllDutySlots(): DutySlot[] {
+  return Array.from(dutySlotStore.values()).sort(
+    (a, b) => new Date(a.date_assigned).getTime() - new Date(b.date_assigned).getTime()
+  );
+}
+
+export function getDutySlotById(id: string): DutySlot | undefined {
+  return dutySlotStore.get(id);
+}
+
+export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
+  return Array.from(dutySlotStore.values()).filter((slot) => {
+    const slotDate = new Date(slot.date_assigned);
+    return slotDate >= startDate && slotDate <= endDate;
+  });
+}
+
+export function getDutySlotsByUnit(unitId: string): DutySlot[] {
+  const unitDutyTypes = getDutyTypesByUnit(unitId);
+  const dutyTypeIds = new Set(unitDutyTypes.map((dt) => dt.id));
+  return Array.from(dutySlotStore.values()).filter((slot) =>
+    dutyTypeIds.has(slot.duty_type_id)
+  );
+}
+
+export function getDutySlotsByPersonnel(personnelId: string): DutySlot[] {
+  return Array.from(dutySlotStore.values()).filter(
+    (slot) => slot.personnel_id === personnelId
+  );
+}
+
+export function getDutySlotsByDate(date: Date): DutySlot[] {
+  const dateStr = date.toISOString().split("T")[0];
+  return Array.from(dutySlotStore.values()).filter((slot) => {
+    const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+    return slotDateStr === dateStr;
+  });
+}
+
+export function createDutySlot(slot: DutySlot): DutySlot {
+  dutySlotStore.set(slot.id, slot);
+  return slot;
+}
+
+export function updateDutySlot(id: string, updates: Partial<DutySlot>): DutySlot | null {
+  const existing = dutySlotStore.get(id);
+  if (!existing) return null;
+
+  const updated = { ...existing, ...updates, updated_at: new Date() };
+  dutySlotStore.set(id, updated);
+  return updated;
+}
+
+export function deleteDutySlot(id: string): boolean {
+  return dutySlotStore.delete(id);
+}
+
+export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: string): number {
+  let count = 0;
+  const slots = getDutySlotsByDateRange(startDate, endDate);
+
+  for (const slot of slots) {
+    if (unitId) {
+      const dutyType = getDutyTypeById(slot.duty_type_id);
+      if (dutyType?.unit_section_id !== unitId) continue;
+    }
+    if (dutySlotStore.delete(slot.id)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+// Helper functions for Non-Availability
+export function getAllNonAvailability(): NonAvailability[] {
+  return Array.from(nonAvailabilityStore.values()).sort(
+    (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+  );
+}
+
+export function getNonAvailabilityById(id: string): NonAvailability | undefined {
+  return nonAvailabilityStore.get(id);
+}
+
+export function getNonAvailabilityByPersonnel(personnelId: string): NonAvailability[] {
+  return Array.from(nonAvailabilityStore.values()).filter(
+    (na) => na.personnel_id === personnelId
+  );
+}
+
+export function getActiveNonAvailability(personnelId: string, date: Date): NonAvailability | undefined {
+  const dateTime = date.getTime();
+  return Array.from(nonAvailabilityStore.values()).find((na) => {
+    if (na.personnel_id !== personnelId) return false;
+    if (na.status !== "approved") return false;
+    const start = new Date(na.start_date).getTime();
+    const end = new Date(na.end_date).getTime();
+    return dateTime >= start && dateTime <= end;
+  });
+}
+
+export function createNonAvailability(na: NonAvailability): NonAvailability {
+  nonAvailabilityStore.set(na.id, na);
+  return na;
+}
+
+export function updateNonAvailability(id: string, updates: Partial<NonAvailability>): NonAvailability | null {
+  const existing = nonAvailabilityStore.get(id);
+  if (!existing) return null;
+
+  const updated = { ...existing, ...updates };
+  nonAvailabilityStore.set(id, updated);
+  return updated;
+}
+
+export function deleteNonAvailability(id: string): boolean {
+  return nonAvailabilityStore.delete(id);
+}
+
+// Helper functions for Qualifications
+export function getQualificationsByPersonnel(personnelId: string): Qualification[] {
+  return Array.from(qualificationStore.values()).filter(
+    (q) => q.personnel_id === personnelId
+  );
+}
+
+export function hasQualification(personnelId: string, qualName: string): boolean {
+  const key = `${personnelId}:${qualName}`;
+  return qualificationStore.has(key);
+}
+
+export function addQualification(personnelId: string, qualName: string): Qualification {
+  const key = `${personnelId}:${qualName}`;
+  const qualification: Qualification = {
+    personnel_id: personnelId,
+    qual_name: qualName,
+    granted_at: new Date(),
+  };
+  qualificationStore.set(key, qualification);
+  return qualification;
+}
+
+export function removeQualification(personnelId: string, qualName: string): boolean {
+  const key = `${personnelId}:${qualName}`;
+  return qualificationStore.delete(key);
+}
+
+export function clearPersonnelQualifications(personnelId: string): void {
+  const quals = getQualificationsByPersonnel(personnelId);
+  quals.forEach((q) => {
+    removeQualification(personnelId, q.qual_name);
   });
 }
