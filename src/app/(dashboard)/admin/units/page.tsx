@@ -91,10 +91,9 @@ export default function UnitsPage() {
   };
 
   // Group units by hierarchy level
-  const battalions = units.filter((u) => u.hierarchy_level === "battalion");
   const companies = units.filter((u) => u.hierarchy_level === "company");
-  const platoons = units.filter((u) => u.hierarchy_level === "platoon");
   const sections = units.filter((u) => u.hierarchy_level === "section");
+  const workSections = units.filter((u) => u.hierarchy_level === "work_section");
 
   if (isLoading) {
     return (
@@ -238,8 +237,8 @@ export default function UnitsPage() {
               No Units Configured
             </h2>
             <p className="text-foreground-muted mb-6 max-w-md mx-auto">
-              Start by adding your top-level battalion, then build out your
-              organizational structure with companies, platoons, and sections.
+              Import a Morning Report to auto-create units, or manually add
+              Companies, Sections, and Work Sections.
             </p>
             <Button variant="accent" onClick={() => setShowAddForm(true)}>
               Add Your First Unit
@@ -251,18 +250,6 @@ export default function UnitsPage() {
       {/* Units Hierarchy Display */}
       {units.length > 0 && (
         <div className="space-y-6">
-          {/* Battalions */}
-          {battalions.length > 0 && (
-            <HierarchySection
-              title="Battalions"
-              level="battalion"
-              units={battalions}
-              allUnits={units}
-              onEdit={setEditingUnit}
-              onDelete={handleDelete}
-            />
-          )}
-
           {/* Companies */}
           {companies.length > 0 && (
             <HierarchySection
@@ -275,24 +262,24 @@ export default function UnitsPage() {
             />
           )}
 
-          {/* Platoons */}
-          {platoons.length > 0 && (
-            <HierarchySection
-              title="Platoons"
-              level="platoon"
-              units={platoons}
-              allUnits={units}
-              onEdit={setEditingUnit}
-              onDelete={handleDelete}
-            />
-          )}
-
           {/* Sections */}
           {sections.length > 0 && (
             <HierarchySection
               title="Sections"
               level="section"
               units={sections}
+              allUnits={units}
+              onEdit={setEditingUnit}
+              onDelete={handleDelete}
+            />
+          )}
+
+          {/* Work Sections */}
+          {workSections.length > 0 && (
+            <HierarchySection
+              title="Work Sections"
+              level="work_section"
+              units={workSections}
               allUnits={units}
               onEdit={setEditingUnit}
               onDelete={handleDelete}
@@ -419,7 +406,7 @@ function UnitForm({
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     unit_name: unit?.unit_name || "",
-    hierarchy_level: unit?.hierarchy_level || "battalion",
+    hierarchy_level: unit?.hierarchy_level || "company",
     parent_id: unit?.parent_id || "",
   });
 
@@ -428,12 +415,10 @@ function UnitForm({
   // Get possible parents based on hierarchy level
   const getPossibleParents = () => {
     switch (formData.hierarchy_level) {
-      case "company":
-        return units.filter((u) => u.hierarchy_level === "battalion");
-      case "platoon":
-        return units.filter((u) => u.hierarchy_level === "company");
       case "section":
-        return units.filter((u) => u.hierarchy_level === "platoon");
+        return units.filter((u) => u.hierarchy_level === "company");
+      case "work_section":
+        return units.filter((u) => u.hierarchy_level === "section");
       default:
         return [];
     }
@@ -519,14 +504,13 @@ function UnitForm({
                 }
                 disabled={isSubmitting || isEditing}
               >
-                <option value="battalion">Battalion</option>
                 <option value="company">Company</option>
-                <option value="platoon">Platoon</option>
                 <option value="section">Section</option>
+                <option value="work_section">Work Section</option>
               </select>
             </div>
 
-            {formData.hierarchy_level !== "battalion" && (
+            {formData.hierarchy_level !== "company" && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   Parent Unit
@@ -550,11 +534,9 @@ function UnitForm({
                 {possibleParents.length === 0 && (
                   <p className="mt-1.5 text-sm text-warning">
                     No valid parent units available. Create a{" "}
-                    {formData.hierarchy_level === "company"
-                      ? "battalion"
-                      : formData.hierarchy_level === "platoon"
+                    {formData.hierarchy_level === "section"
                       ? "company"
-                      : "platoon"}{" "}
+                      : "section"}{" "}
                     first.
                   </p>
                 )}
@@ -577,7 +559,7 @@ function UnitForm({
                 isLoading={isSubmitting}
                 disabled={
                   isSubmitting ||
-                  (formData.hierarchy_level !== "battalion" &&
+                  (formData.hierarchy_level !== "company" &&
                     possibleParents.length === 0)
                 }
                 className="flex-1"
