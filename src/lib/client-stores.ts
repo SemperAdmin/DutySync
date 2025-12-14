@@ -260,16 +260,20 @@ interface RawPersonnelRecord {
 export async function loadSeedDataIfNeeded(): Promise<{
   unitsLoaded: number;
   personnelLoaded: number;
+  dutyTypesLoaded: number;
+  dutySlotsLoaded: number;
+  nonAvailabilityLoaded: number;
+  qualificationsLoaded: number;
   alreadyLoaded: boolean;
 }> {
   if (typeof window === "undefined") {
-    return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: false };
+    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: false };
   }
 
   // Check if seed data was already loaded
   const seedLoaded = localStorage.getItem(KEYS.seedDataLoaded);
   if (seedLoaded === "true") {
-    return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: true };
+    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: true };
   }
 
   // Check if there's existing data
@@ -279,12 +283,18 @@ export async function loadSeedDataIfNeeded(): Promise<{
   if (existingUnits.length > 0 || existingPersonnel.length > 0) {
     // Mark as loaded since data exists
     localStorage.setItem(KEYS.seedDataLoaded, "true");
-    return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: true };
+    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: true };
   }
 
   // Collect all data before saving (atomic operation)
   const allUnits: UnitSection[] = [];
   const allPersonnel: Personnel[] = [];
+  const allDutyTypes: DutyType[] = [];
+  const allDutyValues: DutyValue[] = [];
+  const allDutyRequirements: DutyRequirement[] = [];
+  const allDutySlots: DutySlot[] = [];
+  const allNonAvailability: NonAvailability[] = [];
+  const allQualifications: Qualification[] = [];
 
   try {
     // Load units index to get available RUCs
@@ -292,16 +302,25 @@ export async function loadSeedDataIfNeeded(): Promise<{
 
     if (availableRucs.length === 0) {
       console.warn("No RUCs found in units index");
-      return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: false };
+      return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: false };
     }
 
     // Fetch all data in parallel for each RUC
     const fetchPromises = availableRucs.map(async (rucInfo) => {
       const ruc = rucInfo.ruc;
-      const unitResponse = await fetch(`${getBasePath()}/data/unit/${ruc}/unit-structure.json`);
-      const personnelResponse = await fetch(`${getBasePath()}/data/unit/${ruc}/unit-members.json`);
+      const basePath = `${getBasePath()}/data/unit/${ruc}`;
 
-      // Both fetches must succeed for this RUC
+      // Required files (must exist)
+      const unitResponse = await fetch(`${basePath}/unit-structure.json`);
+      const personnelResponse = await fetch(`${basePath}/unit-members.json`);
+
+      // Optional files (may not exist yet)
+      const dutyTypesResponse = await fetch(`${basePath}/duty-types.json`).catch(() => null);
+      const dutyRosterResponse = await fetch(`${basePath}/duty-roster.json`).catch(() => null);
+      const nonAvailabilityResponse = await fetch(`${basePath}/non-availability.json`).catch(() => null);
+      const qualificationsResponse = await fetch(`${basePath}/qualifications.json`).catch(() => null);
+
+      // Both required fetches must succeed for this RUC
       if (!unitResponse.ok) {
         throw new Error(`Failed to fetch unit structure for RUC ${ruc}: ${unitResponse.status}`);
       }
@@ -312,7 +331,13 @@ export async function loadSeedDataIfNeeded(): Promise<{
       const unitData = await unitResponse.json();
       const personnelData = await personnelResponse.json();
 
-      // Validate data structure
+      // Parse optional files if they exist and are valid
+      const dutyTypesData = dutyTypesResponse?.ok ? await dutyTypesResponse.json() : null;
+      const dutyRosterData = dutyRosterResponse?.ok ? await dutyRosterResponse.json() : null;
+      const nonAvailabilityData = nonAvailabilityResponse?.ok ? await nonAvailabilityResponse.json() : null;
+      const qualificationsData = qualificationsResponse?.ok ? await qualificationsResponse.json() : null;
+
+      // Validate required data structure
       if (!unitData.units || !Array.isArray(unitData.units)) {
         throw new Error(`Invalid unit structure for RUC ${ruc}: missing units array`);
       }
@@ -320,14 +345,14 @@ export async function loadSeedDataIfNeeded(): Promise<{
         throw new Error(`Invalid personnel data for RUC ${ruc}: missing personnel array`);
       }
 
-      return { ruc, unitData, personnelData };
+      return { ruc, unitData, personnelData, dutyTypesData, dutyRosterData, nonAvailabilityData, qualificationsData };
     });
 
     // Wait for all fetches to complete
     const results = await Promise.all(fetchPromises);
 
     // Process all results after successful fetch
-    for (const { unitData, personnelData } of results) {
+    for (const { unitData, personnelData, dutyTypesData, dutyRosterData, nonAvailabilityData, qualificationsData } of results) {
       // Add units
       allUnits.push(...unitData.units);
 
@@ -341,24 +366,72 @@ export async function loadSeedDataIfNeeded(): Promise<{
         updated_at: p.updated_at || new Date(),
       }));
       allPersonnel.push(...personnelWithDates);
+
+      // Add duty types, values, and requirements if present
+      if (dutyTypesData) {
+        if (dutyTypesData.dutyTypes && Array.isArray(dutyTypesData.dutyTypes)) {
+          allDutyTypes.push(...dutyTypesData.dutyTypes);
+        }
+        if (dutyTypesData.dutyValues && Array.isArray(dutyTypesData.dutyValues)) {
+          allDutyValues.push(...dutyTypesData.dutyValues);
+        }
+        if (dutyTypesData.dutyRequirements && Array.isArray(dutyTypesData.dutyRequirements)) {
+          allDutyRequirements.push(...dutyTypesData.dutyRequirements);
+        }
+      }
+
+      // Add duty slots if present
+      if (dutyRosterData?.dutySlots && Array.isArray(dutyRosterData.dutySlots)) {
+        allDutySlots.push(...dutyRosterData.dutySlots);
+      }
+
+      // Add non-availability if present
+      if (nonAvailabilityData?.nonAvailability && Array.isArray(nonAvailabilityData.nonAvailability)) {
+        allNonAvailability.push(...nonAvailabilityData.nonAvailability);
+      }
+
+      // Add qualifications if present
+      if (qualificationsData?.qualifications && Array.isArray(qualificationsData.qualifications)) {
+        allQualifications.push(...qualificationsData.qualifications);
+      }
     }
 
     // All data fetched and validated - now save atomically
     saveToStorage(KEYS.units, allUnits);
     saveToStorage(KEYS.personnel, allPersonnel);
+    saveToStorage(KEYS.dutyTypes, allDutyTypes);
+    saveToStorage(KEYS.dutyValues, allDutyValues);
+    saveToStorage(KEYS.dutyRequirements, allDutyRequirements);
+    saveToStorage(KEYS.dutySlots, allDutySlots);
+    saveToStorage(KEYS.nonAvailability, allNonAvailability);
+    saveToStorage(KEYS.qualifications, allQualifications);
 
     // Only mark as loaded after all data is successfully saved
     localStorage.setItem(KEYS.seedDataLoaded, "true");
 
-    console.log(`Seed data loaded: ${allUnits.length} units, ${allPersonnel.length} personnel`);
-    return { unitsLoaded: allUnits.length, personnelLoaded: allPersonnel.length, alreadyLoaded: false };
+    console.log(`Seed data loaded: ${allUnits.length} units, ${allPersonnel.length} personnel, ${allDutyTypes.length} duty types, ${allDutySlots.length} duty slots, ${allNonAvailability.length} non-availability, ${allQualifications.length} qualifications`);
+    return {
+      unitsLoaded: allUnits.length,
+      personnelLoaded: allPersonnel.length,
+      dutyTypesLoaded: allDutyTypes.length,
+      dutySlotsLoaded: allDutySlots.length,
+      nonAvailabilityLoaded: allNonAvailability.length,
+      qualificationsLoaded: allQualifications.length,
+      alreadyLoaded: false
+    };
   } catch (error) {
     // Clean up any partial data on failure
     localStorage.removeItem(KEYS.units);
     localStorage.removeItem(KEYS.personnel);
+    localStorage.removeItem(KEYS.dutyTypes);
+    localStorage.removeItem(KEYS.dutyValues);
+    localStorage.removeItem(KEYS.dutyRequirements);
+    localStorage.removeItem(KEYS.dutySlots);
+    localStorage.removeItem(KEYS.nonAvailability);
+    localStorage.removeItem(KEYS.qualifications);
     // Do NOT set seedDataLoaded - allow retry on next page load
     console.error("Failed to load seed data (atomic rollback):", error);
-    return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: false };
+    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: false };
   }
 }
 
@@ -1813,6 +1886,116 @@ export function exportUnitMembers(): { personnel: Array<{
     version: "1.1",
     encrypted: true,
     encryptedAt: now,
+  };
+}
+
+// Export duty types in seed file format (for public/data/unit/{ruc}/duty-types.json)
+export function exportDutyTypes(unitId?: string): {
+  dutyTypes: DutyType[];
+  dutyValues: DutyValue[];
+  dutyRequirements: DutyRequirement[];
+  exportedAt: string;
+  version: string;
+  description: string;
+} {
+  let dutyTypes = getFromStorage<DutyType>(KEYS.dutyTypes);
+  const allDutyValues = getFromStorage<DutyValue>(KEYS.dutyValues);
+  const allDutyRequirements = getFromStorage<DutyRequirement>(KEYS.dutyRequirements);
+
+  // Filter by unit if specified
+  if (unitId) {
+    dutyTypes = dutyTypes.filter(dt => dt.unit_section_id === unitId);
+  }
+
+  // Get duty type IDs for filtering related data
+  const dutyTypeIds = new Set(dutyTypes.map(dt => dt.id));
+
+  // Filter values and requirements to match the duty types
+  const dutyValues = allDutyValues.filter(dv => dutyTypeIds.has(dv.duty_type_id));
+  const dutyRequirements = allDutyRequirements.filter(dr => dutyTypeIds.has(dr.duty_type_id));
+
+  return {
+    dutyTypes,
+    dutyValues,
+    dutyRequirements,
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+    description: "Duty type definitions, point values, and qualification requirements for this unit",
+  };
+}
+
+// Export duty roster in seed file format (for public/data/unit/{ruc}/duty-roster.json)
+export function exportDutyRoster(unitId?: string): {
+  dutySlots: DutySlot[];
+  exportedAt: string;
+  version: string;
+  description: string;
+} {
+  let dutySlots = getFromStorage<DutySlot>(KEYS.dutySlots);
+
+  // Filter by unit if specified (via duty type's unit_section_id)
+  if (unitId) {
+    const unitDutyTypes = getFromStorage<DutyType>(KEYS.dutyTypes)
+      .filter(dt => dt.unit_section_id === unitId);
+    const unitDutyTypeIds = new Set(unitDutyTypes.map(dt => dt.id));
+    dutySlots = dutySlots.filter(ds => unitDutyTypeIds.has(ds.duty_type_id));
+  }
+
+  return {
+    dutySlots,
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+    description: "Scheduled duty assignments for this unit",
+  };
+}
+
+// Export non-availability in seed file format (for public/data/unit/{ruc}/non-availability.json)
+export function exportNonAvailability(unitId?: string): {
+  nonAvailability: NonAvailability[];
+  exportedAt: string;
+  version: string;
+  description: string;
+} {
+  let nonAvailability = getFromStorage<NonAvailability>(KEYS.nonAvailability);
+
+  // Filter by unit if specified (via personnel's unit_section_id)
+  if (unitId) {
+    const unitPersonnel = getFromStorage<Personnel>(KEYS.personnel)
+      .filter(p => p.unit_section_id === unitId);
+    const unitPersonnelIds = new Set(unitPersonnel.map(p => p.id));
+    nonAvailability = nonAvailability.filter(na => unitPersonnelIds.has(na.personnel_id));
+  }
+
+  return {
+    nonAvailability,
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+    description: "Non-availability requests (leave, TAD, etc.) for personnel in this unit",
+  };
+}
+
+// Export qualifications in seed file format (for public/data/unit/{ruc}/qualifications.json)
+export function exportQualifications(unitId?: string): {
+  qualifications: Qualification[];
+  exportedAt: string;
+  version: string;
+  description: string;
+} {
+  let qualifications = getFromStorage<Qualification>(KEYS.qualifications);
+
+  // Filter by unit if specified (via personnel's unit_section_id)
+  if (unitId) {
+    const unitPersonnel = getFromStorage<Personnel>(KEYS.personnel)
+      .filter(p => p.unit_section_id === unitId);
+    const unitPersonnelIds = new Set(unitPersonnel.map(p => p.id));
+    qualifications = qualifications.filter(q => unitPersonnelIds.has(q.personnel_id));
+  }
+
+  return {
+    qualifications,
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+    description: "Personnel qualifications and certifications for this unit",
   };
 }
 

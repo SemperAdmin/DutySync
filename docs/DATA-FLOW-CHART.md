@@ -30,10 +30,12 @@ This document maps how data is pushed and pulled throughout the application.
 | **Users** | `public/data/user/{id}.json` | Memory cache only | `/admin/users` |
 | **Users Index** | `public/data/users-index.json` | - | - |
 | **RUCs** | `public/data/rucs.json` | `dutysync_rucs` | Import modal |
-| **Duty Types** | - (localStorage only) | `dutysync_duty_types` | `/admin/duty-types` |
-| **Duty Slots** | - (localStorage only) | `dutysync_duty_slots` | `/admin/scheduler`, `/roster` |
-| **Non-Availability** | - (localStorage only) | `dutysync_non_availability` | `/admin/non-availability` |
-| **Qualifications** | - (localStorage only) | `dutysync_qualifications` | `/admin/personnel` |
+| **Duty Types** | `public/data/unit/{ruc}/duty-types.json` | `dutysync_duty_types` | `/admin/duty-types` |
+| **Duty Values** | `public/data/unit/{ruc}/duty-types.json` | `dutysync_duty_values` | `/admin/duty-types` |
+| **Duty Requirements** | `public/data/unit/{ruc}/duty-types.json` | `dutysync_duty_requirements` | `/admin/duty-types` |
+| **Duty Slots** | `public/data/unit/{ruc}/duty-roster.json` | `dutysync_duty_slots` | `/admin/scheduler`, `/roster` |
+| **Non-Availability** | `public/data/unit/{ruc}/non-availability.json` | `dutysync_non_availability` | `/admin/non-availability` |
+| **Qualifications** | `public/data/unit/{ruc}/qualifications.json` | `dutysync_qualifications` | `/admin/personnel` |
 
 ---
 
@@ -256,29 +258,32 @@ SESSION DATA STORED (localStorage "dutysync_user"):
 │                      DUTY DATA FLOW (LOCALSTORAGE ONLY)                          │
 └──────────────────────────────────────────────────────────────────────────────────┘
 
-⚠️  WARNING: These entities do NOT persist to JSON files or GitHub!
-              Data exists ONLY in browser localStorage.
-
-     UI PAGES                CLIENT STORES            LOCALSTORAGE
-     (scheduler, duties)     (client-stores.ts)       (browser)
-          │                        │                       │
-          │  CREATE                │                       │
-          │  createDutyType()      │                       │
-          │  createDutySlot()      │                       │
-          │  createNonAvailability()                       │
-          ├───────────────────────►│                       │
-          │                        ├──────────────────────►│
-          │                        │  dutysync_duty_types  │
-          │                        │  dutysync_duty_slots  │
-          │                        │  dutysync_non_availability
-          │                        │                       │
-          │  READ                  │                       │
-          │  getAllDutyTypes()     │                       │
-          │  getAllDutySlots()     │                       │
-          │  getAllNonAvailability()                       │
-          │◄───────────────────────┤                       │
-          │                        │◄──────────────────────┤
-          │                        │                       │
+     UI PAGES                CLIENT STORES            LOCALSTORAGE          JSON SEED FILES
+     (scheduler, duties)     (client-stores.ts)       (browser)             (public/data/unit/{ruc}/)
+          │                        │                       │                       │
+          │  INITIAL LOAD (PULL)   │                       │                       │
+          │  loadSeedDataIfNeeded()│                       │                       │
+          │◄───────────────────────┤◄──────────────────────┤◄──────────────────────┤
+          │                        │  Loads from JSON →    │  duty-types.json      │
+          │                        │  localStorage         │  duty-roster.json     │
+          │                        │                       │  non-availability.json│
+          │                        │                       │  qualifications.json  │
+          │                        │                       │                       │
+          │  CREATE/UPDATE         │                       │                       │
+          │  createDutyType()      │                       │                       │
+          │  createDutySlot()      │                       │                       │
+          │  createNonAvailability()                       │                       │
+          ├───────────────────────►│                       │                       │
+          │                        ├──────────────────────►│                       │
+          │                        │  dutysync_duty_types  │                       │
+          │                        │  dutysync_duty_slots  │                       │
+          │                        │  dutysync_non_availability                    │
+          │                        │                       │                       │
+          │  EXPORT/PUSH           │                       │                       │
+          │  exportDutyTypes()     │                       │                       │
+          │  pushUnitSeedFile()    ├──────────────────────────────────────────────►│
+          │                        │                       │  Updates JSON files   │
+          │                        │                       │                       │
 
 LOCALSTORAGE KEYS:
   - dutysync_duty_types       → DutyType[]
@@ -288,26 +293,36 @@ LOCALSTORAGE KEYS:
   - dutysync_non_availability → NonAvailability[]
   - dutysync_qualifications   → Qualification[]
 
-❌ NO PERSISTENCE TO:
-  - JSON seed files
-  - GitHub repository
-  - External database
+✅ NOW CONNECTED TO:
+  - JSON seed files (public/data/unit/{ruc}/*.json)
+  - GitHub API for persistence (github-api.ts)
 ```
 
 ---
 
 ## Identified Issues & Gaps
 
-### Critical Breaks in Data Flow
+### Data Flow Status
 
 | Issue | Location | Impact | Status |
 |-------|----------|--------|--------|
-| **Duty data not persisted** | `client-stores.ts` | Duty types, slots, schedules lost on localStorage clear | 🔴 BREAK |
-| **Non-availability not persisted** | `client-stores.ts` | Leave requests lost on localStorage clear | 🔴 BREAK |
-| **Qualifications not persisted** | `client-stores.ts` | Personnel certifications lost on localStorage clear | 🔴 BREAK |
+| **Duty data persistence** | `client-stores.ts` | Load from JSON on init, export to push | ✅ FIXED |
+| **Non-availability persistence** | `client-stores.ts` | Load from JSON on init, export to push | ✅ FIXED |
+| **Qualifications persistence** | `client-stores.ts` | Load from JSON on init, export to push | ✅ FIXED |
 | **Two auth systems** | `auth.ts` vs `client-auth.tsx` | Server auth unused, client auth works | 🟡 UNUSED CODE |
 | **In-memory stores unused** | `stores.ts` | Map stores exist but not used by UI | 🟡 UNUSED CODE |
 | **Role updates async** | `client-auth.tsx` | Memory updated immediately, GitHub async | 🟡 RACE CONDITION |
+
+### New Export Functions Added
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `exportDutyTypes(unitId?)` | `client-stores.ts` | Export duty types, values, requirements |
+| `exportDutyRoster(unitId?)` | `client-stores.ts` | Export duty slots/schedule |
+| `exportNonAvailability(unitId?)` | `client-stores.ts` | Export leave/TAD requests |
+| `exportQualifications(unitId?)` | `client-stores.ts` | Export personnel certifications |
+| `pushAllUnitSeedFiles(ruc, ...)` | `github-api.ts` | Push all unit data to GitHub |
+| `pushUnitSeedFile(ruc, type, data)` | `github-api.ts` | Push single file to GitHub |
 
 ---
 
@@ -332,6 +347,10 @@ LOCALSTORAGE KEYS:
 | `rucs.json` | RUC reference data | Manual |
 | `unit/{ruc}/unit-structure.json` | Unit hierarchy | Import + `github-api.ts` |
 | `unit/{ruc}/unit-members.json` | Personnel records | Import + `github-api.ts` |
+| `unit/{ruc}/duty-types.json` | Duty types, values, requirements | `pushUnitSeedFile()` |
+| `unit/{ruc}/duty-roster.json` | Scheduled duty assignments | `pushUnitSeedFile()` |
+| `unit/{ruc}/non-availability.json` | Leave/TAD requests | `pushUnitSeedFile()` |
+| `unit/{ruc}/qualifications.json` | Personnel certifications | `pushUnitSeedFile()` |
 | `user/{id}.json` | Individual user data + roles | GitHub workflows |
 
 ### GitHub Workflows (.github/workflows/)
@@ -359,48 +378,49 @@ LOCALSTORAGE KEYS:
 │  User Roles ────► GitHub Workflow ─────────► public/data/user/*.json       │
 │  Unit Structure ► GitHub API ──────────────► public/data/unit/*/structure  │
 │  Personnel ─────► GitHub API ──────────────► public/data/unit/*/members    │
+│  Duty Types ────► GitHub API ──────────────► public/data/unit/*/duty-types │
+│  Duty Roster ───► GitHub API ──────────────► public/data/unit/*/duty-roster│
+│  Non-Availability GitHub API ──────────────► public/data/unit/*/non-avail  │
+│  Qualifications ► GitHub API ──────────────► public/data/unit/*/quals      │
 │                                                                             │
 │                                                                             │
-│  SESSION DATA (survives page refresh, lost on logout/clear):                │
-│  ════════════════════════════════════════════════════════════              │
+│  SESSION DATA (survives page refresh, loaded from JSON on init):            │
+│  ══════════════════════════════════════════════════════════════            │
 │                                                                             │
 │  Current User ──► localStorage ────────────► dutysync_user                 │
-│  Units Cache ───► localStorage ────────────► dutysync_units                │
-│  Personnel Cache► localStorage ────────────► dutysync_personnel            │
+│  All Data ──────► localStorage (cache) ────► dutysync_*                    │
 │                                                                             │
 │                                                                             │
-│  ⚠️  VOLATILE DATA (lost on localStorage clear):                           │
-│  ════════════════════════════════════════════════                          │
+│  HOW TO PERSIST DATA:                                                       │
+│  ═══════════════════                                                       │
 │                                                                             │
-│  Duty Types ────► localStorage ONLY ───────► dutysync_duty_types           │
-│  Duty Values ───► localStorage ONLY ───────► dutysync_duty_values          │
-│  Duty Slots ────► localStorage ONLY ───────► dutysync_duty_slots           │
-│  Non-Availability localStorage ONLY ───────► dutysync_non_availability     │
-│  Qualifications ► localStorage ONLY ───────► dutysync_qualifications       │
+│  1. Use export functions:                                                   │
+│     exportDutyTypes(), exportDutyRoster(),                                 │
+│     exportNonAvailability(), exportQualifications()                        │
+│                                                                             │
+│  2. Push to GitHub:                                                         │
+│     pushUnitSeedFile(ruc, fileType, data)                                  │
+│     pushAllUnitSeedFiles(ruc, ...)                                         │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Recommendations
-
-### To Fix Data Persistence Gaps:
-
-1. **Add GitHub workflows for duty data** - Create `update-duty-types.yml`, `update-duty-slots.yml` etc.
-
-2. **Add JSON seed files for duties** - Create `public/data/unit/{ruc}/duties.json`
-
-3. **Add export/push functions** - Similar to `pushSeedFilesToGitHub()` for duty data
-
-4. **Consider background sync** - Periodically push localStorage to GitHub
+## Remaining Recommendations
 
 ### To Clean Up Unused Code:
 
 1. **Remove `auth.ts`** - Server-side NextAuth not used
-2. **Remove `stores.ts`** - In-memory stores not used
+2. **Remove `stores.ts`** - In-memory Map stores not used
 3. **Update comments** - Remove references to Hasura/Neon
+
+### Future Enhancements:
+
+1. **Add auto-save** - Periodically push localStorage changes to GitHub
+2. **Add UI export button** - Let admins manually trigger exports
+3. **Add import from JSON** - Let admins restore from seed files
 
 ---
 
-*Last updated: Generated by data flow analysis*
+*Last updated: 2024-12-14 - Added JSON seed files for duty data*
