@@ -128,5 +128,6 @@ export interface SessionUser {
   username: string;
   email: string;
   personnel_id: string | null;
+  serviceId?: string | null;  // EDIPI - 10 digit military service ID
   roles: UserRole[];
 }
