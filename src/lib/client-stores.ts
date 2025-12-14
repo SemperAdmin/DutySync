@@ -64,8 +64,108 @@ const KEYS = {
   nonAvailability: "dutysync_non_availability",
   qualifications: "dutysync_qualifications",
   users: "dutysync_users",
+  rucs: "dutysync_rucs",
   seedDataLoaded: "dutysync_seed_loaded",
 };
+
+// ============ RUC Reference Data ============
+
+// RUC entry structure
+export interface RucEntry {
+  ruc: string;
+  name: string | null;
+}
+
+// RUC data file structure
+interface RucsData {
+  rucs: RucEntry[];
+}
+
+// Load RUCs from the reference file
+export async function loadRucs(): Promise<RucEntry[]> {
+  if (typeof window === "undefined") return [];
+
+  // Check if already in localStorage
+  const cached = localStorage.getItem(KEYS.rucs);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // Continue to fetch from file
+    }
+  }
+
+  try {
+    const response = await fetch("/data/rucs.json");
+    if (response.ok) {
+      const data: RucsData = await response.json();
+      if (data.rucs && Array.isArray(data.rucs)) {
+        localStorage.setItem(KEYS.rucs, JSON.stringify(data.rucs));
+        return data.rucs;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load RUCs:", error);
+  }
+  return [];
+}
+
+// Get all RUCs from localStorage (call loadRucs first to populate)
+export function getAllRucs(): RucEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const data = localStorage.getItem(KEYS.rucs);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Get a single RUC by code
+export function getRucByCode(rucCode: string): RucEntry | undefined {
+  return getAllRucs().find(r => r.ruc === rucCode);
+}
+
+// Update the name of a RUC (unit admin function)
+export function updateRucName(rucCode: string, name: string | null): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const rucs = getAllRucs();
+    const idx = rucs.findIndex(r => r.ruc === rucCode);
+    if (idx === -1) return false;
+    rucs[idx].name = name;
+    localStorage.setItem(KEYS.rucs, JSON.stringify(rucs));
+    return true;
+  } catch (error) {
+    console.error("Failed to update RUC name:", error);
+    return false;
+  }
+}
+
+// Search RUCs by code or name
+export function searchRucs(query: string): RucEntry[] {
+  const q = query.toLowerCase();
+  return getAllRucs().filter(r =>
+    r.ruc.includes(q) ||
+    (r.name && r.name.toLowerCase().includes(q))
+  );
+}
+
+// Get RUC display name (name if set, otherwise just the code)
+export function getRucDisplayName(rucCode: string): string {
+  const ruc = getRucByCode(rucCode);
+  if (ruc && ruc.name) {
+    return `${ruc.ruc} - ${ruc.name}`;
+  }
+  return rucCode;
+}
+
+// Export RUCs data for saving back to file (admin function)
+export function exportRucsData(): RucsData {
+  return {
+    rucs: getAllRucs(),
+  };
+}
 
 // ============ Seed Data Loading ============
 
