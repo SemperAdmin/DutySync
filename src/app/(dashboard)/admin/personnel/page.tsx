@@ -52,6 +52,43 @@ export default function PersonnelPage() {
     return unit?.unit_name || "Unknown";
   };
 
+  // Build full unit path (e.g., "H Company > S1DV > CUST")
+  const getFullUnitPath = (unitId: string): string => {
+    const path: string[] = [];
+    let currentUnit = units.find((u) => u.id === unitId);
+
+    while (currentUnit) {
+      // Skip RUC level for cleaner display
+      if (currentUnit.hierarchy_level !== "ruc") {
+        path.unshift(currentUnit.unit_name);
+      }
+      currentUnit = currentUnit.parent_id
+        ? units.find((u) => u.id === currentUnit?.parent_id)
+        : undefined;
+    }
+
+    return path.join(" > ") || "Unknown";
+  };
+
+  // Get parent unit at specific level
+  const getParentAtLevel = (
+    unitId: string,
+    level: "company" | "section" | "platoon" | "work_section"
+  ): string => {
+    let currentUnit = units.find((u) => u.id === unitId);
+
+    while (currentUnit) {
+      if (currentUnit.hierarchy_level === level) {
+        return currentUnit.unit_name;
+      }
+      currentUnit = currentUnit.parent_id
+        ? units.find((u) => u.id === currentUnit?.parent_id)
+        : undefined;
+    }
+
+    return "-";
+  };
+
   // Filter and search personnel
   const filteredPersonnel = personnel.filter((p) => {
     const matchesUnit = !filterUnit || p.unit_section_id === filterUnit;
@@ -240,7 +277,7 @@ export default function PersonnelPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
-                      Service ID
+                      EDIPI
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Name
@@ -249,7 +286,13 @@ export default function PersonnelPage() {
                       Rank
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
-                      Unit
+                      Company
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Section
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Work Section
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Duty Score
@@ -274,6 +317,12 @@ export default function PersonnelPage() {
                         <span className="px-2 py-0.5 text-xs font-medium rounded bg-primary/20 text-blue-400">
                           {person.rank}
                         </span>
+                      </td>
+                      <td className="py-3 px-4 text-foreground-muted">
+                        {getParentAtLevel(person.unit_section_id, "company")}
+                      </td>
+                      <td className="py-3 px-4 text-foreground-muted">
+                        {getParentAtLevel(person.unit_section_id, "section")}
                       </td>
                       <td className="py-3 px-4 text-foreground-muted">
                         {getUnitName(person.unit_section_id)}

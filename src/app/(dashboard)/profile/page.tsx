@@ -1,10 +1,51 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/client-auth";
+import { getUnitSections, getPersonnelById } from "@/lib/client-stores";
+import type { UnitSection } from "@/types";
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const [units, setUnits] = useState<UnitSection[]>([]);
+  const [fullUnitPath, setFullUnitPath] = useState<string>("");
+
+  useEffect(() => {
+    const allUnits = getUnitSections();
+    setUnits(allUnits);
+
+    // Build full unit path if user has a personnel_id
+    if (user?.personnel_id) {
+      const personnel = getPersonnelById(user.personnel_id);
+      if (personnel) {
+        const path = buildUnitPath(personnel.unit_section_id, allUnits);
+        setFullUnitPath(path);
+      }
+    }
+  }, [user?.personnel_id]);
+
+  // Build the full unit hierarchy path (e.g., "H Company > S1DV > CUST")
+  function buildUnitPath(unitId: string, allUnits: UnitSection[]): string {
+    const path: string[] = [];
+    let currentUnit = allUnits.find(u => u.id === unitId);
+
+    while (currentUnit) {
+      path.unshift(currentUnit.unit_name);
+      currentUnit = currentUnit.parent_id
+        ? allUnits.find(u => u.id === currentUnit?.parent_id)
+        : undefined;
+    }
+
+    return path.join(" > ");
+  }
+
+  // Get unit name by ID
+  function getUnitName(unitId: string | null): string {
+    if (!unitId) return "Global";
+    const unit = units.find(u => u.id === unitId);
+    return unit?.unit_name || unitId;
+  }
 
   return (
     <div className="space-y-6">
@@ -22,15 +63,15 @@ export default function ProfilePage() {
             <CardTitle>Account Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {user?.displayName && (
+            {(user?.displayName || user?.personnel_id) && (
               <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
                 <label className="text-sm text-foreground-muted">Service Member</label>
                 <p className="text-lg font-bold text-foreground">
-                  {user.displayName}
+                  {user?.displayName || "Loading..."}
                 </p>
-                {user.unitName && (
+                {fullUnitPath && (
                   <p className="text-sm text-foreground-muted mt-1">
-                    {user.unitName}
+                    {fullUnitPath}
                   </p>
                 )}
               </div>
@@ -106,7 +147,7 @@ export default function ProfilePage() {
                     </p>
                     {role.scope_unit_id && (
                       <p className="text-sm text-foreground-muted">
-                        Unit Scope: {role.scope_unit_id}
+                        Unit Scope: {getUnitName(role.scope_unit_id)}
                       </p>
                     )}
                   </div>
