@@ -1,0 +1,165 @@
+name: Create User Account
+
+on:
+  workflow_dispatch:
+    inputs:
+      edipi_encrypted:
+        description: 'Encrypted EDIPI (base64)'
+        required: true
+        type: string
+      email:
+        description: 'User email address'
+        required: true
+        type: string
+      password_hash:
+        description: 'Password hash (base64)'
+        required: true
+        type: string
+      personnel_id:
+        description: 'Personnel ID (optional)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  create-user:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ inputs.edipi_encrypted }}" ]; then
+            echo "Error: edipi_encrypted is required"
+            exit 1
+          fi
+          if [ -z "${{ inputs.email }}" ]; then
+            echo "Error: email is required"
+            exit 1
+          fi
+          if [ -z "${{ inputs.password_hash }}" ]; then
+            echo "Error: password_hash is required"
+            exit 1
+          fi
+
+      - name: Check if user already exists
+        id: check-user
+        run: |
+          USER_FILE="public/data/user/${{ inputs.edipi_encrypted }}.json"
+          if [ -f "$USER_FILE" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "User already exists: $USER_FILE"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create user JSON file
+        if: steps.check-user.outputs.exists != 'true'
+        run: |
+          # Create user directory if it doesn't exist
+          mkdir -p public/data/user
+
+          # Generate user ID
+          USER_ID="user-$(date +%s)"
+          CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+          # Determine personnel_id value
+          PERSONNEL_ID='null'
+          if [ -n "${{ inputs.personnel_id }}" ]; then
+            PERSONNEL_ID='"${{ inputs.personnel_id }}"'
+          fi
+
+          # Create user JSON file
+          cat > "public/data/user/${{ inputs.edipi_encrypted }}.json" << EOF
+          {
+            "id": "${USER_ID}",
+            "edipi_encrypted": "${{ inputs.edipi_encrypted }}",
+            "email": "${{ inputs.email }}",
+            "personnel_id": ${PERSONNEL_ID},
+            "password_hash": "${{ inputs.password_hash }}",
+            "roles": [
+              {
+                "id": "role-${USER_ID}-standard",
+                "role_name": "Standard User",
+                "scope_unit_id": null,
+                "created_at": "${CREATED_AT}"
+              }
+            ],
+            "created_at": "${CREATED_AT}"
+          }
+          EOF
+
+          echo "Created user file: public/data/user/${{ inputs.edipi_encrypted }}.json"
+
+      - name: Update users-index.json
+        if: steps.check-user.outputs.exists != 'true'
+        run: |
+          INDEX_FILE="public/data/users-index.json"
+
+          # Read current index or create new one
+          if [ -f "$INDEX_FILE" ]; then
+            # Check if user already in index
+            if grep -q '"${{ inputs.edipi_encrypted }}"' "$INDEX_FILE"; then
+              echo "User already in index, skipping"
+              exit 0
+            fi
+
+            # Add new user to existing index using jq
+            jq --arg edipi "${{ inputs.edipi_encrypted }}" \
+               --arg email "${{ inputs.email }}" \
+               '.users += [{"edipi_encrypted": $edipi, "email": $email}] | .updatedAt = (now | todate)' \
+               "$INDEX_FILE" > "${INDEX_FILE}.tmp" && mv "${INDEX_FILE}.tmp" "$INDEX_FILE"
+          else
+            # Create new index file
+            cat > "$INDEX_FILE" << EOF
+          {
+            "users": [
+              {
+                "edipi_encrypted": "${{ inputs.edipi_encrypted }}",
+                "email": "${{ inputs.email }}"
+              }
+            ],
+            "version": "1.0",
+            "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")",
+            "description": "Index of seed user accounts. User files are stored in /data/user/{encrypted-edipi}.json"
+          }
+          EOF
+          fi
+
+          echo "Updated users-index.json"
+
+      - name: Commit and push changes
+        if: steps.check-user.outputs.exists != 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add public/data/user/ public/data/users-index.json
+          git commit -m "feat: Add new user account (${{ inputs.email }})"
+          git push
+
+      - name: Trigger deployment
+        if: steps.check-user.outputs.exists != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy.yml',
+              ref: 'main'
+            });
+            console.log('Triggered deployment workflow');
+
+      - name: Output result
+        run: |
+          if [ "${{ steps.check-user.outputs.exists }}" == "true" ]; then
+            echo "::warning::User already exists"
+          else
+            echo "::notice::User created successfully"
+          fi
