@@ -12,6 +12,12 @@ import type {
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 
+// ============ Base Path Helper ============
+// Get the base path for fetching data files in production (GitHub Pages)
+function getBasePath(): string {
+  return process.env.NODE_ENV === "production" ? "/DutySync" : "";
+}
+
 // ============ EDIPI Encryption ============
 // Simple XOR-based encryption for EDIPIs in JSON files
 // Key should be set via NEXT_PUBLIC_EDIPI_KEY environment variable
@@ -115,7 +121,7 @@ export async function loadRucs(): Promise<RucEntry[]> {
   }
 
   try {
-    const response = await fetch("/data/rucs.json");
+    const response = await fetch(`${getBasePath()}/data/rucs.json`);
     if (response.ok) {
       const data: RucsData = await response.json();
       if (data.rucs && Array.isArray(data.rucs)) {
@@ -198,7 +204,7 @@ interface UnitsIndex {
 // Get available RUCs from the units index
 export async function getAvailableRucs(): Promise<UnitsIndex["units"]> {
   try {
-    const response = await fetch("/data/units-index.json");
+    const response = await fetch(`${getBasePath()}/data/units-index.json`);
     if (response.ok) {
       const data: UnitsIndex = await response.json();
       return data.units || [];
@@ -265,8 +271,8 @@ export async function loadSeedDataIfNeeded(): Promise<{
     // Fetch all data in parallel for each RUC
     const fetchPromises = availableRucs.map(async (rucInfo) => {
       const ruc = rucInfo.ruc;
-      const unitResponse = await fetch(`/data/unit/${ruc}/unit-structure.json`);
-      const personnelResponse = await fetch(`/data/unit/${ruc}/unit-members.json`);
+      const unitResponse = await fetch(`${getBasePath()}/data/unit/${ruc}/unit-structure.json`);
+      const personnelResponse = await fetch(`${getBasePath()}/data/unit/${ruc}/unit-members.json`);
 
       // Both fetches must succeed for this RUC
       if (!unitResponse.ok) {
@@ -339,7 +345,7 @@ export async function loadRucData(ruc: string): Promise<{
 
   try {
     // Load unit structure from RUC folder
-    const unitResponse = await fetch(`/data/unit/${ruc}/unit-structure.json`);
+    const unitResponse = await fetch(`${getBasePath()}/data/unit/${ruc}/unit-structure.json`);
     if (unitResponse.ok) {
       const unitData = await unitResponse.json();
       if (unitData.units && Array.isArray(unitData.units)) {
@@ -354,7 +360,7 @@ export async function loadRucData(ruc: string): Promise<{
     }
 
     // Load personnel from RUC folder
-    const personnelResponse = await fetch(`/data/unit/${ruc}/unit-members.json`);
+    const personnelResponse = await fetch(`${getBasePath()}/data/unit/${ruc}/unit-members.json`);
     if (personnelResponse.ok) {
       const personnelData = await personnelResponse.json();
       if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
@@ -1279,7 +1285,7 @@ interface SeedUserRecord {
 // Get available seed users from the users index
 export async function getAvailableSeedUsers(): Promise<UsersIndex["users"]> {
   try {
-    const response = await fetch("/data/users-index.json");
+    const response = await fetch(`${getBasePath()}/data/users-index.json`);
     if (response.ok) {
       const data: UsersIndex = await response.json();
       return data.users || [];
@@ -1308,7 +1314,7 @@ export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
 
     // Fetch each user file in parallel
     const fetchPromises = availableSeedUsers.map(async (userInfo) => {
-      const response = await fetch(`/data/user/${userInfo.edipi_encrypted}.json`);
+      const response = await fetch(`${getBasePath()}/data/user/${userInfo.edipi_encrypted}.json`);
       if (!response.ok) {
         console.warn(`Failed to fetch user ${userInfo.edipi_encrypted}: ${response.status}`);
         return null;
