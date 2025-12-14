@@ -14,6 +14,7 @@ import {
   getAllUsers,
   assignUserRole,
 } from "@/lib/client-stores";
+import { levelColors } from "@/lib/unit-constants";
 
 interface UserData {
   id: string;
@@ -261,15 +262,6 @@ function UnitHierarchyCard({
   onEdit: (unit: UnitSection) => void;
   onDelete: (id: string, name: string) => void;
 }) {
-  const levelColors: Record<string, string> = {
-    ruc: "bg-highlight/20 text-highlight border-highlight/30",
-    battalion: "bg-highlight/20 text-highlight border-highlight/30",
-    company: "bg-primary/20 text-blue-400 border-primary/30",
-    section: "bg-success/20 text-success border-success/30",
-    work_section: "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30",
-    platoon: "bg-success/20 text-success border-success/30",
-  };
-
   // Memoize parent name lookups for better performance
   const parentNameMap = useMemo(() => {
     return allUnits.reduce((acc, unit) => {
