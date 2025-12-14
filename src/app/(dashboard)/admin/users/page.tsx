@@ -77,14 +77,15 @@ export default function UsersPage() {
     }
   };
 
-  // Check if user has any manager role
-  const isManager = (user: UserData) => {
+  // Check if user has any scoped role (manager or unit admin)
+  const hasScopedRoles = (user: UserData) => {
     return user.roles.some(r => [
+      "Unit Admin",
       "Unit Manager",
       "Company Manager",
       "Platoon Manager",
       "Section Manager"
-    ].includes(r.role_name));
+    ].includes(r.role_name) && r.scope_unit_id);
   };
 
   const getUnitName = (unitId: string | null) => {
@@ -206,15 +207,15 @@ export default function UsersPage() {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        {isManager(user) && user.can_approve_non_availability && (
+                        {hasScopedRoles(user) && user.can_approve_non_availability && (
                           <span className="px-2 py-0.5 text-xs font-medium rounded bg-warning/20 text-warning border border-warning/30">
                             Can Approve N/A
                           </span>
                         )}
-                        {isManager(user) && !user.can_approve_non_availability && (
+                        {hasScopedRoles(user) && !user.can_approve_non_availability && (
                           <span className="text-foreground-muted text-xs">-</span>
                         )}
-                        {!isManager(user) && (
+                        {!hasScopedRoles(user) && (
                           <span className="text-foreground-muted text-xs">N/A</span>
                         )}
                       </td>
@@ -271,13 +272,15 @@ function RoleAssignmentModal({
 
   const isAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
-  // Check if user has manager role
-  const hasManagerRole = user.roles.some(r => [
+  // Check if user has a scoped role that could have approval permissions
+  // This includes Unit Admin and all manager roles
+  const hasScopedRole = user.roles.some(r => [
+    "Unit Admin",
     "Unit Manager",
     "Company Manager",
     "Platoon Manager",
     "Section Manager"
-  ].includes(r.role_name));
+  ].includes(r.role_name) && r.scope_unit_id);
 
   // Check if role requires a unit scope
   const roleRequiresScope = (role: string) => {
@@ -412,8 +415,8 @@ function RoleAssignmentModal({
             </div>
           </div>
 
-          {/* Approval Permission Toggle - Only for managers */}
-          {hasManagerRole && (
+          {/* Approval Permission Toggle - For users with scoped roles */}
+          {hasScopedRole && (
             <div className="pt-4 border-t border-border">
               <div className="flex items-center justify-between">
                 <div>
