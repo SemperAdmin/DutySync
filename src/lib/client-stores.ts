@@ -1437,6 +1437,31 @@ export function assignUserRole(
   return true;
 }
 
+// Remove a role from a user
+export function removeUserRole(
+  userId: string,
+  roleName: string,
+  scopeUnitId?: string | null
+): boolean {
+  // Note: This only updates memory cache. To persist, update seed data files.
+  const user = seedUsersCache.find((u) => u.id === userId);
+  if (!user || !user.roles) return false;
+
+  const initialLength = user.roles.length;
+
+  // Remove the matching role (must match both role name AND scope unit)
+  user.roles = user.roles.filter(
+    (r: { role_name: string; scope_unit_id: string | null }) =>
+      !(r.role_name === roleName && r.scope_unit_id === (scopeUnitId || null))
+  );
+
+  const removed = user.roles.length < initialLength;
+  if (removed) {
+    console.warn("Role removed from memory cache. To persist, update seed data files and re-export.");
+  }
+  return removed;
+}
+
 // Update user's non-availability approval permission
 export function updateUserApprovalPermission(
   userId: string,
