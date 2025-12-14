@@ -16,9 +16,12 @@ import {
   deleteUser,
   loadRucs,
   getAllRucs,
+  updateRucName,
   type RucEntry,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
+
+type PageSize = 10 | 25 | 50 | 100;
 
 interface UserData {
   id: string;
@@ -116,19 +119,23 @@ export default function AdminDashboard() {
   );
 }
 
-// ============ Units Tab ============
+// ============ Units Tab (RUC Reference Data) ============
 function UnitsTab() {
-  const [units, setUnits] = useState<UnitSection[]>([]);
+  const [rucs, setRucs] = useState<RucEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<UnitSection | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [editingRuc, setEditingRuc] = useState<RucEntry | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchUnits = useCallback(() => {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSize>(10);
+  const [goToPage, setGoToPage] = useState("");
+
+  const fetchRucs = useCallback(async () => {
     try {
-      const data = getUnitSections();
-      setUnits(data);
+      const data = await loadRucs();
+      setRucs(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -137,29 +144,48 @@ function UnitsTab() {
   }, []);
 
   useEffect(() => {
-    fetchUnits();
-  }, [fetchUnits]);
+    fetchRucs();
+  }, [fetchRucs]);
 
-  const handleDeleteRequest = (id: string, name: string) => {
-    setDeleteConfirm({ id, name });
-  };
+  // Filter RUCs based on search
+  const filteredRucs = useMemo(() => {
+    if (!searchQuery.trim()) return rucs;
+    const q = searchQuery.toLowerCase();
+    return rucs.filter(r =>
+      r.ruc.includes(q) ||
+      (r.name && r.name.toLowerCase().includes(q))
+    );
+  }, [rucs, searchQuery]);
 
-  const handleDeleteConfirm = () => {
-    if (!deleteConfirm) return;
-    try {
-      deleteUnitSection(deleteConfirm.id);
-      fetchUnits();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setDeleteConfirm(null);
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredRucs.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedRucs = filteredRucs.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search or page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, pageSize]);
+
+  const handleGoToPage = () => {
+    const page = parseInt(goToPage, 10);
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setGoToPage("");
     }
   };
 
-  const battalions = units.filter((u) => u.hierarchy_level === "battalion");
-  const companies = units.filter((u) => u.hierarchy_level === "company");
-  const platoons = units.filter((u) => u.hierarchy_level === "platoon");
-  const sections = units.filter((u) => u.hierarchy_level === "section");
+  const handleSaveRucName = (rucCode: string, name: string | null) => {
+    const success = updateRucName(rucCode, name);
+    if (success) {
+      // Refresh from cache
+      setRucs(getAllRucs());
+      setEditingRuc(null);
+    } else {
+      setError("Failed to update RUC name");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -171,18 +197,20 @@ function UnitsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Add Button */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Unit Sections</h2>
-          <p className="text-sm text-foreground-muted">{units.length} total units</p>
+          <h2 className="text-xl font-semibold text-foreground">RUC Reference Data</h2>
+          <p className="text-sm text-foreground-muted">{rucs.length} total RUCs</p>
         </div>
-        <Button variant="accent" onClick={() => setShowAddForm(true)}>
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add Unit
-        </Button>
+        <div className="flex items-center gap-3">
+          <Input
+            placeholder="Search RUC or name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-64"
+          />
+        </div>
       </div>
 
       {error && (
@@ -192,61 +220,191 @@ function UnitsTab() {
         </div>
       )}
 
-      {(showAddForm || editingUnit) && (
-        <UnitForm
-          unit={editingUnit}
-          units={units}
-          onClose={() => { setShowAddForm(false); setEditingUnit(null); }}
-          onSuccess={() => { setShowAddForm(false); setEditingUnit(null); fetchUnits(); }}
+      {/* Edit RUC Name Modal */}
+      {editingRuc && (
+        <RucEditModal
+          ruc={editingRuc}
+          onClose={() => setEditingRuc(null)}
+          onSave={handleSaveRucName}
         />
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card variant="elevated" className="w-full max-w-sm">
-            <CardHeader>
-              <CardTitle>Delete Unit</CardTitle>
-              <CardDescription>This action cannot be undone</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-foreground">
-                Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Unit Codes</CardTitle>
+              <CardDescription>
+                {filteredRucs.length === rucs.length
+                  ? `Showing ${startIndex + 1}-${Math.min(endIndex, filteredRucs.length)} of ${filteredRucs.length}`
+                  : `${filteredRucs.length} results found`}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground-muted">Per page:</span>
+              <select
+                className="px-3 py-1.5 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {paginatedRucs.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-foreground-muted">
+                {searchQuery ? "No RUCs match your search" : "No RUCs loaded"}
               </p>
-              <div className="flex gap-3">
-                <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="flex-1">
-                  Cancel
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted w-32">RUC</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Unit Name</th>
+                    <th className="text-right py-3 px-4 text-sm font-medium text-foreground-muted w-24">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRucs.map((ruc) => (
+                    <tr key={ruc.ruc} className="border-b border-border hover:bg-surface-elevated">
+                      <td className="py-3 px-4">
+                        <span className="font-mono text-foreground font-medium">{ruc.ruc}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {ruc.name ? (
+                          <span className="text-foreground">{ruc.name}</span>
+                        ) : (
+                          <span className="text-foreground-muted italic">Not set</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <Button variant="ghost" size="sm" onClick={() => setEditingRuc(ruc)}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  First
                 </Button>
-                <Button variant="accent" onClick={handleDeleteConfirm} className="flex-1 bg-error hover:bg-error/90">
-                  Delete
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
-      {units.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/20 flex items-center justify-center">
-              <svg className="w-8 h-8 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-foreground-muted">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Go to"
+                    value={goToPage}
+                    onChange={(e) => setGoToPage(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleGoToPage()}
+                    className="w-20 text-sm"
+                  />
+                  <Button variant="secondary" size="sm" onClick={handleGoToPage}>
+                    Go
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  Last
+                </Button>
+              </div>
             </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2">No Units Configured</h2>
-            <p className="text-foreground-muted mb-6">Add your first unit to get started.</p>
-            <Button variant="accent" onClick={() => setShowAddForm(true)}>Add Your First Unit</Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {battalions.length > 0 && <UnitHierarchyCard title="Battalions" level="battalion" units={battalions} allUnits={units} onEdit={setEditingUnit} onDelete={handleDeleteRequest} />}
-          {companies.length > 0 && <UnitHierarchyCard title="Companies" level="company" units={companies} allUnits={units} onEdit={setEditingUnit} onDelete={handleDeleteRequest} />}
-          {platoons.length > 0 && <UnitHierarchyCard title="Platoons" level="platoon" units={platoons} allUnits={units} onEdit={setEditingUnit} onDelete={handleDeleteRequest} />}
-          {sections.length > 0 && <UnitHierarchyCard title="Sections" level="section" units={sections} allUnits={units} onEdit={setEditingUnit} onDelete={handleDeleteRequest} />}
-        </div>
-      )}
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// RUC Name Edit Modal
+function RucEditModal({ ruc, onClose, onSave }: { ruc: RucEntry; onClose: () => void; onSave: (rucCode: string, name: string | null) => void; }) {
+  const [name, setName] = useState(ruc.name || "");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(ruc.ruc, name.trim() || null);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card variant="elevated" className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Edit RUC Name</CardTitle>
+          <CardDescription>Set a display name for RUC {ruc.ruc}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="p-3 rounded-lg bg-surface-elevated border border-border">
+              <label className="block text-sm font-medium text-foreground-muted mb-1">RUC Code</label>
+              <span className="font-mono text-lg text-foreground">{ruc.ruc}</span>
+            </div>
+            <Input
+              label="Unit Name"
+              placeholder="e.g., 1st Battalion, Alpha Company"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+                Cancel
+              </Button>
+              <Button type="submit" variant="accent" className="flex-1">
+                Save
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
