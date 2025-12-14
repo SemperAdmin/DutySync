@@ -56,6 +56,7 @@ export default function UnitsPage() {
   const companies = units.filter((u) => u.hierarchy_level === "company");
   const platoons = units.filter((u) => u.hierarchy_level === "platoon");
   const sections = units.filter((u) => u.hierarchy_level === "section");
+  const workSections = units.filter((u) => u.hierarchy_level === "work_section");
 
   if (isLoading) {
     return (
@@ -206,6 +207,18 @@ export default function UnitsPage() {
               onDelete={handleDelete}
             />
           )}
+
+          {/* Work Sections */}
+          {workSections.length > 0 && (
+            <HierarchySection
+              title="Work Sections"
+              level="work_section"
+              units={workSections}
+              allUnits={units}
+              onEdit={setEditingUnit}
+              onDelete={handleDelete}
+            />
+          )}
         </div>
       )}
     </div>
@@ -342,6 +355,8 @@ function UnitForm({
         return units.filter((u) => u.hierarchy_level === "company");
       case "section":
         return units.filter((u) => u.hierarchy_level === "platoon");
+      case "work_section":
+        return units.filter((u) => u.hierarchy_level === "section");
       default:
         return [];
     }
@@ -431,6 +446,7 @@ function UnitForm({
                 <option value="company">Company</option>
                 <option value="platoon">Platoon</option>
                 <option value="section">Section</option>
+                <option value="work_section">Work Section</option>
               </select>
             </div>
 
@@ -462,7 +478,9 @@ function UnitForm({
                       ? "battalion"
                       : formData.hierarchy_level === "platoon"
                       ? "company"
-                      : "platoon"}{" "}
+                      : formData.hierarchy_level === "section"
+                      ? "platoon"
+                      : "section"}{" "}
                     first.
                   </p>
                 )}
