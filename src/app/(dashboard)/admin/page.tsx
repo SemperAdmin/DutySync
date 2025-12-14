@@ -23,15 +23,6 @@ import {
 import { levelColors } from "@/lib/unit-constants";
 import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 import UserDashboard from "@/components/dashboard/UserDashboard";
-import ManagerDashboard from "@/components/dashboard/ManagerDashboard";
-
-// Manager role names that should see ManagerDashboard
-const MANAGER_ROLES: RoleName[] = [
-  "Unit Manager",
-  "Company Manager",
-  "Platoon Manager",
-  "Section Manager",
-];
 
 type PageSize = 10 | 25 | 50 | 100;
 const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
@@ -57,7 +48,6 @@ interface UserData {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const isAppAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
-  const hasManagerRole = user?.roles?.some((role) => MANAGER_ROLES.includes(role.role_name as RoleName));
   const [activeTab, setActiveTab] = useState<"units" | "users">("units");
   const [isAdminView, setIsAdminView] = useState(true);
 
@@ -84,13 +74,8 @@ export default function AdminDashboard() {
   }, []);
 
   // If App Admin in admin view mode, show App Admin Dashboard
-  // Otherwise, check for manager role or show user dashboard
+  // Otherwise, show UserDashboard (ManagerDashboard is on its own route /admin/manager)
   if (!isAppAdmin || !isAdminView) {
-    // Show ManagerDashboard for users with manager roles
-    if (hasManagerRole) {
-      return <ManagerDashboard />;
-    }
-    // Show UserDashboard for standard users
     return <UserDashboard />;
   }
 
@@ -832,7 +817,8 @@ function UsersTab() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">EDIPI</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Name / Rank</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Rank</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Name</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Email</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Roles</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Actions</th>
@@ -848,14 +834,18 @@ function UsersTab() {
                         </td>
                         <td className="py-3 px-4">
                           {person ? (
-                            <div>
-                              <span className="font-medium text-foreground">
-                                {person.last_name}, {person.first_name}
-                              </span>
-                              <span className="ml-2 px-1.5 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
-                                {person.rank}
-                              </span>
-                            </div>
+                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
+                              {person.rank}
+                            </span>
+                          ) : (
+                            <span className="text-foreground-muted text-sm">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {person ? (
+                            <span className="font-medium text-foreground">
+                              {person.last_name}, {person.first_name}
+                            </span>
                           ) : (
                             <span className="text-foreground-muted text-sm italic">Not linked</span>
                           )}
