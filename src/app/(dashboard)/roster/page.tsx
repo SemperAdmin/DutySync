@@ -130,6 +130,116 @@ export default function RosterPage() {
 
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  // Export to CSV
+  function exportToCSV() {
+    // Get first and last day of current month for export
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    let url = `/api/export?start_date=${firstDay.toISOString()}&end_date=${lastDay.toISOString()}&format=csv`;
+    if (selectedUnit) {
+      url += `&unit_id=${selectedUnit}`;
+    }
+
+    // Trigger download
+    window.open(url, "_blank");
+  }
+
+  // Print-friendly view (for PDF)
+  function printRoster() {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const monthYear = formatMonthYear(currentDate);
+    const unitName = selectedUnit
+      ? units.find((u) => u.id === selectedUnit)?.unit_name || "Selected Unit"
+      : "All Units";
+
+    // Group slots by date for print
+    const slotsByDate = new Map<string, EnrichedSlot[]>();
+    slots.forEach((slot) => {
+      const dateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+      if (!slotsByDate.has(dateStr)) {
+        slotsByDate.set(dateStr, []);
+      }
+      slotsByDate.get(dateStr)!.push(slot);
+    });
+
+    const sortedDates = Array.from(slotsByDate.keys()).sort();
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Duty Roster - ${monthYear}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+            h1 { text-align: center; margin-bottom: 5px; }
+            h2 { text-align: center; color: #666; margin-top: 0; font-weight: normal; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #1A237E; color: white; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .weekend { background-color: #FFF3E0; }
+            .date-header { font-weight: bold; background-color: #E8EAF6; }
+            @media print {
+              body { padding: 0; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Duty Roster</h1>
+          <h2>${monthYear} - ${unitName}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Day</th>
+                <th>Duty Type</th>
+                <th>Personnel</th>
+                <th>Points</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sortedDates.map((dateStr) => {
+                const daySlots = slotsByDate.get(dateStr) || [];
+                const date = new Date(dateStr);
+                const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
+                const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+                return daySlots.map((slot, idx) => `
+                  <tr class="${isWeekend ? "weekend" : ""}">
+                    ${idx === 0 ? `<td rowspan="${daySlots.length}">${formattedDate}</td><td rowspan="${daySlots.length}">${dayName}</td>` : ""}
+                    <td>${slot.duty_type?.duty_name || "Unknown"}</td>
+                    <td>${slot.personnel ? `${slot.personnel.rank} ${slot.personnel.last_name}, ${slot.personnel.first_name}` : "Unassigned"}</td>
+                    <td>${slot.duty_points_earned.toFixed(1)}</td>
+                    <td>${slot.status}</td>
+                  </tr>
+                `).join("");
+              }).join("")}
+            </tbody>
+          </table>
+          <p style="margin-top: 20px; text-align: center; color: #666; font-size: 12px;">
+            Generated on ${new Date().toLocaleString()} by Duty Sync
+          </p>
+          <div style="text-align: center; margin-top: 20px;">
+            <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
+              Print / Save as PDF
+            </button>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -139,6 +249,20 @@ export default function RosterPage() {
           <p className="text-foreground-muted mt-1">
             View and manage duty assignments
           </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={exportToCSV}>
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export CSV
+          </Button>
+          <Button variant="secondary" size="sm" onClick={printRoster}>
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Print / PDF
+          </Button>
         </div>
       </div>
 
