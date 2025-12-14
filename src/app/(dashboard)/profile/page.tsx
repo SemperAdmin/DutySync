@@ -23,9 +23,9 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm text-foreground-muted">Username</label>
-              <p className="font-medium text-foreground">
-                {user?.username}
+              <label className="text-sm text-foreground-muted">EDIPI</label>
+              <p className="font-medium text-foreground font-mono">
+                {user?.edipi}
               </p>
             </div>
             <div>

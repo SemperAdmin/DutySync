@@ -500,10 +500,9 @@ export function importPersonnel(
 
 interface StoredUser {
   id: string;
-  username: string;
+  edipi: string;
   email: string;
   password?: string;
-  serviceId?: string | null;
   personnel_id?: string | null;
   roles: Array<{
     id?: string;
@@ -518,12 +517,12 @@ export function getAllUsers(): StoredUser[] {
   try {
     const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
     // Add the demo admin if not in list
-    const hasAdmin = users.some((u: StoredUser) => u.username === "admin");
+    const hasAdmin = users.some((u: StoredUser) => u.edipi === "1234567890");
     if (!hasAdmin) {
       return [
         {
           id: "admin-001",
-          username: "admin",
+          edipi: "1234567890",
           email: "admin@dutysync.mil",
           personnel_id: null,
           roles: [{ id: "role-001", role_name: "App Admin", scope_unit_id: null }],

@@ -36,7 +36,7 @@ export interface Personnel {
 export interface User {
   id: UUID;
   personnel_id: UUID | null; // Links to personnel table
-  username: string;
+  edipi: string; // 10-digit Electronic Data Interchange Personal Identifier
   email: string;
   password_hash: string;
   created_at: Date;
@@ -125,9 +125,8 @@ export interface HistoricRoster {
 // Session user for Auth.js
 export interface SessionUser {
   id: string;
-  username: string;
+  edipi: string; // 10-digit Electronic Data Interchange Personal Identifier
   email: string;
   personnel_id: string | null;
-  serviceId?: string | null;  // EDIPI - 10 digit military service ID
   roles: UserRole[];
 }
