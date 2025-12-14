@@ -19,8 +19,15 @@ import {
   loadRucs,
   getAllRucs,
   updateRucName,
+  getSeedUserByEdipi,
+  encryptEdipi,
   type RucEntry,
 } from "@/lib/client-stores";
+import {
+  isGitHubConfigured,
+  pushUserFileToGitHub,
+  deleteUserFileFromGitHub,
+} from "@/lib/github-api";
 
 // Manager role names - a user can only have one of these at a time
 const MANAGER_ROLES: RoleName[] = [
@@ -1005,6 +1012,33 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
         if (!success) throw new Error(`Failed to assign role: ${add.role_name}`);
       }
 
+      // Push updated user data to GitHub if configured
+      if (isGitHubConfigured()) {
+        const updatedUser = getSeedUserByEdipi(user.edipi);
+        if (updatedUser) {
+          // Build the user file data structure (encrypt edipi for storage)
+          const userFileData = {
+            id: updatedUser.id,
+            edipi_encrypted: encryptEdipi(updatedUser.edipi),
+            email: updatedUser.email,
+            personnel_id: updatedUser.personnel_id || null,
+            password_hash: updatedUser.password_hash,
+            roles: updatedUser.roles?.map(r => ({
+              id: r.id || `role-${updatedUser.id}-${r.role_name.toLowerCase().replace(/\s+/g, '-')}`,
+              role_name: r.role_name,
+              scope_unit_id: r.scope_unit_id,
+              created_at: r.created_at instanceof Date ? r.created_at.toISOString() : (r.created_at || new Date().toISOString()),
+            })) || [],
+            created_at: updatedUser.created_at || new Date().toISOString(),
+            can_approve_non_availability: updatedUser.can_approve_non_availability || false,
+          };
+          const pushResult = await pushUserFileToGitHub(user.id, userFileData);
+          if (!pushResult.success) {
+            console.warn("Failed to push user file to GitHub:", pushResult.message);
+          }
+        }
+      }
+
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -1013,13 +1047,22 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     }
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     setIsSubmitting(true);
     setError(null);
 
     try {
       const success = deleteUser(user.id);
       if (!success) throw new Error("Failed to delete user");
+
+      // Delete user file from GitHub if configured
+      if (isGitHubConfigured()) {
+        const deleteResult = await deleteUserFileFromGitHub(user.id);
+        if (!deleteResult.success) {
+          console.warn("Failed to delete user file from GitHub:", deleteResult.message);
+        }
+      }
+
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
