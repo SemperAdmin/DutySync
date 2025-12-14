@@ -2,8 +2,8 @@
 
 import { ReactNode, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/client-auth";
 import Logo from "@/components/ui/Logo";
 import Button from "@/components/ui/Button";
 import type { SessionUser } from "@/types";
@@ -25,7 +25,14 @@ export default function DashboardLayout({
   user,
 }: DashboardLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
 
   const isAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
   const isUnitAdmin = user?.roles?.some(
@@ -276,7 +283,7 @@ export default function DashboardLayout({
               variant="ghost"
               size="sm"
               className="w-full justify-start"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleLogout}
             >
               <svg
                 className="w-4 h-4 mr-2"
