@@ -12,7 +12,12 @@ Duty Sync replaces manual duty roster processes with intelligent scheduling, ens
 - **Role-Based Access Control** - App Admin, Unit Admin, and Standard User roles
 - **Unit Hierarchy Management** - Battalion → Company → Platoon → Section structure
 - **Secure Authentication** - Auth.js with JWT-based session management
-- **Duty Thruster Algorithm** - Automated fair scheduling based on duty scores (coming soon)
+- **Personnel Management** - CSV import and manual entry of personnel data
+- **Duty Types Configuration** - Configure duty types with requirements and point values
+- **Duty Thruster Algorithm** - Automated fair scheduling based on duty scores
+- **Calendar View** - Monthly calendar displaying duty assignments
+- **Non-Availability Workflow** - Request and approve duty exemptions
+- **Export Functionality** - Export rosters to CSV/Excel and PDF
 
 ## Tech Stack
 
@@ -89,12 +94,22 @@ duty-sync/
 │   ├── app/                    # Next.js App Router pages
 │   │   ├── (auth)/            # Authentication pages (login, signup)
 │   │   ├── (dashboard)/       # Protected dashboard pages
+│   │   │   ├── admin/         # Admin-only pages
+│   │   │   │   ├── duty-types/    # Duty types configuration
+│   │   │   │   ├── non-availability/ # Non-availability management
+│   │   │   │   ├── personnel/     # Personnel management
+│   │   │   │   ├── scheduler/     # Duty Thruster scheduler
+│   │   │   │   ├── units/         # Unit sections management
+│   │   │   │   └── users/         # User management
+│   │   │   ├── profile/       # User profile
+│   │   │   └── roster/        # Duty roster calendar
 │   │   └── api/               # API routes
 │   ├── components/            # React components
 │   │   ├── ui/               # Reusable UI components
 │   │   └── layout/           # Layout components
 │   ├── lib/                   # Utility functions and configurations
 │   │   ├── auth.ts           # Auth.js configuration
+│   │   ├── duty-thruster.ts  # Scheduling algorithm
 │   │   └── stores.ts         # In-memory stores (MVP)
 │   └── types/                 # TypeScript type definitions
 ├── database/
@@ -123,17 +138,41 @@ duty-sync/
 | `/api/units/[id]` | GET, PUT, DELETE | Single unit operations |
 | `/api/users` | GET | List all users (Admin only) |
 | `/api/users/[id]/roles` | POST | Assign roles to user |
+| `/api/personnel` | GET, POST | Personnel CRUD |
+| `/api/personnel/import` | POST | CSV import |
+| `/api/duty-types` | GET, POST | Duty types CRUD |
+| `/api/duty-types/[id]` | GET, PUT, DELETE | Single duty type operations |
+| `/api/duty-slots` | GET, PATCH, DELETE | Duty slot management |
+| `/api/scheduler` | POST | Generate/preview schedules |
+| `/api/non-availability` | GET, POST | Non-availability requests |
+| `/api/non-availability/[id]` | GET, PATCH, DELETE | Single request operations |
+| `/api/export` | GET | Export roster to CSV |
+
+## Duty Thruster Algorithm
+
+The Duty Thruster is the core scheduling algorithm that ensures fair duty distribution:
+
+1. **Fairness First** - Personnel with lowest duty scores are assigned first
+2. **Smart Point System** - Weekends earn 1.5x points, holidays earn 2x points
+3. **Qualification Aware** - Only qualified personnel are considered for each duty type
+4. **Availability Checking** - Respects approved non-availability periods
+
+## Completed Features
+
+- [x] Personnel CSV/CAB import
+- [x] Duty types configuration UI
+- [x] Duty Thruster auto-scheduling algorithm
+- [x] Calendar view for roster
+- [x] Non-availability request workflow
+- [x] PDF/Excel export
 
 ## Roadmap
 
-- [ ] Personnel CSV import
-- [ ] Duty types configuration UI
-- [ ] Duty Thruster auto-scheduling algorithm
-- [ ] Calendar view for roster
-- [ ] Non-availability request workflow
-- [ ] PDF/Excel export
-- [ ] Hasura/Neon integration
+- [ ] Hasura/Neon integration (production database)
 - [ ] Real-time updates via GraphQL subscriptions
+- [ ] Mobile-responsive optimizations
+- [ ] Duty swap requests between personnel
+- [ ] Email notifications for duty assignments
 
 ## Contributing
 
