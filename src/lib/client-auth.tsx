@@ -18,6 +18,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Role name constants to avoid hardcoded strings
+const ROLE_NAMES = {
+  APP_ADMIN: "App Admin" as RoleName,
+  UNIT_ADMIN: "Unit Admin" as RoleName,
+  STANDARD_USER: "Standard User" as RoleName,
+};
+
 // App Admin EDIPI from environment variable (set in GitHub Secrets)
 const APP_ADMIN_EDIPI = process.env.NEXT_PUBLIC_APP_ADMIN || "";
 
@@ -27,25 +34,28 @@ function isAppAdmin(serviceId: string | null | undefined): boolean {
   return serviceId === APP_ADMIN_EDIPI;
 }
 
-// Create App Admin role
-function createAppAdminRole(userId: string): UserRole {
-  return {
-    id: `role-admin-${userId}`,
-    user_id: userId,
-    role_name: "App Admin",
-    scope_unit_id: null,
-    created_at: new Date(),
-  };
+// Stored role structure from localStorage
+interface StoredRole {
+  id?: string;
+  role_name: RoleName;
+  scope_unit_id?: string | null;
+  created_at?: string | Date;
 }
 
-// Create Standard User role
-function createStandardUserRole(userId: string): UserRole {
+// Create a UserRole with consistent ID format
+function createRole(
+  userId: string,
+  roleName: RoleName,
+  scopeUnitId: string | null = null,
+  existingId?: string,
+  existingCreatedAt?: string | Date
+): UserRole {
   return {
-    id: `role-${userId}`,
+    id: existingId || `role-${userId}-${roleName}-${scopeUnitId || "global"}`,
     user_id: userId,
-    role_name: "Standard User",
-    scope_unit_id: null,
-    created_at: new Date(),
+    role_name: roleName,
+    scope_unit_id: scopeUnitId,
+    created_at: existingCreatedAt ? new Date(existingCreatedAt) : new Date(),
   };
 }
 
@@ -79,31 +89,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (found) {
         // Determine roles based on EDIPI match
         const roles: UserRole[] = [];
+        const userIsAppAdminByEdipi = isAppAdmin(found.serviceId);
 
         // Check if user's service ID matches App Admin EDIPI
-        if (isAppAdmin(found.serviceId)) {
-          roles.push(createAppAdminRole(found.id));
+        if (userIsAppAdminByEdipi) {
+          roles.push(createRole(found.id, ROLE_NAMES.APP_ADMIN));
         }
 
         // Also check for any stored roles (like Unit Admin assignments)
         if (found.roles && Array.isArray(found.roles)) {
-          found.roles.forEach((role: { role_name: RoleName; scope_unit_id?: string | null }) => {
-            // Don't duplicate if already App Admin
-            if (role.role_name !== "App Admin" || !isAppAdmin(found.serviceId)) {
-              roles.push({
-                id: `role-${found.id}-${role.role_name}`,
-                user_id: found.id,
-                role_name: role.role_name,
-                scope_unit_id: role.scope_unit_id || null,
-                created_at: new Date(),
-              });
+          found.roles.forEach((role: StoredRole) => {
+            // Skip App Admin role if user already has it via EDIPI match
+            const isStoredAppAdminRole = role.role_name === ROLE_NAMES.APP_ADMIN;
+            if (isStoredAppAdminRole && userIsAppAdminByEdipi) {
+              return; // Skip to avoid duplicate
             }
+
+            // Preserve existing role with its original ID and created_at
+            roles.push(createRole(
+              found.id,
+              role.role_name,
+              role.scope_unit_id || null,
+              role.id,
+              role.created_at
+            ));
           });
         }
 
         // If no roles assigned, give Standard User
         if (roles.length === 0) {
-          roles.push(createStandardUserRole(found.id));
+          roles.push(createRole(found.id, ROLE_NAMES.STANDARD_USER));
         }
 
         const sessionUser: SessionUser = {
@@ -150,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         serviceId: serviceId || null,
-        roles: [{ role_name: "Standard User", scope_unit_id: null }],
+        roles: [{ role_name: ROLE_NAMES.STANDARD_USER, scope_unit_id: null, created_at: new Date().toISOString() }],
         created_at: new Date().toISOString(),
       };
 
