@@ -1474,6 +1474,7 @@ interface SeedUserRecord {
   edipi_encrypted: string;
   email: string;
   personnel_id?: string | null;
+  can_approve_non_availability?: boolean;
   roles: Array<{
     id?: string;
     role_name: string;
@@ -1576,7 +1577,7 @@ export async function loadSeedUsers(forceReload = false): Promise<{ usersLoaded:
         email: userData.email,
         personnel_id: userData.personnel_id || null,
         roles: userData.roles,
-        can_approve_non_availability: (userData as unknown as { can_approve_non_availability?: boolean }).can_approve_non_availability,
+        can_approve_non_availability: userData.can_approve_non_availability,
         created_at: userData.created_at,
         password_hash: userData.password_hash,
       };
