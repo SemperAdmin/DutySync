@@ -62,6 +62,7 @@ const KEYS = {
   dutySlots: "dutysync_duty_slots",
   nonAvailability: "dutysync_non_availability",
   qualifications: "dutysync_qualifications",
+  users: "dutysync_users",
   seedDataLoaded: "dutysync_seed_loaded",
 };
 
@@ -1122,6 +1123,188 @@ export function assignUserRole(
     console.error("Failed to assign user role:", error);
     return false;
   }
+}
+
+// ============ Seed User Data Loading ============
+
+// Users index structure for seed data
+interface UsersIndex {
+  users: Array<{
+    edipi_encrypted: string;
+    email: string;
+  }>;
+  version: string;
+  updatedAt: string;
+}
+
+// Raw user record from JSON (password excluded, edipi encrypted)
+interface SeedUserRecord {
+  id: string;
+  edipi_encrypted: string;
+  email: string;
+  personnel_id?: string | null;
+  roles: Array<{
+    id?: string;
+    role_name: string;
+    scope_unit_id: string | null;
+    created_at?: string;
+  }>;
+  created_at: string;
+}
+
+// Get available seed users from the users index
+export async function getAvailableSeedUsers(): Promise<UsersIndex["users"]> {
+  try {
+    const response = await fetch("/data/users-index.json");
+    if (response.ok) {
+      const data: UsersIndex = await response.json();
+      return data.users || [];
+    }
+  } catch (error) {
+    console.error("Failed to load users index:", error);
+  }
+  return [];
+}
+
+// Load seed users from JSON files
+export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
+  if (typeof window === "undefined") {
+    return { usersLoaded: 0 };
+  }
+
+  try {
+    const availableSeedUsers = await getAvailableSeedUsers();
+    if (availableSeedUsers.length === 0) {
+      return { usersLoaded: 0 };
+    }
+
+    const existingUsers = JSON.parse(localStorage.getItem(KEYS.users) || "[]");
+    const existingEdipis = new Set(existingUsers.map((u: StoredUser) => u.edipi));
+    let usersLoaded = 0;
+
+    // Fetch each user file in parallel
+    const fetchPromises = availableSeedUsers.map(async (userInfo) => {
+      const response = await fetch(`/data/user/${userInfo.edipi_encrypted}.json`);
+      if (!response.ok) {
+        console.warn(`Failed to fetch user ${userInfo.edipi_encrypted}: ${response.status}`);
+        return null;
+      }
+      const userData: SeedUserRecord = await response.json();
+      return userData;
+    });
+
+    const results = await Promise.all(fetchPromises);
+
+    for (const userData of results) {
+      if (!userData) continue;
+
+      // Decrypt EDIPI
+      const decryptedEdipi = decryptEdipi(userData.edipi_encrypted);
+
+      // Skip if user already exists
+      if (existingEdipis.has(decryptedEdipi)) {
+        continue;
+      }
+
+      // Add user with decrypted EDIPI (no password in seed data)
+      const newUser: StoredUser = {
+        id: userData.id,
+        edipi: decryptedEdipi,
+        email: userData.email,
+        personnel_id: userData.personnel_id || null,
+        roles: userData.roles,
+        created_at: userData.created_at,
+      };
+      existingUsers.push(newUser);
+      existingEdipis.add(decryptedEdipi);
+      usersLoaded++;
+    }
+
+    if (usersLoaded > 0) {
+      localStorage.setItem(KEYS.users, JSON.stringify(existingUsers));
+      console.log(`Seed users loaded: ${usersLoaded}`);
+    }
+
+    return { usersLoaded };
+  } catch (error) {
+    console.error("Failed to load seed users:", error);
+    return { usersLoaded: 0 };
+  }
+}
+
+// Export a single user to JSON format (for saving to /data/user/)
+export function exportUserToSeedFormat(userId: string): {
+  indexEntry: { edipi_encrypted: string; email: string };
+  userData: SeedUserRecord;
+} | null {
+  const user = getUserById(userId);
+  if (!user) return null;
+
+  const encryptedEdipi = encryptEdipi(user.edipi);
+
+  return {
+    indexEntry: {
+      edipi_encrypted: encryptedEdipi,
+      email: user.email,
+    },
+    userData: {
+      id: user.id,
+      edipi_encrypted: encryptedEdipi,
+      email: user.email,
+      personnel_id: user.personnel_id || null,
+      roles: user.roles.map((r) => ({
+        id: r.id,
+        role_name: r.role_name,
+        scope_unit_id: r.scope_unit_id,
+        created_at: typeof r === "object" && "created_at" in r ? String(r.created_at) : new Date().toISOString(),
+      })),
+      created_at: user.created_at || new Date().toISOString(),
+    },
+  };
+}
+
+// Export all users to JSON format
+export function exportAllUsers(): {
+  users: Array<Omit<StoredUser, "password">>;
+  exportedAt: string;
+  version: string;
+} {
+  const users = getAllUsers().map((u) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = u;
+    return userWithoutPassword;
+  });
+
+  return {
+    users,
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+  };
+}
+
+// Create user JSON file for seed data (encrypted EDIPI, no password)
+export function createUserSeedFile(user: StoredUser): {
+  filename: string;
+  content: SeedUserRecord;
+} {
+  const encryptedEdipi = encryptEdipi(user.edipi);
+
+  return {
+    filename: `${encryptedEdipi}.json`,
+    content: {
+      id: user.id,
+      edipi_encrypted: encryptedEdipi,
+      email: user.email,
+      personnel_id: user.personnel_id || null,
+      roles: user.roles.map((r) => ({
+        id: r.id,
+        role_name: r.role_name,
+        scope_unit_id: r.scope_unit_id,
+        created_at: typeof r === "object" && "created_at" in r ? String(r.created_at) : new Date().toISOString(),
+      })),
+      created_at: user.created_at || new Date().toISOString(),
+    },
+  };
 }
 
 // ============ Data Export Functions ============

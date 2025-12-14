@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import type { SessionUser, UserRole, RoleName } from "@/types";
-import { getPersonnelByEdipi, getUnitSectionById, loadSeedDataIfNeeded } from "@/lib/client-stores";
+import { getPersonnelByEdipi, getUnitSectionById, loadSeedDataIfNeeded, loadSeedUsers } from "@/lib/client-stores";
 
 interface SignupResult {
   success: boolean;
@@ -68,6 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeApp = async () => {
       // Load seed data from JSON files if this is a fresh install
       await loadSeedDataIfNeeded();
+
+      // Load seed users from JSON files
+      await loadSeedUsers();
 
       // Check for existing session in localStorage
       const stored = localStorage.getItem("dutysync_user");
