@@ -9,7 +9,7 @@ import Card, {
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import type { UnitSection, RoleName } from "@/types";
-import { getAllUsers, getUnitSections, assignUserRole } from "@/lib/client-stores";
+import { getAllUsers, getUnitSections, assignUserRole, updateUserApprovalPermission } from "@/lib/client-stores";
 import { triggerUpdateRolesWorkflow } from "@/lib/client-auth";
 
 interface UserData {
@@ -17,6 +17,7 @@ interface UserData {
   edipi: string;
   email: string;
   personnel_id: string | null;
+  can_approve_non_availability: boolean;
   roles: Array<{
     id?: string;
     role_name: RoleName;
@@ -41,6 +42,7 @@ export default function UsersPage() {
         edipi: u.edipi,
         email: u.email,
         personnel_id: u.personnel_id || null,
+        can_approve_non_availability: u.can_approve_non_availability || false,
         roles: (u.roles || []).map(r => ({
           id: r.id,
           role_name: r.role_name as RoleName,
@@ -65,9 +67,24 @@ export default function UsersPage() {
         return "bg-highlight/20 text-highlight border-highlight/30";
       case "Unit Admin":
         return "bg-primary/20 text-blue-400 border-primary/30";
+      case "Unit Manager":
+      case "Company Manager":
+      case "Platoon Manager":
+      case "Section Manager":
+        return "bg-success/20 text-success border-success/30";
       default:
         return "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30";
     }
+  };
+
+  // Check if user has any manager role
+  const isManager = (user: UserData) => {
+    return user.roles.some(r => [
+      "Unit Manager",
+      "Company Manager",
+      "Platoon Manager",
+      "Section Manager"
+    ].includes(r.role_name));
   };
 
   const getUnitName = (unitId: string | null) => {
@@ -148,6 +165,9 @@ export default function UsersPage() {
                       Roles
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Permissions
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Actions
                     </th>
                   </tr>
@@ -184,6 +204,19 @@ export default function UsersPage() {
                             </span>
                           ))}
                         </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        {isManager(user) && user.can_approve_non_availability && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded bg-warning/20 text-warning border border-warning/30">
+                            Can Approve N/A
+                          </span>
+                        )}
+                        {isManager(user) && !user.can_approve_non_availability && (
+                          <span className="text-foreground-muted text-xs">-</span>
+                        )}
+                        {!isManager(user) && (
+                          <span className="text-foreground-muted text-xs">N/A</span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <Button
@@ -234,8 +267,17 @@ function RoleAssignmentModal({
   const [error, setError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
   const [selectedUnit, setSelectedUnit] = useState<string>("");
+  const [canApproveNA, setCanApproveNA] = useState(user.can_approve_non_availability);
 
   const isAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
+
+  // Check if user has manager role
+  const hasManagerRole = user.roles.some(r => [
+    "Unit Manager",
+    "Company Manager",
+    "Platoon Manager",
+    "Section Manager"
+  ].includes(r.role_name));
 
   // Check if role requires a unit scope
   const roleRequiresScope = (role: string) => {
@@ -300,6 +342,43 @@ function RoleAssignmentModal({
     }
   };
 
+  // Handle toggling approval permission
+  const handleToggleApproval = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const newValue = !canApproveNA;
+
+      // Update in-memory cache first
+      updateUserApprovalPermission(user.id, newValue);
+
+      // Build roles for the workflow
+      const currentRoles = user.roles.map((r) => ({
+        role_name: r.role_name,
+        scope_unit_id: r.scope_unit_id,
+      }));
+
+      // Trigger workflow to persist the change
+      const workflowResult = await triggerUpdateRolesWorkflow(
+        user.id,
+        currentRoles,
+        newValue
+      );
+
+      if (!workflowResult.success) {
+        console.warn("Failed to persist approval permission to GitHub:", workflowResult.error);
+      }
+
+      setCanApproveNA(newValue);
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card variant="elevated" className="w-full max-w-md">
@@ -332,6 +411,33 @@ function RoleAssignmentModal({
               ))}
             </div>
           </div>
+
+          {/* Approval Permission Toggle - Only for managers */}
+          {hasManagerRole && (
+            <div className="pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-foreground">Non-Availability Approval</h4>
+                  <p className="text-sm text-foreground-muted">
+                    Allow this manager to approve/reject non-availability requests within their unit scope
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggleApproval}
+                  disabled={isSubmitting}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 ${
+                    canApproveNA ? "bg-success" : "bg-foreground-muted/30"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      canApproveNA ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Assign New Role */}
           {!isAppAdmin && (

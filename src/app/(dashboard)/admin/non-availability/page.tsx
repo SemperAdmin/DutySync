@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
-import type { NonAvailability, Personnel } from "@/types";
+import type { NonAvailability, Personnel, RoleName } from "@/types";
 import {
   getAllPersonnel,
   getEnrichedNonAvailability,
@@ -10,14 +10,68 @@ import {
   updateNonAvailability,
   deleteNonAvailability as deleteNonAvailabilityFn,
   type EnrichedNonAvailability,
+  getUnitSectionById,
+  getUnitSections,
 } from "@/lib/client-stores";
+import { useAuth } from "@/lib/client-auth";
 
 export default function NonAvailabilityAdminPage() {
+  const { user } = useAuth();
   const [requests, setRequests] = useState<EnrichedNonAvailability[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Determine user's approval capabilities
+  const isAdmin = user?.roles?.some((r) => r.role_name === "App Admin");
+  const isUnitAdmin = user?.roles?.some((r) => r.role_name === "Unit Admin");
+  const isManagerWithApproval = user?.can_approve_non_availability && user?.roles?.some((r) =>
+    ["Unit Manager", "Company Manager", "Platoon Manager", "Section Manager"].includes(r.role_name)
+  );
+
+  // User can approve if admin, unit admin, or manager with approval permission
+  const canApprove = isAdmin || isUnitAdmin || isManagerWithApproval;
+
+  // Get user's scoped unit IDs (for managers, they can only approve within their scope)
+  const userScopeUnitIds = user?.roles
+    ?.filter((r) =>
+      ["Unit Admin", "Unit Manager", "Company Manager", "Platoon Manager", "Section Manager"].includes(r.role_name as string)
+    )
+    .map((r) => r.scope_unit_id)
+    .filter(Boolean) as string[] || [];
+
+  // Check if a personnel is within user's scope
+  const isInUserScope = (personnelUnitId: string): boolean => {
+    if (isAdmin) return true; // App Admin can approve all
+
+    if (userScopeUnitIds.length === 0) return false;
+
+    // Check if personnel's unit is in user's scope or a descendant
+    const allUnits = getUnitSections();
+
+    for (const scopeUnitId of userScopeUnitIds) {
+      // Direct match
+      if (personnelUnitId === scopeUnitId) return true;
+
+      // Check if personnel's unit is a descendant of the scope unit
+      let currentUnit = allUnits.find((u) => u.id === personnelUnitId);
+      while (currentUnit?.parent_id) {
+        if (currentUnit.parent_id === scopeUnitId) return true;
+        currentUnit = allUnits.find((u) => u.id === currentUnit?.parent_id);
+      }
+    }
+
+    return false;
+  };
+
+  // Filter to check if user can approve this specific request
+  const canApproveRequest = (request: EnrichedNonAvailability): boolean => {
+    if (!canApprove) return false;
+    if (isAdmin) return true;
+    if (!request.personnel) return false;
+    return isInUserScope(request.personnel.unit_section_id);
+  };
 
   // Add request modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -265,7 +319,7 @@ export default function NonAvailabilityAdminPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
-                        {request.status === "pending" && (
+                        {request.status === "pending" && canApproveRequest(request) && (
                           <>
                             <Button
                               size="sm"
@@ -285,14 +339,16 @@ export default function NonAvailabilityAdminPage() {
                             </Button>
                           </>
                         )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(request.id)}
-                          disabled={processingId === request.id}
-                        >
-                          Delete
-                        </Button>
+                        {(isAdmin || isUnitAdmin) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(request.id)}
+                            disabled={processingId === request.id}
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
