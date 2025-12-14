@@ -20,6 +20,7 @@ import {
   type RucEntry,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
+import { isValidEdipi } from "@/lib/utils";
 
 type PageSize = 10 | 25 | 50 | 100;
 const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
@@ -124,11 +125,6 @@ export default function AdminDashboard() {
       {activeTab === "users" && <UsersTab />}
     </div>
   );
-}
-
-// Helper to check if EDIPI looks valid (10 digits)
-function isValidEdipi(edipi: string): boolean {
-  return /^\d{10}$/.test(edipi);
 }
 
 // ============ Units Tab (RUC Reference Data) ============
