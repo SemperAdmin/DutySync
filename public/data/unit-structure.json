@@ -1,0 +1,86 @@
+{
+  "units": [
+    {
+      "id": "unit-ruc-02301-H-S1DV",
+      "parent_id": null,
+      "unit_name": "02301-H-S1DV",
+      "hierarchy_level": "battalion",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-CUST",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-CUST",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-APOS",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-APOS",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-OBND",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-OBND",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-INBD",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-INBD",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-TAD",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-TAD",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-MPHQ",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-MPHQ",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-MPA0",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-MPA0",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-OPS",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-OPS",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    },
+    {
+      "id": "unit-section-HQ",
+      "parent_id": "unit-ruc-02301-H-S1DV",
+      "unit_name": "02301-H-S1DV-HQ",
+      "hierarchy_level": "section",
+      "created_at": "2024-12-14T00:00:00.000Z",
+      "updated_at": "2024-12-14T00:00:00.000Z"
+    }
+  ],
+  "exportedAt": "2024-12-14T00:00:00.000Z",
+  "version": "1.0"
+}
