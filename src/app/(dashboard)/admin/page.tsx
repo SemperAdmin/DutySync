@@ -832,7 +832,8 @@ function UsersTab() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">EDIPI</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Name / Rank</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Rank</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Name</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Email</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Roles</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Actions</th>
@@ -848,14 +849,18 @@ function UsersTab() {
                         </td>
                         <td className="py-3 px-4">
                           {person ? (
-                            <div>
-                              <span className="font-medium text-foreground">
-                                {person.last_name}, {person.first_name}
-                              </span>
-                              <span className="ml-2 px-1.5 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
-                                {person.rank}
-                              </span>
-                            </div>
+                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
+                              {person.rank}
+                            </span>
+                          ) : (
+                            <span className="text-foreground-muted text-sm">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {person ? (
+                            <span className="font-medium text-foreground">
+                              {person.last_name}, {person.first_name}
+                            </span>
                           ) : (
                             <span className="text-foreground-muted text-sm italic">Not linked</span>
                           )}
