@@ -18,8 +18,15 @@ import {
   importManpowerData,
   exportUnitStructure,
   exportUnitMembers,
-  downloadAsJson,
 } from "@/lib/client-stores";
+import {
+  isGitHubConfigured,
+  getGitHubSettings,
+  saveGitHubSettings,
+  pushSeedFilesToGitHub,
+  testGitHubConnection,
+  type GitHubSettings,
+} from "@/lib/github-api";
 
 export default function PersonnelPage() {
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
@@ -377,12 +384,30 @@ function ImportModal({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // GitHub sync state
+  const [gitHubStatus, setGitHubStatus] = useState<"idle" | "pushing" | "success" | "error">("idle");
+  const [gitHubMessage, setGitHubMessage] = useState<string>("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<GitHubSettings>(() => {
+    const saved = getGitHubSettings();
+    return saved || {
+      owner: "",
+      repo: "",
+      branch: "main",
+      token: "",
+      unitPath: "public/data/unit/02301",
+    };
+  });
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string>("");
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
       setError(null);
       setResult(null);
+      setGitHubStatus("idle");
     }
   };
 
@@ -404,9 +429,24 @@ function ImportModal({
       setSelectedFile(file);
       setError(null);
       setResult(null);
+      setGitHubStatus("idle");
     } else {
       setError("Please drop a CSV or TXT file");
     }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setConnectionStatus("");
+    const result = await testGitHubConnection(settings);
+    setConnectionStatus(result.message);
+    setTestingConnection(false);
+  };
+
+  const handleSaveSettings = () => {
+    saveGitHubSettings(settings);
+    setShowSettings(false);
+    setConnectionStatus("");
   };
 
   const handleSubmit = async () => {
@@ -417,6 +457,7 @@ function ImportModal({
 
     setIsSubmitting(true);
     setError(null);
+    setGitHubStatus("idle");
 
     try {
       const text = await selectedFile.text();
@@ -437,10 +478,30 @@ function ImportModal({
         errors: data.errors || [],
       });
 
+      // Auto-push to GitHub if configured
+      if ((data.personnel.created > 0 || data.units?.created) && isGitHubConfigured()) {
+        setGitHubStatus("pushing");
+        setGitHubMessage("Pushing to GitHub...");
+
+        const unitStructure = exportUnitStructure();
+        const unitMembers = exportUnitMembers();
+        const pushResult = await pushSeedFilesToGitHub(unitStructure, unitMembers);
+
+        if (pushResult.success) {
+          setGitHubStatus("success");
+          setGitHubMessage("Successfully pushed to GitHub. Changes will deploy automatically.");
+        } else {
+          setGitHubStatus("error");
+          setGitHubMessage(
+            `Push failed: ${pushResult.structureResult.message || pushResult.membersResult.message}`
+          );
+        }
+      }
+
       if (data.personnel.created > 0 || data.personnel.updated > 0) {
         setTimeout(() => {
           onSuccess();
-        }, 2000);
+        }, 3000);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -453,12 +514,111 @@ function ImportModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card variant="elevated" className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <CardHeader>
-          <CardTitle>Import Morning Report</CardTitle>
-          <CardDescription>
-            Upload a Morning Report to replace the current roster. Required columns: Rank, Name, EDIPI
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Import Morning Report</CardTitle>
+              <CardDescription>
+                Upload a Morning Report to replace the current roster
+              </CardDescription>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2 rounded-lg transition-colors ${
+                showSettings ? "bg-primary/20 text-primary" : "hover:bg-surface-elevated text-foreground-muted"
+              }`}
+              title="GitHub Settings"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* GitHub Settings Panel */}
+          {showSettings && (
+            <div className="p-4 rounded-lg bg-surface-elevated border border-border space-y-3">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-foreground-muted" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                <span className="font-medium text-foreground">GitHub Sync Settings</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Owner"
+                  placeholder="SemperAdmin"
+                  value={settings.owner}
+                  onChange={(e) => setSettings({ ...settings, owner: e.target.value })}
+                />
+                <Input
+                  label="Repository"
+                  placeholder="DutySync"
+                  value={settings.repo}
+                  onChange={(e) => setSettings({ ...settings, repo: e.target.value })}
+                />
+              </div>
+              <Input
+                label="Branch"
+                placeholder="main"
+                value={settings.branch}
+                onChange={(e) => setSettings({ ...settings, branch: e.target.value })}
+              />
+              <Input
+                label="Unit Data Path"
+                placeholder="public/data/unit/02301"
+                value={settings.unitPath}
+                onChange={(e) => setSettings({ ...settings, unitPath: e.target.value })}
+              />
+              <Input
+                label="Personal Access Token"
+                type="password"
+                placeholder="ghp_xxxxxxxxxxxx"
+                value={settings.token}
+                onChange={(e) => setSettings({ ...settings, token: e.target.value })}
+              />
+              <p className="text-xs text-foreground-muted">
+                Token needs <code className="bg-surface px-1 rounded">repo</code> scope.{" "}
+                <a
+                  href="https://github.com/settings/tokens/new?scopes=repo&description=DutySync"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Create token
+                </a>
+              </p>
+              {connectionStatus && (
+                <p className={`text-xs ${connectionStatus.includes("Connected") ? "text-success" : "text-error"}`}>
+                  {connectionStatus}
+                </p>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleTestConnection}
+                  isLoading={testingConnection}
+                  disabled={!settings.owner || !settings.repo || !settings.token}
+                >
+                  Test Connection
+                </Button>
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  onClick={handleSaveSettings}
+                  disabled={!settings.owner || !settings.repo || !settings.token}
+                >
+                  Save Settings
+                </Button>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
               {error}
@@ -498,28 +658,33 @@ function ImportModal({
                 )}
               </ul>
 
-              {/* Export buttons for seed files */}
+              {/* GitHub Sync Status */}
               {(result.personnel.created > 0 || result.units?.created) && (
-                <div className="mt-4 pt-3 border-t border-success/20">
-                  <p className="text-xs text-foreground-muted mb-2">
-                    Download updated seed files to persist changes:
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-surface hover:bg-surface-elevated border border-border text-foreground transition-colors"
-                      onClick={() => downloadAsJson(exportUnitStructure(), "unit-structure.json")}
-                    >
-                      unit-structure.json
-                    </button>
-                    <button
-                      type="button"
-                      className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-surface hover:bg-surface-elevated border border-border text-foreground transition-colors"
-                      onClick={() => downloadAsJson(exportUnitMembers(), "unit-members.json")}
-                    >
-                      unit-members.json
-                    </button>
-                  </div>
+                <div className="mt-3 pt-3 border-t border-success/20">
+                  {!isGitHubConfigured() ? (
+                    <p className="text-xs text-foreground-muted">
+                      Configure GitHub settings to auto-sync changes to the repository.
+                    </p>
+                  ) : gitHubStatus === "pushing" ? (
+                    <div className="flex items-center gap-2 text-foreground-muted">
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs">{gitHubMessage}</span>
+                    </div>
+                  ) : gitHubStatus === "success" ? (
+                    <div className="flex items-center gap-2 text-success">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-xs">{gitHubMessage}</span>
+                    </div>
+                  ) : gitHubStatus === "error" ? (
+                    <div className="flex items-center gap-2 text-error">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span className="text-xs">{gitHubMessage}</span>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -598,9 +763,19 @@ function ImportModal({
 
           {/* Format Help */}
           <div className="p-3 rounded-lg bg-surface-elevated border border-border">
-            <p className="text-sm font-medium text-foreground mb-2">
-              Morning Report Format:
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-foreground">
+                Morning Report Format:
+              </p>
+              {isGitHubConfigured() && (
+                <span className="flex items-center gap-1 text-xs text-success">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                  Auto-sync enabled
+                </span>
+              )}
+            </div>
             <ul className="text-xs text-foreground-muted space-y-1">
               <li>• CSV or tab-separated file</li>
               <li>• Auto-detects header row with Rank, Name, EDIPI</li>
@@ -615,7 +790,7 @@ function ImportModal({
               type="button"
               variant="secondary"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={isSubmitting || gitHubStatus === "pushing"}
               className="flex-1"
             >
               Cancel
@@ -625,7 +800,7 @@ function ImportModal({
               variant="accent"
               onClick={handleSubmit}
               isLoading={isSubmitting}
-              disabled={isSubmitting || !selectedFile}
+              disabled={isSubmitting || !selectedFile || gitHubStatus === "pushing"}
               className="flex-1"
             >
               Import
