@@ -17,6 +17,8 @@ import {
   deleteUnitSection,
   getAllUsers,
   getAllPersonnel,
+  loadRucs,
+  type RucEntry,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
 
@@ -34,19 +36,29 @@ interface UserWithRoles {
   }>;
 }
 
+// Helper to check if EDIPI looks valid (10 digits)
+function isValidEdipi(edipi: string): boolean {
+  return /^\d{10}$/.test(edipi);
+}
+
 export default function UnitsPage() {
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [rucs, setRucs] = useState<RucEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState<UnitSection | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback(async () => {
     try {
       const unitsData = getUnitSections();
       setUnits(unitsData);
+
+      // Load RUCs for displaying unit scope names
+      const rucsData = await loadRucs();
+      setRucs(rucsData);
 
       // Build personnel lookup map by EDIPI (service_id) for O(1) lookups
       const personnelList = getAllPersonnel();
@@ -103,10 +115,31 @@ export default function UnitsPage() {
     return { unitById: unitMap, childrenByParentId: childrenMap };
   }, [units]);
 
-  // Get unit name by ID - O(1) with Map
+  // Build RUC lookup map for O(1) access
+  const rucByCode = useMemo(() => {
+    return new Map(rucs.map((r) => [r.ruc, r]));
+  }, [rucs]);
+
+  // Get unit/RUC name by ID - checks both unit sections and RUCs
   const getUnitName = (unitId: string | null) => {
     if (!unitId) return "Global";
-    return unitById.get(unitId)?.unit_name || "Unknown";
+    // First check unit sections
+    const unit = unitById.get(unitId);
+    if (unit) return unit.unit_name;
+    // Then check RUCs (scope_unit_id might be a RUC code)
+    const ruc = rucByCode.get(unitId);
+    if (ruc) return ruc.name ? `${ruc.ruc} - ${ruc.name}` : ruc.ruc;
+    return unitId; // Return the raw ID as last fallback
+  };
+
+  // Get display name for admin (rank/name, email, or EDIPI)
+  const getAdminDisplayName = (admin: UserWithRoles) => {
+    // Prefer rank + name if personnel record was found
+    if (admin.rank && admin.lastName) {
+      return `${admin.rank} ${admin.lastName}, ${admin.firstName || ""}`.trim();
+    }
+    // Fall back to email (always available and readable)
+    return admin.email;
   };
 
   // Get all ancestor IDs (parents, grandparents, etc.) - O(1) lookups
@@ -269,11 +302,12 @@ export default function UnitsPage() {
                 >
                   <div>
                     <p className="font-medium text-foreground">
-                      {admin.rank && admin.lastName
-                        ? `${admin.rank} ${admin.lastName}, ${admin.firstName || ""}`
-                        : admin.edipi}
+                      {getAdminDisplayName(admin)}
                     </p>
-                    <p className="text-sm text-foreground-muted">{admin.email}</p>
+                    {/* Show EDIPI if we have a valid one and it's different from display name */}
+                    {admin.rank && admin.lastName && isValidEdipi(admin.edipi) && (
+                      <p className="text-xs text-foreground-muted font-mono">{admin.edipi}</p>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-1 justify-end">
                     {admin.roles

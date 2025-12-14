@@ -126,9 +126,15 @@ export default function AdminDashboard() {
   );
 }
 
+// Helper to check if EDIPI looks valid (10 digits)
+function isValidEdipi(edipi: string): boolean {
+  return /^\d{10}$/.test(edipi);
+}
+
 // ============ Units Tab (RUC Reference Data) ============
 function UnitsTab() {
   const [rucs, setRucs] = useState<RucEntry[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingRuc, setEditingRuc] = useState<RucEntry | null>(null);
@@ -139,10 +145,24 @@ function UnitsTab() {
   const [pageSize, setPageSize] = useState<PageSize>(10);
   const [goToPage, setGoToPage] = useState("");
 
-  const fetchRucs = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       const data = await loadRucs();
       setRucs(data);
+
+      // Load users to show Unit Admins
+      const usersData = getAllUsers();
+      setUsers(usersData.map(u => ({
+        id: u.id,
+        edipi: u.edipi,
+        email: u.email,
+        personnel_id: u.personnel_id || null,
+        roles: (u.roles || []).map(r => ({
+          id: r.id,
+          role_name: r.role_name as RoleName,
+          scope_unit_id: r.scope_unit_id,
+        })),
+      })));
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -151,8 +171,29 @@ function UnitsTab() {
   }, []);
 
   useEffect(() => {
-    fetchRucs();
-  }, [fetchRucs]);
+    fetchData();
+  }, [fetchData]);
+
+  // Build map of RUC code -> Unit Admin(s)
+  const unitAdminsByRuc = useMemo(() => {
+    const map = new Map<string, UserData[]>();
+    for (const user of users) {
+      for (const role of user.roles) {
+        if (role.role_name === "Unit Admin" && role.scope_unit_id) {
+          const existing = map.get(role.scope_unit_id) || [];
+          existing.push(user);
+          map.set(role.scope_unit_id, existing);
+        }
+      }
+    }
+    return map;
+  }, [users]);
+
+  // Get display name for unit admin
+  const getAdminDisplay = (user: UserData) => {
+    // Show email (most reliable) - could enhance with personnel lookup if needed
+    return user.email;
+  };
 
   // Filter RUCs based on search (case-insensitive)
   const filteredRucs = useMemo(() => {
@@ -280,31 +321,48 @@ function UnitsTab() {
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted w-32">RUC</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Unit Name</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Unit Admin</th>
                     <th className="text-right py-3 px-4 text-sm font-medium text-foreground-muted w-24">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedRucs.map((ruc) => (
-                    <tr key={ruc.ruc} className="border-b border-border hover:bg-surface-elevated">
-                      <td className="py-3 px-4">
-                        <span className="font-mono text-foreground font-medium">{ruc.ruc}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {ruc.name ? (
-                          <span className="text-foreground">{ruc.name}</span>
-                        ) : (
-                          <span className="text-foreground-muted italic">Not set</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => setEditingRuc(ruc)}>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {paginatedRucs.map((ruc) => {
+                    const admins = unitAdminsByRuc.get(ruc.ruc) || [];
+                    return (
+                      <tr key={ruc.ruc} className="border-b border-border hover:bg-surface-elevated">
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-foreground font-medium">{ruc.ruc}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {ruc.name ? (
+                            <span className="text-foreground">{ruc.name}</span>
+                          ) : (
+                            <span className="text-foreground-muted italic">Not set</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {admins.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                              {admins.map((admin) => (
+                                <span key={admin.id} className="text-sm text-foreground">
+                                  {getAdminDisplay(admin)}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-foreground-muted italic text-sm">None assigned</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <Button variant="ghost" size="sm" onClick={() => setEditingRuc(ruc)}>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
