@@ -114,11 +114,13 @@ export default function UserDashboard() {
     return { unitAvg, rank, total: unitPersonnel.length };
   }, [personnel, allPersonnel]);
 
+  // Create a Map of units for O(1) lookups (memoized separately from unitPath)
+  const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
+
   // Build unit hierarchy path
   const unitPath = useMemo(() => {
     if (!personnel) return "";
 
-    const unitMap = new Map(units.map(u => [u.id, u]));
     const path: string[] = [];
     let currentUnit = unitMap.get(personnel.unit_section_id);
 
@@ -132,7 +134,7 @@ export default function UserDashboard() {
     }
 
     return path.join(" > ");
-  }, [personnel, units]);
+  }, [personnel, unitMap]);
 
   // Get duty type name by ID
   const getDutyTypeName = (dutyTypeId: string): string => {
