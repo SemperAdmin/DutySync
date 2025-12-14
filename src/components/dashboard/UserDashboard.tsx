@@ -1,0 +1,485 @@
+"use client";
+
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Card, {
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/Card";
+import { useAuth } from "@/lib/client-auth";
+import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType } from "@/types";
+import {
+  getAllPersonnel,
+  getPersonnelByEdipi,
+  getDutySlotsByDateRange,
+  getNonAvailabilityByPersonnel,
+  getUnitSections,
+  getAllDutyTypes,
+} from "@/lib/client-stores";
+
+interface DutyHistoryEntry {
+  id: string;
+  date: Date;
+  dutyType: string;
+  duration: string;
+  points: number;
+}
+
+export default function UserDashboard() {
+  const { user } = useAuth();
+  const [personnel, setPersonnel] = useState<Personnel | null>(null);
+  const [allPersonnel, setAllPersonnel] = useState<Personnel[]>([]);
+  const [upcomingDuties, setUpcomingDuties] = useState<DutySlot[]>([]);
+  const [pastDuties, setPastDuties] = useState<DutySlot[]>([]);
+  const [nonAvailability, setNonAvailability] = useState<NonAvailability[]>([]);
+  const [units, setUnits] = useState<UnitSection[]>([]);
+  const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = useCallback(() => {
+    try {
+      // Get current user's personnel record
+      const myPersonnel = user?.edipi ? getPersonnelByEdipi(user.edipi) : null;
+      setPersonnel(myPersonnel || null);
+
+      // Get all personnel for unit comparisons
+      const allPers = getAllPersonnel();
+      setAllPersonnel(allPers);
+
+      // Get units for hierarchy display
+      const unitsData = getUnitSections();
+      setUnits(unitsData);
+
+      // Get duty types for names
+      const dutyTypesData = getAllDutyTypes();
+      setDutyTypes(dutyTypesData);
+
+      if (myPersonnel) {
+        // Get upcoming duties (next 90 days)
+        const today = new Date();
+        const futureDate = new Date();
+        futureDate.setDate(today.getDate() + 90);
+        const upcoming = getDutySlotsByDateRange(today, futureDate).filter(
+          (slot) => slot.personnel_id === myPersonnel.id && slot.status === "scheduled"
+        );
+        setUpcomingDuties(upcoming);
+
+        // Get past duties (last 90 days)
+        const pastDate = new Date();
+        pastDate.setDate(today.getDate() - 90);
+        const past = getDutySlotsByDateRange(pastDate, today).filter(
+          (slot) => slot.personnel_id === myPersonnel.id && slot.status === "completed"
+        );
+        setPastDuties(past);
+
+        // Get non-availability records
+        const na = getNonAvailabilityByPersonnel(myPersonnel.id);
+        setNonAvailability(na);
+      }
+    } catch (err) {
+      console.error("Error loading dashboard data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.edipi]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Calculate unit statistics
+  const unitStats = useMemo(() => {
+    if (!personnel) return { unitAvg: 0, rank: 0, total: 0 };
+
+    // Get all personnel in the same unit
+    const unitPersonnel = allPersonnel.filter(
+      (p) => p.unit_section_id === personnel.unit_section_id
+    );
+
+    if (unitPersonnel.length === 0) return { unitAvg: 0, rank: 0, total: 0 };
+
+    // Calculate average
+    const totalScore = unitPersonnel.reduce((sum, p) => sum + p.current_duty_score, 0);
+    const unitAvg = totalScore / unitPersonnel.length;
+
+    // Calculate rank (sorted by score descending)
+    const sorted = [...unitPersonnel].sort((a, b) => b.current_duty_score - a.current_duty_score);
+    const rank = sorted.findIndex((p) => p.id === personnel.id) + 1;
+
+    return { unitAvg, rank, total: unitPersonnel.length };
+  }, [personnel, allPersonnel]);
+
+  // Build unit hierarchy path
+  const unitPath = useMemo(() => {
+    if (!personnel) return "";
+    const path: string[] = [];
+    let currentUnit = units.find((u) => u.id === personnel.unit_section_id);
+
+    while (currentUnit) {
+      if (currentUnit.hierarchy_level !== "ruc") {
+        path.unshift(currentUnit.unit_name);
+      }
+      currentUnit = currentUnit.parent_id
+        ? units.find((u) => u.id === currentUnit?.parent_id)
+        : undefined;
+    }
+
+    return path.join(" > ");
+  }, [personnel, units]);
+
+  // Get duty type name by ID
+  const getDutyTypeName = (dutyTypeId: string): string => {
+    const dt = dutyTypes.find((d) => d.id === dutyTypeId);
+    return dt?.duty_name || "Unknown Duty";
+  };
+
+  // Get next duty
+  const nextDuty = upcomingDuties.length > 0 ? upcomingDuties[0] : null;
+
+  // Calculate days until next duty
+  const daysUntilNextDuty = nextDuty
+    ? Math.ceil(
+        (new Date(nextDuty.date_assigned).getTime() - new Date().getTime()) /
+          (1000 * 60 * 60 * 24)
+      )
+    : null;
+
+  // Get current non-availability status
+  const currentNA = nonAvailability.find((na) => {
+    const now = new Date();
+    const start = new Date(na.start_date);
+    const end = new Date(na.end_date);
+    return now >= start && now <= end && na.status === "approved";
+  });
+
+  // Get upcoming approved non-availability
+  const upcomingNA = nonAvailability.filter((na) => {
+    const now = new Date();
+    const start = new Date(na.start_date);
+    return start > now && na.status === "approved";
+  });
+
+  // Build duty history
+  const dutyHistory: DutyHistoryEntry[] = pastDuties
+    .sort((a, b) => new Date(b.date_assigned).getTime() - new Date(a.date_assigned).getTime())
+    .slice(0, 10)
+    .map((slot) => ({
+      id: slot.id,
+      date: new Date(slot.date_assigned),
+      dutyType: getDutyTypeName(slot.duty_type_id),
+      duration: "24hr",
+      points: slot.duty_points_earned,
+    }));
+
+  // Calculate total points in last 90 days
+  const totalPointsLast90Days = pastDuties.reduce(
+    (sum, slot) => sum + slot.duty_points_earned,
+    0
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">My Dashboard</h1>
+        <p className="text-foreground-muted mt-1">
+          Welcome back, {user?.displayName || user?.email || "Service Member"}
+        </p>
+      </div>
+
+      {/* Top Row - Score and Next Duty */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* My Duty Score Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              My Duty Score
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {personnel ? (
+              <div className="space-y-4">
+                {/* Score Bar */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="h-3 bg-surface-elevated rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-primary to-highlight rounded-full transition-all"
+                        style={{ width: `${Math.min(100, (personnel.current_duty_score / 15) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className="text-2xl font-bold text-highlight">
+                    {personnel.current_duty_score.toFixed(1)}
+                  </span>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="p-3 rounded-lg bg-surface-elevated">
+                    <p className="text-xs text-foreground-muted">Unit Average</p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {unitStats.unitAvg.toFixed(1)}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-surface-elevated">
+                    <p className="text-xs text-foreground-muted">Your Rank</p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {unitStats.rank} of {unitStats.total}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-foreground-muted text-center py-4">
+                No personnel record linked to your account
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Next Duty Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Next Duty
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {nextDuty ? (
+              <div className="space-y-3">
+                <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                  <p className="text-lg font-semibold text-foreground">
+                    {getDutyTypeName(nextDuty.duty_type_id)}
+                  </p>
+                  <p className="text-foreground-muted mt-1">
+                    {new Date(nextDuty.date_assigned).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </p>
+                  <p className="text-sm text-foreground-muted">0600 - 0600 (24hr)</p>
+                </div>
+                {daysUntilNextDuty !== null && (
+                  <div className="text-center">
+                    <span className="text-3xl font-bold text-highlight">{daysUntilNextDuty}</span>
+                    <span className="text-foreground-muted ml-2">
+                      day{daysUntilNextDuty !== 1 ? "s" : ""} away
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-success/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-foreground-muted">No upcoming duties scheduled</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Second Row - Status and Unit */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* My Status Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              My Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Current Status */}
+              <div className="flex items-center gap-3">
+                {currentNA ? (
+                  <>
+                    <div className="w-3 h-3 rounded-full bg-warning animate-pulse" />
+                    <div>
+                      <p className="font-medium text-warning">{currentNA.reason}</p>
+                      <p className="text-sm text-foreground-muted">
+                        Until {new Date(currentNA.end_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-3 h-3 rounded-full bg-success" />
+                    <p className="font-medium text-success">Available for Duty</p>
+                  </>
+                )}
+              </div>
+
+              {/* Upcoming Non-Availability */}
+              {upcomingNA.length > 0 && (
+                <div className="pt-3 border-t border-border">
+                  <p className="text-xs text-foreground-muted uppercase tracking-wide mb-2">
+                    Scheduled
+                  </p>
+                  <div className="space-y-2">
+                    {upcomingNA.slice(0, 2).map((na) => (
+                      <div
+                        key={na.id}
+                        className="flex justify-between text-sm p-2 rounded bg-surface-elevated"
+                      >
+                        <span className="text-foreground">{na.reason}</span>
+                        <span className="text-foreground-muted">
+                          {new Date(na.start_date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                          {" - "}
+                          {new Date(na.end_date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!currentNA && upcomingNA.length === 0 && (
+                <p className="text-sm text-foreground-muted">No leave or TAD scheduled</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* My Unit Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              My Unit
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {personnel ? (
+              <div className="space-y-4">
+                {/* Unit Hierarchy Path */}
+                <div className="p-4 rounded-lg bg-surface-elevated">
+                  <p className="text-sm text-foreground-muted mb-1">Assignment</p>
+                  <p className="font-medium text-foreground">{unitPath || "Unknown"}</p>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-surface-elevated text-center">
+                    <p className="text-2xl font-bold text-highlight">
+                      {allPersonnel.filter((p) => p.unit_section_id === personnel.unit_section_id).length}
+                    </p>
+                    <p className="text-xs text-foreground-muted">In Section</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-surface-elevated text-center">
+                    <p className="text-2xl font-bold text-highlight">
+                      {upcomingDuties.length}
+                    </p>
+                    <p className="text-xs text-foreground-muted">Duties Ahead</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-foreground-muted text-center py-4">
+                No unit assignment found
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Duty History Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            My Duty History
+            <span className="text-foreground-muted text-sm font-normal ml-2">(Last 90 Days)</span>
+          </CardTitle>
+          <CardDescription>
+            Total Points (90 days): <span className="font-semibold text-highlight">{totalPointsLast90Days.toFixed(1)}</span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {dutyHistory.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Date
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Duty Type
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Duration
+                    </th>
+                    <th className="text-right py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Points
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dutyHistory.map((entry) => (
+                    <tr key={entry.id} className="border-b border-border hover:bg-surface-elevated">
+                      <td className="py-3 px-4 text-foreground">
+                        {entry.date.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
+                      <td className="py-3 px-4 text-foreground">{entry.dutyType}</td>
+                      <td className="py-3 px-4 text-foreground-muted">{entry.duration}</td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="text-highlight font-medium">+{entry.points.toFixed(1)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-surface-elevated flex items-center justify-center">
+                <svg className="w-6 h-6 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <p className="text-foreground-muted">No duty history in the last 90 days</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

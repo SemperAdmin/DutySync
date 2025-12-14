@@ -21,6 +21,10 @@ import {
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
 import { isValidEdipi } from "@/lib/utils";
+import UserDashboard from "@/components/dashboard/UserDashboard";
+
+// Key must match DashboardLayout
+const VIEW_MODE_KEY = "dutysync_admin_view_mode";
 
 type PageSize = 10 | 25 | 50 | 100;
 const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
@@ -47,31 +51,33 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const isAppAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
   const [activeTab, setActiveTab] = useState<"units" | "users">("units");
+  const [isAdminView, setIsAdminView] = useState(true);
 
-  if (!isAppAdmin) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-foreground-muted mt-1">
-            Welcome back, {user?.displayName || user?.edipi}
-          </p>
-        </div>
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-warning/20 flex items-center justify-center">
-              <svg className="w-8 h-8 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2">Access Restricted</h2>
-            <p className="text-foreground-muted max-w-md mx-auto">
-              You don&apos;t have App Admin privileges. Contact your administrator if you need elevated access.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  // Sync with view mode from localStorage (set by DashboardLayout)
+  useEffect(() => {
+    const checkViewMode = () => {
+      const stored = localStorage.getItem(VIEW_MODE_KEY);
+      setIsAdminView(stored !== "user");
+    };
+
+    // Check on mount
+    checkViewMode();
+
+    // Listen for storage changes (when toggled in header)
+    window.addEventListener("storage", checkViewMode);
+
+    // Also check periodically for same-tab changes
+    const interval = setInterval(checkViewMode, 500);
+
+    return () => {
+      window.removeEventListener("storage", checkViewMode);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Show UserDashboard for non-admins OR when admin is in "user view" mode
+  if (!isAppAdmin || !isAdminView) {
+    return <UserDashboard />;
   }
 
   return (

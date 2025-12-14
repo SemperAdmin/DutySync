@@ -88,9 +88,25 @@ export default function PersonnelPage() {
     return "-";
   };
 
+  // Check if unitId is the filterUnit OR is a descendant of filterUnit
+  const isUnitInFilterPath = (unitId: string): boolean => {
+    if (!filterUnit) return true;
+    if (unitId === filterUnit) return true;
+
+    // Walk up the hierarchy to see if filterUnit is an ancestor
+    let currentUnit = units.find((u) => u.id === unitId);
+    while (currentUnit?.parent_id) {
+      if (currentUnit.parent_id === filterUnit) {
+        return true;
+      }
+      currentUnit = units.find((u) => u.id === currentUnit?.parent_id);
+    }
+    return false;
+  };
+
   // Filter and search personnel
   const filteredPersonnel = personnel.filter((p) => {
-    const matchesUnit = !filterUnit || p.unit_section_id === filterUnit;
+    const matchesUnit = isUnitInFilterPath(p.unit_section_id);
     const matchesSearch =
       !searchTerm ||
       p.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
