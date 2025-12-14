@@ -16,6 +16,7 @@ import {
   updateUnitSection,
   deleteUnitSection,
 } from "@/lib/client-stores";
+import { levelColors } from "@/lib/unit-constants";
 
 export default function UnitsPage() {
   const [units, setUnits] = useState<UnitSection[]>([]);
@@ -226,15 +227,6 @@ function HierarchySection({
   onEdit: (unit: UnitSection) => void;
   onDelete: (id: string) => void;
 }) {
-  const levelColors: Record<string, string> = {
-    ruc: "bg-highlight/20 text-highlight border-highlight/30",
-    battalion: "bg-highlight/20 text-highlight border-highlight/30",
-    company: "bg-primary/20 text-blue-400 border-primary/30",
-    section: "bg-success/20 text-success border-success/30",
-    work_section: "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30",
-    platoon: "bg-success/20 text-success border-success/30",
-  };
-
   const getParentName = (parentId: string | null) => {
     if (!parentId) return null;
     const parent = allUnits.find((u) => u.id === parentId);

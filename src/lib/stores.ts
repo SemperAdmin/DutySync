@@ -2,6 +2,7 @@
 // In production, these will be replaced with Hasura/Neon PostgreSQL
 
 import type { UnitSection, Personnel, DutyType, UserRole, DutyValue, DutyRequirement, DutySlot, NonAvailability, Qualification } from "@/types";
+import { getLevelOrder } from "@/lib/unit-constants";
 
 // Unit Sections Store
 export const unitSectionStore: Map<string, UnitSection> = new Map();
@@ -30,15 +31,7 @@ export const qualificationStore: Map<string, Qualification> = new Map();
 // Helper functions for Unit Sections
 export function getUnitSections(): UnitSection[] {
   return Array.from(unitSectionStore.values()).sort((a, b) => {
-    const levelOrder: Record<string, number> = {
-      ruc: 0,
-      battalion: 0,
-      company: 1,
-      section: 2,
-      work_section: 3,
-      platoon: 2,
-    };
-    return (levelOrder[a.hierarchy_level] || 0) - (levelOrder[b.hierarchy_level] || 0);
+    return getLevelOrder(a.hierarchy_level) - getLevelOrder(b.hierarchy_level);
   });
 }
 

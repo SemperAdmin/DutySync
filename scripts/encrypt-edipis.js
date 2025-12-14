@@ -2,12 +2,20 @@
 /**
  * Script to encrypt EDIPIs in unit-members.json files
  * Run with: node scripts/encrypt-edipis.js
+ *
+ * Set EDIPI_ENCRYPTION_KEY environment variable for the encryption key
  */
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
-const EDIPI_KEY = "DutySync2024";
+// Use environment variable for encryption key
+const EDIPI_KEY = process.env.EDIPI_ENCRYPTION_KEY || "DutySync2024";
+
+if (!process.env.EDIPI_ENCRYPTION_KEY) {
+  console.warn('Warning: EDIPI_ENCRYPTION_KEY not set, using default key. Set this in production!');
+}
 
 function encryptEdipi(edipi) {
   if (!edipi) return "";
@@ -34,11 +42,26 @@ function decryptEdipi(encrypted) {
   }
 }
 
-// Process all RUC folders
-const dataDir = path.join(__dirname, '..', 'public', 'data');
+// Generate a secure random ID that doesn't expose PII
+function generateSecureId() {
+  return `pers-${crypto.randomUUID()}`;
+}
 
-fs.readdirSync(dataDir).forEach(folder => {
-  const folderPath = path.join(dataDir, folder);
+// Check if an ID contains a potential EDIPI (10 consecutive digits)
+function idContainsEdipi(id) {
+  return /\d{10}/.test(id);
+}
+
+// Process all RUC folders under /data/unit/
+const unitDir = path.join(__dirname, '..', 'public', 'data', 'unit');
+
+if (!fs.existsSync(unitDir)) {
+  console.error('Unit directory not found:', unitDir);
+  process.exit(1);
+}
+
+fs.readdirSync(unitDir).forEach(folder => {
+  const folderPath = path.join(unitDir, folder);
   if (!fs.statSync(folderPath).isDirectory()) return;
 
   const membersFile = path.join(folderPath, 'unit-members.json');
@@ -46,36 +69,49 @@ fs.readdirSync(dataDir).forEach(folder => {
 
   console.log(`Processing ${folder}/unit-members.json...`);
 
-  const data = JSON.parse(fs.readFileSync(membersFile, 'utf8'));
+  try {
+    const data = JSON.parse(fs.readFileSync(membersFile, 'utf8'));
 
-  if (data.personnel && Array.isArray(data.personnel)) {
-    data.personnel = data.personnel.map(p => ({
-      ...p,
-      service_id: encryptEdipi(p.service_id)
-    }));
+    if (data.personnel && Array.isArray(data.personnel)) {
+      let idsUpdated = 0;
+      let edipsEncrypted = 0;
 
-    // Also update the ID to use encrypted EDIPI
-    data.personnel = data.personnel.map(p => {
-      const originalId = p.id;
-      // Keep the ID format but don't expose EDIPI in it
-      const idParts = originalId.split('-');
-      if (idParts[0] === 'pers' && idParts.length === 2) {
-        // ID was pers-{edipi}, change to pers-{index}
-        return p; // Keep original ID structure for now
+      data.personnel = data.personnel.map(p => {
+        const updates = { ...p };
+
+        // Encrypt service_id if it looks like a plaintext EDIPI (10 digits)
+        if (/^\d{10}$/.test(p.service_id)) {
+          updates.service_id = encryptEdipi(p.service_id);
+          edipsEncrypted++;
+        }
+
+        // Replace ID if it contains an EDIPI
+        if (idContainsEdipi(p.id)) {
+          updates.id = generateSecureId();
+          idsUpdated++;
+        }
+
+        return updates;
+      });
+
+      data.encrypted = true;
+      data.encryptedAt = new Date().toISOString();
+
+      fs.writeFileSync(membersFile, JSON.stringify(data, null, 2));
+      console.log(`  Processed ${data.personnel.length} records`);
+      console.log(`  - EDIPIs encrypted: ${edipsEncrypted}`);
+      console.log(`  - IDs updated (removed PII): ${idsUpdated}`);
+
+      // Verify decryption works without logging PII
+      if (data.personnel.length > 0) {
+        const firstRecord = data.personnel[0];
+        const decrypted = decryptEdipi(firstRecord.service_id);
+        const isValidEdipi = /^\d{10}$/.test(decrypted);
+        console.log(`  Verification: ${isValidEdipi ? 'OK' : 'FAILED'}`);
       }
-      return p;
-    });
-
-    data.encrypted = true;
-    data.encryptedAt = new Date().toISOString();
-
-    fs.writeFileSync(membersFile, JSON.stringify(data, null, 2));
-    console.log(`  Encrypted ${data.personnel.length} records`);
-
-    // Verify decryption works
-    const firstRecord = data.personnel[0];
-    const decrypted = decryptEdipi(firstRecord.service_id);
-    console.log(`  Verification: First EDIPI decrypts to ${decrypted.substring(0, 4)}****${decrypted.substring(8)}`);
+    }
+  } catch (error) {
+    console.error(`  Error processing ${membersFile}:`, error.message);
   }
 });
 

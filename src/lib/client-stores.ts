@@ -10,12 +10,13 @@ import type {
   NonAvailability,
   Qualification,
 } from "@/types";
+import { getLevelOrder } from "@/lib/unit-constants";
 
 // ============ EDIPI Encryption ============
 // Simple XOR-based encryption for EDIPIs in JSON files
-// Key is derived from app identifier - provides obfuscation, not military-grade security
+// Key should be set via NEXT_PUBLIC_EDIPI_KEY environment variable
 
-const EDIPI_KEY = "DutySync2024"; // Encryption key
+const EDIPI_KEY = process.env.NEXT_PUBLIC_EDIPI_KEY || "DutySync2024";
 
 // Encrypt an EDIPI for storage in JSON
 export function encryptEdipi(edipi: string): string {
@@ -183,9 +184,11 @@ export async function loadSeedDataIfNeeded(): Promise<{
       allUnits.push(...unitData.units);
 
       // Process and add personnel with decrypted EDIPIs and timestamps
+      // Use the encrypted flag from the JSON file instead of magic check
+      const isEncrypted = personnelData.encrypted === true;
       const personnelWithDates = personnelData.personnel.map((p: RawPersonnelRecord) => ({
         ...p,
-        service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
+        service_id: isEncrypted ? decryptEdipi(p.service_id) : p.service_id,
         created_at: p.created_at || new Date(),
         updated_at: p.updated_at || new Date(),
       }));
@@ -240,11 +243,11 @@ export async function loadRucData(ruc: string): Promise<{
     if (personnelResponse.ok) {
       const personnelData = await personnelResponse.json();
       if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
-        // Decrypt EDIPIs and add timestamps
+        // Use the encrypted flag from the JSON file instead of magic check
+        const isEncrypted = personnelData.encrypted === true;
         const personnelWithDates = personnelData.personnel.map((p: RawPersonnelRecord) => ({
           ...p,
-          // Decrypt service_id (EDIPI) if it's encrypted
-          service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
+          service_id: isEncrypted ? decryptEdipi(p.service_id) : p.service_id,
           created_at: p.created_at || new Date(),
           updated_at: p.updated_at || new Date(),
         }));
@@ -305,15 +308,7 @@ function saveToStorage<T>(key: string, data: T[]): void {
 // Unit Sections
 export function getUnitSections(): UnitSection[] {
   return getFromStorage<UnitSection>(KEYS.units).sort((a, b) => {
-    const levelOrder: Record<string, number> = {
-      ruc: 0,
-      battalion: 0,
-      company: 1,
-      section: 2,
-      work_section: 3,
-      platoon: 2,
-    };
-    return (levelOrder[a.hierarchy_level] || 0) - (levelOrder[b.hierarchy_level] || 0);
+    return getLevelOrder(a.hierarchy_level) - getLevelOrder(b.hierarchy_level);
   });
 }
 
