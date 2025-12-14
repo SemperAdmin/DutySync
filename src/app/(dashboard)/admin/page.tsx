@@ -5,13 +5,14 @@ import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { useAuth } from "@/lib/client-auth";
-import type { UnitSection, HierarchyLevel, RoleName } from "@/types";
+import type { UnitSection, HierarchyLevel, RoleName, Personnel } from "@/types";
 import {
   getUnitSections,
   createUnitSection,
   updateUnitSection,
   deleteUnitSection,
   getAllUsers,
+  getAllPersonnel,
   assignUserRole,
   deleteUser,
   loadRucs,
@@ -657,15 +658,18 @@ function UnitForm({ unit, units, onClose, onSuccess }: { unit: UnitSection | nul
 function UsersTab() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
+  const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [rucs, setRucs] = useState<RucEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
       const usersData = getAllUsers();
       const unitsData = getUnitSections();
+      const personnelData = getAllPersonnel();
 
       // Load RUCs from the reference file
       const rucsData = await loadRucs();
@@ -683,6 +687,7 @@ function UsersTab() {
         })),
       })));
       setUnits(unitsData);
+      setPersonnel(personnelData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -702,6 +707,16 @@ function UsersTab() {
     }
   };
 
+  // Create a Map of personnel by EDIPI for O(1) lookups
+  const personnelByEdipi = useMemo(() => {
+    return new Map(personnel.map(p => [p.service_id, p]));
+  }, [personnel]);
+
+  // Get personnel info for a user by their EDIPI
+  const getPersonnelInfo = (edipi: string): Personnel | undefined => {
+    return personnelByEdipi.get(edipi);
+  };
+
   // Memoize RUC name lookups for better performance
   const rucNameMap = useMemo(() => {
     return rucs.reduce((acc, ruc) => {
@@ -715,6 +730,31 @@ function UsersTab() {
     return rucNameMap[rucCode] || rucCode;
   };
 
+  // Filter users based on search query (EDIPI, name, or email)
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+
+    const query = searchQuery.toLowerCase().trim();
+    return users.filter(user => {
+      // Match EDIPI
+      if (user.edipi.toLowerCase().includes(query)) return true;
+
+      // Match email
+      if (user.email.toLowerCase().includes(query)) return true;
+
+      // Match personnel name (if linked)
+      const person = getPersonnelInfo(user.edipi);
+      if (person) {
+        const fullName = `${person.rank} ${person.first_name} ${person.last_name}`.toLowerCase();
+        if (fullName.includes(query)) return true;
+        if (person.last_name.toLowerCase().includes(query)) return true;
+        if (person.first_name.toLowerCase().includes(query)) return true;
+      }
+
+      return false;
+    });
+  }, [users, searchQuery, personnelByEdipi]);
+
 
   if (isLoading) {
     return (
@@ -727,9 +767,23 @@ function UsersTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">User Management</h2>
-        <p className="text-sm text-foreground-muted">{users.length} registered users</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">User Management</h2>
+          <p className="text-sm text-foreground-muted">
+            {filteredUsers.length === users.length
+              ? `${users.length} registered users`
+              : `${filteredUsers.length} of ${users.length} users`}
+          </p>
+        </div>
+        <div className="w-full sm:w-72">
+          <Input
+            type="text"
+            placeholder="Search by EDIPI, name, or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {error && (
@@ -752,12 +806,25 @@ function UsersTab() {
       <Card>
         <CardHeader>
           <CardTitle>Registered Users</CardTitle>
-          <CardDescription>{users.length} user{users.length !== 1 ? "s" : ""} registered</CardDescription>
+          <CardDescription>
+            {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""}
+            {searchQuery && ` matching "${searchQuery}"`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {users.length === 0 ? (
+          {filteredUsers.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-foreground-muted">No users registered yet</p>
+              <p className="text-foreground-muted">
+                {searchQuery ? "No users match your search" : "No users registered yet"}
+              </p>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="mt-2 text-sm text-primary hover:underline"
+                >
+                  Clear search
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -765,38 +832,56 @@ function UsersTab() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">EDIPI</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Name / Rank</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Email</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Roles</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id} className="border-b border-border hover:bg-surface-elevated">
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-foreground font-mono">{user.edipi}</span>
-                      </td>
-                      <td className="py-3 px-4 text-foreground-muted">{user.email}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {user.roles.map((role, idx) => (
-                            <span key={role.id ?? `${idx}-${role.role_name}`} className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(role.role_name)}`}>
-                              {role.role_name}
-                              {role.scope_unit_id && <span className="ml-1 opacity-75">({getRucDisplayName(role.scope_unit_id)})</span>}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button variant="ghost" size="sm" onClick={() => setEditingUser(user)}>
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Edit Roles
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredUsers.map((user) => {
+                    const person = getPersonnelInfo(user.edipi);
+                    return (
+                      <tr key={user.id} className="border-b border-border hover:bg-surface-elevated">
+                        <td className="py-3 px-4">
+                          <span className="font-medium text-foreground font-mono">{user.edipi}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {person ? (
+                            <div>
+                              <span className="font-medium text-foreground">
+                                {person.last_name}, {person.first_name}
+                              </span>
+                              <span className="ml-2 px-1.5 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
+                                {person.rank}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-foreground-muted text-sm italic">Not linked</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">{user.email}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {user.roles.map((role, idx) => (
+                              <span key={role.id ?? `${idx}-${role.role_name}`} className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(role.role_name)}`}>
+                                {role.role_name}
+                                {role.scope_unit_id && <span className="ml-1 opacity-75">({getRucDisplayName(role.scope_unit_id)})</span>}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Button variant="ghost" size="sm" onClick={() => setEditingUser(user)}>
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit Roles
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
