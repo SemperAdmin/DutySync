@@ -1168,32 +1168,14 @@ interface StoredUser {
     id?: string;
     role_name: string;
     scope_unit_id: string | null;
+    created_at?: string | Date;
   }>;
   created_at?: string;
 }
 
 export function getAllUsers(): StoredUser[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
-    // Add the demo admin if not in list
-    const hasAdmin = users.some((u: StoredUser) => u.edipi === "1234567890");
-    if (!hasAdmin) {
-      return [
-        {
-          id: "admin-001",
-          edipi: "1234567890",
-          email: "admin@dutysync.mil",
-          personnel_id: null,
-          roles: [{ id: "role-001", role_name: "App Admin", scope_unit_id: null }],
-        },
-        ...users,
-      ];
-    }
-    return users;
-  } catch {
-    return [];
-  }
+  // Return users from the seed data cache (loaded from public/data/user/)
+  return getAllSeedUsers();
 }
 
 export function getUserById(id: string): StoredUser | undefined {
@@ -1201,17 +1183,16 @@ export function getUserById(id: string): StoredUser | undefined {
 }
 
 export function deleteUser(userId: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const users = JSON.parse(localStorage.getItem(KEYS.users) || "[]");
-    const filtered = users.filter((u: StoredUser) => u.id !== userId);
-    if (filtered.length === users.length) return false; // User not found
-    localStorage.setItem(KEYS.users, JSON.stringify(filtered));
-    return true;
-  } catch (error) {
-    console.error("Failed to delete user:", error);
-    return false;
-  }
+  // Note: This only removes from memory cache. To persist, update seed data files.
+  const idx = seedUsersCache.findIndex((u) => u.id === userId);
+  if (idx === -1) return false;
+
+  const user = seedUsersCache[idx];
+  seedUsersCache.splice(idx, 1);
+  seedUsersByEdipiCache.delete(user.edipi);
+
+  console.warn("User deleted from memory cache. To persist, remove from public/data/user/");
+  return true;
 }
 
 export function assignUserRole(
@@ -1219,40 +1200,34 @@ export function assignUserRole(
   roleName: string,
   scopeUnitId?: string | null
 ): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
-    const idx = users.findIndex((u: StoredUser) => u.id === userId);
-    if (idx === -1) return false;
+  // Note: This only updates memory cache. To persist, update seed data files.
+  const user = seedUsersCache.find((u) => u.id === userId);
+  if (!user) return false;
 
-    // Initialize roles array if needed
-    users[idx].roles = users[idx].roles || [];
+  // Initialize roles array if needed
+  user.roles = user.roles || [];
 
-    // Check if this exact role already exists (same role name AND same scope unit)
-    const roleExists = users[idx].roles.some(
-      (r: { role_name: string; scope_unit_id: string | null }) =>
-        r.role_name === roleName && r.scope_unit_id === (scopeUnitId || null)
-    );
+  // Check if this exact role already exists (same role name AND same scope unit)
+  const roleExists = user.roles.some(
+    (r: { role_name: string; scope_unit_id: string | null }) =>
+      r.role_name === roleName && r.scope_unit_id === (scopeUnitId || null)
+  );
 
-    if (roleExists) {
-      // Role already exists, nothing to do
-      return true;
-    }
-
-    // Add the new role (allows multiple Unit Admin roles for different units)
-    const newRole = {
-      id: `role-${Date.now()}`,
-      role_name: roleName,
-      scope_unit_id: scopeUnitId || null,
-    };
-    users[idx].roles.push(newRole);
-
-    localStorage.setItem("dutysync_users", JSON.stringify(users));
+  if (roleExists) {
+    // Role already exists, nothing to do
     return true;
-  } catch (error) {
-    console.error("Failed to assign user role:", error);
-    return false;
   }
+
+  // Add the new role (allows multiple Unit Admin roles for different units)
+  const newRole = {
+    id: `role-${Date.now()}`,
+    role_name: roleName,
+    scope_unit_id: scopeUnitId || null,
+  };
+  user.roles.push(newRole);
+
+  console.warn("Role assigned in memory cache. To persist, update seed data files and re-export.");
+  return true;
 }
 
 // ============ Seed User Data Loading ============
@@ -1282,6 +1257,40 @@ interface SeedUserRecord {
   created_at: string;
 }
 
+// ============ In-Memory Seed Users Cache ============
+// Seed users are loaded from public/data/user/ and cached in memory
+// No localStorage is used for user storage - only seed data files
+
+interface SeedUserWithPassword extends StoredUser {
+  password_hash?: string; // Optional password hash from seed data
+}
+
+let seedUsersCache: SeedUserWithPassword[] = [];
+let seedUsersByEdipiCache = new Map<string, SeedUserWithPassword>();
+
+function populateSeedUserCache(users: SeedUserWithPassword[]) {
+  seedUsersCache = users;
+  seedUsersByEdipiCache.clear();
+  for (const user of seedUsersCache) {
+    seedUsersByEdipiCache.set(user.edipi, user);
+  }
+}
+
+// Get a seed user by EDIPI (O(1) lookup)
+export function getSeedUserByEdipi(edipi: string): SeedUserWithPassword | undefined {
+  return seedUsersByEdipiCache.get(edipi);
+}
+
+// Check if a user exists in seed data
+export function seedUserExists(edipi: string): boolean {
+  return seedUsersByEdipiCache.has(edipi);
+}
+
+// Get all seed users from cache
+export function getAllSeedUsers(): SeedUserWithPassword[] {
+  return seedUsersCache;
+}
+
 // Get available seed users from the users index
 export async function getAvailableSeedUsers(): Promise<UsersIndex["users"]> {
   try {
@@ -1296,10 +1305,15 @@ export async function getAvailableSeedUsers(): Promise<UsersIndex["users"]> {
   return [];
 }
 
-// Load seed users from JSON files
+// Load seed users from JSON files into memory cache (no localStorage)
 export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
   if (typeof window === "undefined") {
     return { usersLoaded: 0 };
+  }
+
+  // If already loaded, return cached count
+  if (seedUsersCache.length > 0) {
+    return { usersLoaded: seedUsersCache.length };
   }
 
   try {
@@ -1308,9 +1322,7 @@ export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
       return { usersLoaded: 0 };
     }
 
-    const existingUsers = JSON.parse(localStorage.getItem(KEYS.users) || "[]");
-    const existingEdipis = new Set(existingUsers.map((u: StoredUser) => u.edipi));
-    let usersLoaded = 0;
+    const loadedUsers: SeedUserWithPassword[] = [];
 
     // Fetch each user file in parallel
     const fetchPromises = availableSeedUsers.map(async (userInfo) => {
@@ -1319,7 +1331,7 @@ export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
         console.warn(`Failed to fetch user ${userInfo.edipi_encrypted}: ${response.status}`);
         return null;
       }
-      const userData: SeedUserRecord = await response.json();
+      const userData: SeedUserRecord & { password_hash?: string } = await response.json();
       return userData;
     });
 
@@ -1331,31 +1343,24 @@ export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
       // Decrypt EDIPI
       const decryptedEdipi = decryptEdipi(userData.edipi_encrypted);
 
-      // Skip if user already exists
-      if (existingEdipis.has(decryptedEdipi)) {
-        continue;
-      }
-
-      // Add user with decrypted EDIPI (no password in seed data)
-      const newUser: StoredUser = {
+      // Add user with decrypted EDIPI to cache
+      const user: SeedUserWithPassword = {
         id: userData.id,
         edipi: decryptedEdipi,
         email: userData.email,
         personnel_id: userData.personnel_id || null,
         roles: userData.roles,
         created_at: userData.created_at,
+        password_hash: userData.password_hash,
       };
-      existingUsers.push(newUser);
-      existingEdipis.add(decryptedEdipi);
-      usersLoaded++;
+      loadedUsers.push(user);
     }
 
-    if (usersLoaded > 0) {
-      localStorage.setItem(KEYS.users, JSON.stringify(existingUsers));
-      console.log(`Seed users loaded: ${usersLoaded}`);
-    }
+    // Populate the in-memory cache
+    populateSeedUserCache(loadedUsers);
+    console.log(`Seed users loaded into memory: ${loadedUsers.length}`);
 
-    return { usersLoaded };
+    return { usersLoaded: loadedUsers.length };
   } catch (error) {
     console.error("Failed to load seed users:", error);
     return { usersLoaded: 0 };
