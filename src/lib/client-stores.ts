@@ -11,6 +11,47 @@ import type {
   Qualification,
 } from "@/types";
 
+// ============ EDIPI Encryption ============
+// Simple XOR-based encryption for EDIPIs in JSON files
+// Key is derived from app identifier - provides obfuscation, not military-grade security
+
+const EDIPI_KEY = "DutySync2024"; // Encryption key
+
+// Encrypt an EDIPI for storage in JSON
+export function encryptEdipi(edipi: string): string {
+  if (!edipi) return "";
+  let result = "";
+  for (let i = 0; i < edipi.length; i++) {
+    const charCode = edipi.charCodeAt(i) ^ EDIPI_KEY.charCodeAt(i % EDIPI_KEY.length);
+    result += String.fromCharCode(charCode);
+  }
+  // Base64 encode to make it JSON-safe
+  return btoa(result);
+}
+
+// Decrypt an EDIPI from JSON storage
+export function decryptEdipi(encrypted: string): string {
+  if (!encrypted) return "";
+  try {
+    const decoded = atob(encrypted);
+    let result = "";
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i) ^ EDIPI_KEY.charCodeAt(i % EDIPI_KEY.length);
+      result += String.fromCharCode(charCode);
+    }
+    return result;
+  } catch {
+    // If decryption fails, assume it's already decrypted (legacy data)
+    return encrypted;
+  }
+}
+
+// Check if a value looks like an encrypted EDIPI (base64 encoded)
+function isEncryptedEdipi(value: string): boolean {
+  // Encrypted EDIPIs are base64 and won't be 10 digits
+  return value.length !== 10 || !/^\d{10}$/.test(value);
+}
+
 // LocalStorage keys
 const KEYS = {
   units: "dutysync_units",
@@ -105,9 +146,11 @@ export async function loadSeedDataIfNeeded(): Promise<{
       if (personnelResponse.ok) {
         const personnelData = await personnelResponse.json();
         if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
-          // Add timestamps to personnel records
+          // Decrypt EDIPIs and add timestamps to personnel records
           const personnelWithDates = personnelData.personnel.map((p: Personnel) => ({
             ...p,
+            // Decrypt service_id (EDIPI) if it's encrypted
+            service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
             created_at: p.created_at || new Date(),
             updated_at: p.updated_at || new Date(),
           }));
@@ -159,8 +202,11 @@ export async function loadRucData(ruc: string): Promise<{
     if (personnelResponse.ok) {
       const personnelData = await personnelResponse.json();
       if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
+        // Decrypt EDIPIs and add timestamps
         const personnelWithDates = personnelData.personnel.map((p: Personnel) => ({
           ...p,
+          // Decrypt service_id (EDIPI) if it's encrypted
+          service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
           created_at: p.created_at || new Date(),
           updated_at: p.updated_at || new Date(),
         }));
