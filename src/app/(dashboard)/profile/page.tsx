@@ -159,6 +159,8 @@ export default function ProfilePage() {
                         ? "bg-highlight/20 text-highlight"
                         : role.role_name === "Unit Admin"
                         ? "bg-primary/20 text-blue-400"
+                        : role.role_name.includes("Manager")
+                        ? "bg-success/20 text-success"
                         : "bg-foreground-muted/20 text-foreground-muted"
                     }`}
                   >

@@ -199,7 +199,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem("dutysync_user");
       if (stored) {
         try {
-          setUser(JSON.parse(stored));
+          const sessionUser: SessionUser = JSON.parse(stored);
+
+          // Refresh roles from seed data to pick up any changes
+          const seedUser = getSeedUserByEdipi(sessionUser.edipi);
+          if (seedUser) {
+            const refreshedRoles: UserRole[] = [];
+            const userIsAppAdminByEdipi = isAppAdmin(seedUser.edipi);
+
+            // Check if user's service ID matches App Admin EDIPI
+            if (userIsAppAdminByEdipi) {
+              refreshedRoles.push(createRole(seedUser.id, ROLE_NAMES.APP_ADMIN));
+            }
+
+            // Add stored roles from seed data
+            if (seedUser.roles && Array.isArray(seedUser.roles)) {
+              seedUser.roles.forEach((role) => {
+                const isStoredAppAdminRole = role.role_name === ROLE_NAMES.APP_ADMIN;
+                if (isStoredAppAdminRole && userIsAppAdminByEdipi) {
+                  return; // Skip duplicate
+                }
+                refreshedRoles.push(createRole(
+                  seedUser.id,
+                  role.role_name as RoleName,
+                  role.scope_unit_id || null,
+                  role.id,
+                  role.created_at
+                ));
+              });
+            }
+
+            // If no roles, give Standard User
+            if (refreshedRoles.length === 0) {
+              refreshedRoles.push(createRole(seedUser.id, ROLE_NAMES.STANDARD_USER));
+            }
+
+            // Update session with refreshed roles
+            sessionUser.roles = refreshedRoles;
+            sessionUser.can_approve_non_availability = seedUser.can_approve_non_availability || false;
+
+            // Save refreshed session back to localStorage
+            localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
+          }
+
+          setUser(sessionUser);
         } catch (error) {
           console.error("Failed to parse user session from localStorage:", error);
           localStorage.removeItem("dutysync_user");
