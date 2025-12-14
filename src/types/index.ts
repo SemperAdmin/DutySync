@@ -129,4 +129,11 @@ export interface SessionUser {
   email: string;
   personnel_id: string | null;
   roles: UserRole[];
+  // Display info from personnel record (populated on login if EDIPI matches)
+  displayName?: string; // e.g., "SGT SMITH"
+  rank?: string;
+  firstName?: string;
+  lastName?: string;
+  unitId?: string;
+  unitName?: string;
 }

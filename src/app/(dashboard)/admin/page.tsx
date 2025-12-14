@@ -38,7 +38,7 @@ export default function AdminDashboard() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
           <p className="text-foreground-muted mt-1">
-            Welcome back, {user?.edipi}
+            Welcome back, {user?.displayName || user?.edipi}
           </p>
         </div>
         <Card>

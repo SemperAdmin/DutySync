@@ -265,8 +265,8 @@ export default function DashboardLayout({
           {/* User info & logout */}
           <div className="p-4 border-t border-border">
             <div className="mb-3">
-              <p className="text-sm font-medium text-foreground truncate font-mono">
-                {user?.edipi || user?.email}
+              <p className="text-sm font-medium text-foreground truncate">
+                {user?.displayName || user?.edipi || user?.email}
               </p>
               <p className="text-xs text-foreground-muted">
                 {user?.roles?.[0]?.role_name || "Standard User"}
