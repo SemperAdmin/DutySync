@@ -1,0 +1,64 @@
+name: Delete User
+
+on:
+  workflow_dispatch:
+    inputs:
+      user_id:
+        description: 'User ID (UUID from user file)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  delete-user:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ inputs.user_id }}" ]; then
+            echo "Error: user_id is required"
+            exit 1
+          fi
+
+      - name: Check user file exists
+        id: user-check
+        run: |
+          USER_FILE="public/data/user/${{ inputs.user_id }}.json"
+          if [ -f "$USER_FILE" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "User file found: $USER_FILE"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Warning: User file not found: $USER_FILE"
+          fi
+
+      - name: Delete user file
+        if: steps.user-check.outputs.exists == 'true'
+        run: |
+          USER_FILE="public/data/user/${{ inputs.user_id }}.json"
+          rm "$USER_FILE"
+          echo "Deleted user file: $USER_FILE"
+
+      - name: Commit and push changes
+        if: steps.user-check.outputs.exists == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -A
+          git diff --cached --quiet || git commit -m "chore: Delete user account (${{ inputs.user_id }})"
+          git push
+
+      - name: Output result
+        run: |
+          if [ "${{ steps.user-check.outputs.exists }}" == "true" ]; then
+            echo "::notice::User deleted successfully: ${{ inputs.user_id }}"
+          else
+            echo "::notice::User file was already deleted or did not exist: ${{ inputs.user_id }}"
+          fi
