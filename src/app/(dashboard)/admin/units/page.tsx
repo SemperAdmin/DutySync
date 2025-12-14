@@ -10,6 +10,12 @@ import Card, {
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import type { UnitSection, HierarchyLevel } from "@/types";
+import {
+  getUnitSections,
+  createUnitSection,
+  updateUnitSection,
+  deleteUnitSection,
+} from "@/lib/client-stores";
 
 export default function UnitsPage() {
   const [units, setUnits] = useState<UnitSection[]>([]);
@@ -18,16 +24,10 @@ export default function UnitsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState<UnitSection | null>(null);
 
-  const fetchUnits = useCallback(async () => {
+  const fetchUnits = useCallback(() => {
     try {
-      const response = await fetch("/api/units");
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch units");
-      }
-
-      setUnits(data.units || []);
+      const data = getUnitSections();
+      setUnits(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -39,17 +39,11 @@ export default function UnitsPage() {
     fetchUnits();
   }, [fetchUnits]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm("Are you sure you want to delete this unit?")) return;
 
     try {
-      const response = await fetch(`/api/units/${id}`, { method: "DELETE" });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to delete unit");
-      }
-
+      deleteUnitSection(id);
       fetchUnits();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -361,31 +355,28 @@ function UnitForm({
 
   const possibleParents = getPossibleParents();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const url = isEditing ? `/api/units/${unit.id}` : "/api/units";
-      const method = isEditing ? "PUT" : "POST";
-
-      const body = {
+      const unitData = {
         unit_name: formData.unit_name,
-        hierarchy_level: formData.hierarchy_level,
+        hierarchy_level: formData.hierarchy_level as HierarchyLevel,
         parent_id: formData.parent_id || null,
       };
 
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to save unit");
+      if (isEditing && unit) {
+        updateUnitSection(unit.id, unitData);
+      } else {
+        const newUnit: UnitSection = {
+          id: crypto.randomUUID(),
+          ...unitData,
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        createUnitSection(newUnit);
       }
 
       onSuccess();

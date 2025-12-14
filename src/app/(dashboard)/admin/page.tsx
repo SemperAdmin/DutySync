@@ -1,11 +1,12 @@
-import { auth, getSessionUser } from "@/lib/auth";
+"use client";
+
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+import { useAuth } from "@/lib/client-auth";
 
-export default async function AdminDashboard() {
-  const session = await auth();
-  const user = getSessionUser(session);
+export default function AdminDashboard() {
+  const { user } = useAuth();
   const isAdmin = user?.roles?.some(
     (role) => role.role_name === "App Admin"
   );

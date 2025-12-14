@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Button from "@/components/ui/Button";
-import type { UnitSection, DutySlot, DutyType, Personnel } from "@/types";
-
-interface EnrichedSlot extends DutySlot {
-  duty_type: { id: string; duty_name: string; unit_section_id: string } | null;
-  personnel: { id: string; first_name: string; last_name: string; rank: string } | null;
-}
+import type { UnitSection } from "@/types";
+import {
+  getUnitSections,
+  getEnrichedSlots,
+  type EnrichedSlot,
+} from "@/lib/client-stores";
 
 export default function RosterPage() {
   const [slots, setSlots] = useState<EnrichedSlot[]>([]);
@@ -50,28 +50,17 @@ export default function RosterPage() {
     fetchData();
   }, [selectedUnit, startDate, endDate]);
 
-  async function fetchData() {
+  function fetchData() {
     try {
       setLoading(true);
 
       // Fetch units
-      const unitsRes = await fetch("/api/units");
-      if (unitsRes.ok) {
-        const data = await unitsRes.json();
-        setUnits(data.units || []);
-      }
+      const unitsData = getUnitSections();
+      setUnits(unitsData);
 
       // Fetch duty slots for the date range
-      let url = `/api/duty-slots?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`;
-      if (selectedUnit) {
-        url += `&unit_id=${selectedUnit}`;
-      }
-
-      const slotsRes = await fetch(url);
-      if (slotsRes.ok) {
-        const data = await slotsRes.json();
-        setSlots(data.slots || []);
-      }
+      const slotsData = getEnrichedSlots(startDate, endDate, selectedUnit || undefined);
+      setSlots(slotsData);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -138,13 +127,35 @@ export default function RosterPage() {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
-    let url = `/api/export?start_date=${firstDay.toISOString()}&end_date=${lastDay.toISOString()}&format=csv`;
-    if (selectedUnit) {
-      url += `&unit_id=${selectedUnit}`;
-    }
+    const exportSlots = getEnrichedSlots(firstDay, lastDay, selectedUnit || undefined);
 
-    // Trigger download
-    window.open(url, "_blank");
+    // Generate CSV content
+    const headers = ["Date", "Day", "Duty Type", "Personnel", "Rank", "Points", "Status"];
+    const rows = exportSlots.map((slot) => {
+      const date = new Date(slot.date_assigned);
+      return [
+        date.toISOString().split("T")[0],
+        date.toLocaleDateString("en-US", { weekday: "long" }),
+        slot.duty_type?.duty_name || "Unknown",
+        slot.personnel ? `${slot.personnel.last_name}, ${slot.personnel.first_name}` : "Unassigned",
+        slot.personnel?.rank || "",
+        slot.duty_points_earned.toFixed(1),
+        slot.status,
+      ];
+    });
+
+    const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+
+    // Download the file
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `duty-roster-${year}-${String(month + 1).padStart(2, "0")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   // Print-friendly view (for PDF)

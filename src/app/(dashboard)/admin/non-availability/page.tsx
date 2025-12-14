@@ -3,18 +3,17 @@
 import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import type { NonAvailability, Personnel } from "@/types";
-
-interface EnrichedRequest extends NonAvailability {
-  personnel: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    rank: string;
-  } | null;
-}
+import {
+  getAllPersonnel,
+  getEnrichedNonAvailability,
+  createNonAvailability,
+  updateNonAvailability,
+  deleteNonAvailability as deleteNonAvailabilityFn,
+  type EnrichedNonAvailability,
+} from "@/lib/client-stores";
 
 export default function NonAvailabilityAdminPage() {
-  const [requests, setRequests] = useState<EnrichedRequest[]>([]);
+  const [requests, setRequests] = useState<EnrichedNonAvailability[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
@@ -35,28 +34,17 @@ export default function NonAvailabilityAdminPage() {
     fetchData();
   }, [statusFilter]);
 
-  async function fetchData() {
+  function fetchData() {
     try {
       setLoading(true);
 
       // Fetch personnel for the add modal
-      const personnelRes = await fetch("/api/personnel");
-      if (personnelRes.ok) {
-        const data = await personnelRes.json();
-        setPersonnel(data.personnel || []);
-      }
+      const personnelData = getAllPersonnel();
+      setPersonnel(personnelData);
 
       // Fetch requests with status filter
-      let url = "/api/non-availability";
-      if (statusFilter) {
-        url += `?status=${statusFilter}`;
-      }
-
-      const requestsRes = await fetch(url);
-      if (requestsRes.ok) {
-        const data = await requestsRes.json();
-        setRequests(data.requests || []);
-      }
+      const requestsData = getEnrichedNonAvailability(statusFilter || undefined);
+      setRequests(requestsData);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -64,22 +52,11 @@ export default function NonAvailabilityAdminPage() {
     }
   }
 
-  async function handleStatusChange(requestId: string, newStatus: "approved" | "rejected") {
+  function handleStatusChange(requestId: string, newStatus: "approved" | "rejected") {
     setProcessingId(requestId);
 
     try {
-      const res = await fetch(`/api/non-availability/${requestId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update request");
-      }
-
-      // Refresh the list
+      updateNonAvailability(requestId, { status: newStatus });
       fetchData();
     } catch (err) {
       console.error("Error updating request:", err);
@@ -88,21 +65,13 @@ export default function NonAvailabilityAdminPage() {
     }
   }
 
-  async function handleDelete(requestId: string) {
+  function handleDelete(requestId: string) {
     if (!confirm("Are you sure you want to delete this request?")) return;
 
     setProcessingId(requestId);
 
     try {
-      const res = await fetch(`/api/non-availability/${requestId}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete request");
-      }
-
+      deleteNonAvailabilityFn(requestId);
       fetchData();
     } catch (err) {
       console.error("Error deleting request:", err);
@@ -111,22 +80,24 @@ export default function NonAvailabilityAdminPage() {
     }
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
     try {
-      const res = await fetch("/api/non-availability", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const newRequest: NonAvailability = {
+        id: crypto.randomUUID(),
+        personnel_id: formData.personnel_id,
+        start_date: new Date(formData.start_date),
+        end_date: new Date(formData.end_date),
+        reason: formData.reason,
+        status: "approved", // Admin-created requests are auto-approved
+        approved_by: "admin", // Admin-created requests
+        created_at: new Date(),
+      };
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to create request");
-      }
+      createNonAvailability(newRequest);
 
       setIsAddModalOpen(false);
       setFormData({ personnel_id: "", start_date: "", end_date: "", reason: "" });

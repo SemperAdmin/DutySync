@@ -1,9 +1,10 @@
-import { auth, getSessionUser } from "@/lib/auth";
-import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+"use client";
 
-export default async function ProfilePage() {
-  const session = await auth();
-  const user = getSessionUser(session);
+import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { useAuth } from "@/lib/client-auth";
+
+export default function ProfilePage() {
+  const { user } = useAuth();
 
   return (
     <div className="space-y-6">
