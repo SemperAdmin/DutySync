@@ -12,6 +12,19 @@ import type {
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 
+// Auto-save notification function (lazy import to avoid circular dependency)
+let notifyAutoSave: ((dataType: string) => void) | null = null;
+
+export function setAutoSaveNotifier(notifier: (dataType: string) => void): void {
+  notifyAutoSave = notifier;
+}
+
+function triggerAutoSave(dataType: string): void {
+  if (notifyAutoSave) {
+    notifyAutoSave(dataType);
+  }
+}
+
 // ============ Base Path Helper ============
 // Get the base path for fetching data files in production (GitHub Pages)
 function getBasePath(): string {
@@ -541,6 +554,7 @@ export function createUnitSection(unit: UnitSection): UnitSection {
   const units = getFromStorage<UnitSection>(KEYS.units);
   units.push(unit);
   saveToStorage(KEYS.units, units);
+  triggerAutoSave('unitStructure');
   return unit;
 }
 
@@ -550,6 +564,7 @@ export function updateUnitSection(id: string, updates: Partial<UnitSection>): Un
   if (idx === -1) return null;
   units[idx] = { ...units[idx], ...updates, updated_at: new Date() };
   saveToStorage(KEYS.units, units);
+  triggerAutoSave('unitStructure');
   return units[idx];
 }
 
@@ -569,6 +584,7 @@ export function deleteUnitSection(id: string): boolean {
   const filtered = allUnits.filter((u) => u.id !== id);
   if (filtered.length === allUnits.length) return false;
   saveToStorage(KEYS.units, filtered);
+  triggerAutoSave('unitStructure');
   return true;
 }
 
@@ -606,6 +622,7 @@ export function createPersonnel(person: Personnel): Personnel {
   const personnel = getFromStorage<Personnel>(KEYS.personnel);
   personnel.push(person);
   saveToStorage(KEYS.personnel, personnel);
+  triggerAutoSave('unitMembers');
   return person;
 }
 
@@ -615,6 +632,7 @@ export function updatePersonnel(id: string, updates: Partial<Personnel>): Person
   if (idx === -1) return null;
   personnel[idx] = { ...personnel[idx], ...updates, updated_at: new Date() };
   saveToStorage(KEYS.personnel, personnel);
+  triggerAutoSave('unitMembers');
   return personnel[idx];
 }
 
@@ -623,6 +641,7 @@ export function deletePersonnel(id: string): boolean {
   const filtered = personnel.filter((p) => p.id !== id);
   if (filtered.length === personnel.length) return false;
   saveToStorage(KEYS.personnel, filtered);
+  triggerAutoSave('unitMembers');
   return true;
 }
 
@@ -645,6 +664,7 @@ export function createDutyType(dutyType: DutyType): DutyType {
   const types = getFromStorage<DutyType>(KEYS.dutyTypes);
   types.push(dutyType);
   saveToStorage(KEYS.dutyTypes, types);
+  triggerAutoSave('dutyTypes');
   return dutyType;
 }
 
@@ -654,6 +674,7 @@ export function updateDutyType(id: string, updates: Partial<DutyType>): DutyType
   if (idx === -1) return null;
   types[idx] = { ...types[idx], ...updates, updated_at: new Date() };
   saveToStorage(KEYS.dutyTypes, types);
+  triggerAutoSave('dutyTypes');
   return types[idx];
 }
 
@@ -662,6 +683,7 @@ export function deleteDutyType(id: string): boolean {
   const filtered = types.filter((dt) => dt.id !== id);
   if (filtered.length === types.length) return false;
   saveToStorage(KEYS.dutyTypes, filtered);
+  triggerAutoSave('dutyTypes');
   return true;
 }
 
@@ -674,6 +696,7 @@ export function createDutyValue(dutyValue: DutyValue): DutyValue {
   const values = getFromStorage<DutyValue>(KEYS.dutyValues);
   values.push(dutyValue);
   saveToStorage(KEYS.dutyValues, values);
+  triggerAutoSave('dutyTypes');
   return dutyValue;
 }
 
@@ -683,6 +706,7 @@ export function updateDutyValue(id: string, updates: Partial<DutyValue>): DutyVa
   if (idx === -1) return null;
   values[idx] = { ...values[idx], ...updates };
   saveToStorage(KEYS.dutyValues, values);
+  triggerAutoSave('dutyTypes');
   return values[idx];
 }
 
@@ -701,6 +725,7 @@ export function addDutyRequirement(dutyTypeId: string, qualName: string): DutyRe
   };
   requirements.push(requirement);
   saveToStorage(KEYS.dutyRequirements, requirements);
+  triggerAutoSave('dutyTypes');
   return requirement;
 }
 
@@ -708,6 +733,7 @@ export function clearDutyRequirements(dutyTypeId: string): void {
   const requirements = getFromStorage<DutyRequirement>(KEYS.dutyRequirements);
   const filtered = requirements.filter((dr) => dr.duty_type_id !== dutyTypeId);
   saveToStorage(KEYS.dutyRequirements, filtered);
+  triggerAutoSave('dutyTypes');
 }
 
 // Duty Slots
@@ -736,6 +762,7 @@ export function createDutySlot(slot: DutySlot): DutySlot {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   slots.push(slot);
   saveToStorage(KEYS.dutySlots, slots);
+  triggerAutoSave('dutyRoster');
   return slot;
 }
 
@@ -745,6 +772,7 @@ export function updateDutySlot(id: string, updates: Partial<DutySlot>): DutySlot
   if (idx === -1) return null;
   slots[idx] = { ...slots[idx], ...updates, updated_at: new Date() };
   saveToStorage(KEYS.dutySlots, slots);
+  triggerAutoSave('dutyRoster');
   return slots[idx];
 }
 
@@ -753,6 +781,7 @@ export function deleteDutySlot(id: string): boolean {
   const filtered = slots.filter((s) => s.id !== id);
   if (filtered.length === slots.length) return false;
   saveToStorage(KEYS.dutySlots, filtered);
+  triggerAutoSave('dutyRoster');
   return true;
 }
 
@@ -771,6 +800,7 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
     return false;
   });
   saveToStorage(KEYS.dutySlots, filtered);
+  if (count > 0) triggerAutoSave('dutyRoster');
   return count;
 }
 
@@ -806,6 +836,7 @@ export function createNonAvailability(na: NonAvailability): NonAvailability {
   const list = getFromStorage<NonAvailability>(KEYS.nonAvailability);
   list.push(na);
   saveToStorage(KEYS.nonAvailability, list);
+  triggerAutoSave('nonAvailability');
   return na;
 }
 
@@ -815,6 +846,7 @@ export function updateNonAvailability(id: string, updates: Partial<NonAvailabili
   if (idx === -1) return null;
   list[idx] = { ...list[idx], ...updates };
   saveToStorage(KEYS.nonAvailability, list);
+  triggerAutoSave('nonAvailability');
   return list[idx];
 }
 
@@ -823,6 +855,7 @@ export function deleteNonAvailability(id: string): boolean {
   const filtered = list.filter((na) => na.id !== id);
   if (filtered.length === list.length) return false;
   saveToStorage(KEYS.nonAvailability, filtered);
+  triggerAutoSave('nonAvailability');
   return true;
 }
 
@@ -848,7 +881,19 @@ export function addQualification(personnelId: string, qualName: string): Qualifi
   };
   quals.push(qual);
   saveToStorage(KEYS.qualifications, quals);
+  triggerAutoSave('qualifications');
   return qual;
+}
+
+export function removeQualification(personnelId: string, qualName: string): boolean {
+  const quals = getFromStorage<Qualification>(KEYS.qualifications);
+  const filtered = quals.filter(
+    (q) => !(q.personnel_id === personnelId && q.qual_name === qualName)
+  );
+  if (filtered.length === quals.length) return false;
+  saveToStorage(KEYS.qualifications, filtered);
+  triggerAutoSave('qualifications');
+  return true;
 }
 
 // ============ Enriched Types Helpers ============

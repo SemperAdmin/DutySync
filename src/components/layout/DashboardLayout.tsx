@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/client-auth";
 import Logo from "@/components/ui/Logo";
 import Button from "@/components/ui/Button";
 import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
+import AutoSaveStatus from "@/components/AutoSaveStatus";
 import type { SessionUser, RoleName } from "@/types";
 
 interface DashboardLayoutProps {
@@ -423,8 +424,11 @@ export default function DashboardLayout({
               </svg>
             </button>
 
-            {/* Right side actions - show role badge and view toggle */}
+            {/* Right side actions - auto-save status, role badge and view toggle */}
             <div className="flex items-center gap-3 ml-auto">
+              {/* Auto-save status indicator */}
+              <AutoSaveStatus ruc="02301" showControls={actuallyIsAdmin} />
+
               {/* View mode toggle for App Admins */}
               {actuallyIsAdmin && (
                 <button
