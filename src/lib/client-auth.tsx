@@ -149,6 +149,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           unitId = personnel.unit_section_id;
           const unit = getUnitSectionById(unitId);
           unitName = unit?.unit_name;
+
+          // Update stored user with personnel_id if not already linked
+          if (!found.personnel_id) {
+            const userIndex = users.findIndex((u: { id: string }) => u.id === found.id);
+            if (userIndex !== -1) {
+              users[userIndex].personnel_id = personnel.id;
+              localStorage.setItem("dutysync_users", JSON.stringify(users));
+            }
+          }
         }
 
         const sessionUser: SessionUser = {
@@ -194,11 +203,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "EDIPI already registered" };
       }
 
+      // Look up personnel record by EDIPI to link user to their personnel data
+      // Personnel EDIPIs are already decrypted in localStorage after loading from JSON
+      const personnel = getPersonnelByEdipi(edipi);
+
       const newUser = {
         id: `user-${Date.now()}`,
         edipi,
         email,
         password,
+        personnel_id: personnel?.id || null, // Link to personnel record if found
         roles: [{ role_name: ROLE_NAMES.STANDARD_USER, scope_unit_id: null, created_at: new Date().toISOString() }],
         created_at: new Date().toISOString(),
       };

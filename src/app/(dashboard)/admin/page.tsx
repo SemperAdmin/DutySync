@@ -13,6 +13,7 @@ import {
   deleteUnitSection,
   getAllUsers,
   assignUserRole,
+  deleteUser,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
 
@@ -559,6 +560,7 @@ function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserDa
   const [error, setError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
   const [selectedUnit, setSelectedUnit] = useState<string>("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isUserAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
@@ -569,6 +571,21 @@ function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserDa
     try {
       const success = assignUserRole(user.id, selectedRole, selectedRole === "Unit Admin" ? selectedUnit : null);
       if (!success) throw new Error("Failed to assign role");
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteUser = () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const success = deleteUser(user.id);
+      if (!success) throw new Error("Failed to delete user");
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -631,6 +648,50 @@ function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserDa
           {isUserAppAdmin && (
             <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
               This user is an App Admin (assigned via EDIPI). Role changes for App Admins require updating the APP_ADMIN environment variable.
+            </div>
+          )}
+
+          {/* Delete Account Section */}
+          {!isUserAppAdmin && (
+            <div className="pt-4 border-t border-border">
+              {!showDeleteConfirm ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isSubmitting}
+                  className="w-full text-error hover:bg-error/10"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete Account
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
+                    Are you sure you want to delete this account? This action cannot be undone.
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isSubmitting}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={handleDeleteUser}
+                      isLoading={isSubmitting}
+                      disabled={isSubmitting}
+                      className="flex-1 bg-error text-white hover:bg-error/90"
+                    >
+                      Confirm Delete
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
