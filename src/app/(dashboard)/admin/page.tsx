@@ -1,338 +1,610 @@
 "use client";
 
-import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import { useAuth } from "@/lib/client-auth";
+import type { UnitSection, HierarchyLevel, RoleName } from "@/types";
+import {
+  getUnitSections,
+  createUnitSection,
+  updateUnitSection,
+  deleteUnitSection,
+  getAllUsers,
+  assignUserRole,
+} from "@/lib/client-stores";
+
+interface UserData {
+  id: string;
+  username: string;
+  email: string;
+  serviceId?: string | null;
+  personnel_id: string | null;
+  roles: Array<{
+    id?: string;
+    role_name: RoleName;
+    scope_unit_id: string | null;
+  }>;
+}
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const isAdmin = user?.roles?.some(
-    (role) => role.role_name === "App Admin"
-  );
+  const isAppAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
+  const [activeTab, setActiveTab] = useState<"units" | "users">("units");
+
+  if (!isAppAdmin) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-foreground-muted mt-1">
+            Welcome back, {user?.username}
+          </p>
+        </div>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-warning/20 flex items-center justify-center">
+              <svg className="w-8 h-8 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-foreground mb-2">Access Restricted</h2>
+            <p className="text-foreground-muted max-w-md mx-auto">
+              You don&apos;t have App Admin privileges. Contact your administrator if you need elevated access.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-foreground">App Admin Dashboard</h1>
         <p className="text-foreground-muted mt-1">
-          Welcome back, {user?.username}
+          Manage all units and users across the application
         </p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Personnel"
-          value="--"
-          description="Active service members"
-          icon={
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-          }
-        />
-        <StatCard
-          title="Unit Sections"
-          value="--"
-          description="Active units"
-          icon={
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-              />
-            </svg>
-          }
-        />
-        <StatCard
-          title="Upcoming Duties"
-          value="--"
-          description="Next 7 days"
-          icon={
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          }
-        />
-        <StatCard
-          title="Your Duty Score"
-          value="--"
-          description="Accumulated points"
-          icon={
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
-              />
-            </svg>
-          }
-        />
+      {/* Tabs */}
+      <div className="border-b border-border">
+        <nav className="flex gap-4" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab("units")}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "units"
+                ? "border-primary text-primary"
+                : "border-transparent text-foreground-muted hover:text-foreground hover:border-border"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              All Units
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("users")}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "users"
+                ? "border-primary text-primary"
+                : "border-transparent text-foreground-muted hover:text-foreground hover:border-border"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              All Users
+            </div>
+          </button>
+        </nav>
       </div>
 
-      {/* Admin Quick Actions */}
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle>App Admin Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link href="/admin/units">
-                <div className="p-4 rounded-lg border border-border hover:border-primary hover:bg-surface-elevated transition-colors cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/20">
-                      <svg
-                        className="w-5 h-5 text-highlight"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-foreground">
-                        Manage Units
-                      </h3>
-                      <p className="text-sm text-foreground-muted">
-                        Add or edit unit sections
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/admin/users">
-                <div className="p-4 rounded-lg border border-border hover:border-primary hover:bg-surface-elevated transition-colors cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/20">
-                      <svg
-                        className="w-5 h-5 text-highlight"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-foreground">
-                        Manage Users
-                      </h3>
-                      <p className="text-sm text-foreground-muted">
-                        Assign roles and permissions
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-
-              <div className="p-4 rounded-lg border border-border hover:border-primary hover:bg-surface-elevated transition-colors cursor-pointer opacity-50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/20">
-                    <svg
-                      className="w-5 h-5 text-highlight"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-foreground">Import Data</h3>
-                    <p className="text-sm text-foreground-muted">
-                      Upload personnel CSV (Coming Soon)
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Getting Started Guide */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Getting Started</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <SetupStep
-              number={1}
-              title="Set up Unit Structure"
-              description="Define your battalion, companies, platoons, and sections"
-              completed={false}
-              action={
-                isAdmin ? (
-                  <Link href="/admin/units">
-                    <Button variant="secondary" size="sm">
-                      Configure
-                    </Button>
-                  </Link>
-                ) : null
-              }
-            />
-            <SetupStep
-              number={2}
-              title="Import Personnel"
-              description="Upload your unit's personnel roster via CSV"
-              completed={false}
-              disabled
-            />
-            <SetupStep
-              number={3}
-              title="Configure Duty Types"
-              description="Set up duty types with requirements and point values"
-              completed={false}
-              disabled
-            />
-            <SetupStep
-              number={4}
-              title="Generate Roster"
-              description="Use Duty Thruster to auto-generate fair schedules"
-              completed={false}
-              disabled
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tab Content */}
+      {activeTab === "units" && <UnitsTab />}
+      {activeTab === "users" && <UsersTab />}
     </div>
   );
 }
 
-function StatCard({
+// ============ Units Tab ============
+function UnitsTab() {
+  const [units, setUnits] = useState<UnitSection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<UnitSection | null>(null);
+
+  const fetchUnits = useCallback(() => {
+    try {
+      const data = getUnitSections();
+      setUnits(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUnits();
+  }, [fetchUnits]);
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Are you sure you want to delete this unit?")) return;
+    try {
+      deleteUnitSection(id);
+      fetchUnits();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    }
+  };
+
+  const battalions = units.filter((u) => u.hierarchy_level === "battalion");
+  const companies = units.filter((u) => u.hierarchy_level === "company");
+  const platoons = units.filter((u) => u.hierarchy_level === "platoon");
+  const sections = units.filter((u) => u.hierarchy_level === "section");
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Add Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">Unit Sections</h2>
+          <p className="text-sm text-foreground-muted">{units.length} total units</p>
+        </div>
+        <Button variant="accent" onClick={() => setShowAddForm(true)}>
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Add Unit
+        </Button>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-lg bg-error/10 border border-error/20 text-error">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 text-error hover:underline">Dismiss</button>
+        </div>
+      )}
+
+      {(showAddForm || editingUnit) && (
+        <UnitForm
+          unit={editingUnit}
+          units={units}
+          onClose={() => { setShowAddForm(false); setEditingUnit(null); }}
+          onSuccess={() => { setShowAddForm(false); setEditingUnit(null); fetchUnits(); }}
+        />
+      )}
+
+      {units.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/20 flex items-center justify-center">
+              <svg className="w-8 h-8 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-foreground mb-2">No Units Configured</h2>
+            <p className="text-foreground-muted mb-6">Add your first unit to get started.</p>
+            <Button variant="accent" onClick={() => setShowAddForm(true)}>Add Your First Unit</Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {battalions.length > 0 && <UnitHierarchyCard title="Battalions" level="battalion" units={battalions} allUnits={units} onEdit={setEditingUnit} onDelete={handleDelete} />}
+          {companies.length > 0 && <UnitHierarchyCard title="Companies" level="company" units={companies} allUnits={units} onEdit={setEditingUnit} onDelete={handleDelete} />}
+          {platoons.length > 0 && <UnitHierarchyCard title="Platoons" level="platoon" units={platoons} allUnits={units} onEdit={setEditingUnit} onDelete={handleDelete} />}
+          {sections.length > 0 && <UnitHierarchyCard title="Sections" level="section" units={sections} allUnits={units} onEdit={setEditingUnit} onDelete={handleDelete} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UnitHierarchyCard({
   title,
-  value,
-  description,
-  icon,
+  level,
+  units,
+  allUnits,
+  onEdit,
+  onDelete,
 }: {
   title: string;
-  value: string;
-  description: string;
-  icon: React.ReactNode;
+  level: HierarchyLevel;
+  units: UnitSection[];
+  allUnits: UnitSection[];
+  onEdit: (unit: UnitSection) => void;
+  onDelete: (id: string) => void;
 }) {
+  const levelColors = {
+    battalion: "bg-highlight/20 text-highlight border-highlight/30",
+    company: "bg-primary/20 text-blue-400 border-primary/30",
+    platoon: "bg-success/20 text-success border-success/30",
+    section: "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30",
+  };
+
+  const getParentName = (parentId: string | null) => {
+    if (!parentId) return null;
+    const parent = allUnits.find((u) => u.id === parentId);
+    return parent?.unit_name || "Unknown";
+  };
+
   return (
     <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-foreground-muted">{title}</p>
-            <p className="text-3xl font-bold text-foreground mt-1">{value}</p>
-            <p className="text-xs text-foreground-muted mt-1">{description}</p>
-          </div>
-          <div className="p-2 rounded-lg bg-primary/20 text-highlight">
-            {icon}
-          </div>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <span className={`px-2 py-0.5 text-xs font-medium rounded border ${levelColors[level]}`}>
+            {level.toUpperCase()}
+          </span>
+          {title}
+          <span className="text-foreground-muted text-sm font-normal">({units.length})</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {units.map((unit) => (
+            <div key={unit.id} className="flex items-center justify-between p-3 rounded-lg bg-surface-elevated border border-border hover:border-border-light transition-colors">
+              <div>
+                <h3 className="font-medium text-foreground">{unit.unit_name}</h3>
+                {unit.parent_id && <p className="text-sm text-foreground-muted">Parent: {getParentName(unit.parent_id)}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => onEdit(unit)}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => onDelete(unit.id)} className="text-error hover:bg-error/10">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function SetupStep({
-  number,
-  title,
-  description,
-  completed,
-  disabled,
-  action,
-}: {
-  number: number;
-  title: string;
-  description: string;
-  completed: boolean;
-  disabled?: boolean;
-  action?: React.ReactNode;
-}) {
+function UnitForm({ unit, units, onClose, onSuccess }: { unit: UnitSection | null; units: UnitSection[]; onClose: () => void; onSuccess: () => void; }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    unit_name: unit?.unit_name || "",
+    hierarchy_level: unit?.hierarchy_level || "battalion",
+    parent_id: unit?.parent_id || "",
+  });
+
+  const isEditing = !!unit;
+
+  const getPossibleParents = () => {
+    switch (formData.hierarchy_level) {
+      case "company": return units.filter((u) => u.hierarchy_level === "battalion");
+      case "platoon": return units.filter((u) => u.hierarchy_level === "company");
+      case "section": return units.filter((u) => u.hierarchy_level === "platoon");
+      default: return [];
+    }
+  };
+
+  const possibleParents = getPossibleParents();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const unitData = {
+        unit_name: formData.unit_name,
+        hierarchy_level: formData.hierarchy_level as HierarchyLevel,
+        parent_id: formData.parent_id || null,
+      };
+
+      if (isEditing && unit) {
+        updateUnitSection(unit.id, unitData);
+      } else {
+        const newUnit: UnitSection = {
+          id: crypto.randomUUID(),
+          ...unitData,
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        createUnitSection(newUnit);
+      }
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div
-      className={`flex items-center gap-4 p-4 rounded-lg border ${
-        disabled
-          ? "border-border opacity-50"
-          : completed
-          ? "border-success/30 bg-success/5"
-          : "border-border"
-      }`}
-    >
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-          completed
-            ? "bg-success text-white"
-            : disabled
-            ? "bg-surface-elevated text-foreground-muted"
-            : "bg-primary text-white"
-        }`}
-      >
-        {completed ? (
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        ) : (
-          number
-        )}
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card variant="elevated" className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>{isEditing ? "Edit Unit" : "Add New Unit"}</CardTitle>
+          <CardDescription>{isEditing ? "Update the unit information" : "Create a new unit"}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">{error}</div>}
+            <Input label="Unit Name" placeholder="e.g., 1st Battalion" value={formData.unit_name} onChange={(e) => setFormData({ ...formData, unit_name: e.target.value })} required disabled={isSubmitting} />
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Hierarchy Level</label>
+              <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={formData.hierarchy_level} onChange={(e) => setFormData({ ...formData, hierarchy_level: e.target.value as HierarchyLevel, parent_id: "" })} disabled={isSubmitting || isEditing}>
+                <option value="battalion">Battalion</option>
+                <option value="company">Company</option>
+                <option value="platoon">Platoon</option>
+                <option value="section">Section</option>
+              </select>
+            </div>
+            {formData.hierarchy_level !== "battalion" && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Parent Unit</label>
+                <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={formData.parent_id} onChange={(e) => setFormData({ ...formData, parent_id: e.target.value })} required disabled={isSubmitting}>
+                  <option value="">Select parent unit...</option>
+                  {possibleParents.map((p) => <option key={p.id} value={p.id}>{p.unit_name}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="flex gap-3 pt-4">
+              <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting} className="flex-1">Cancel</Button>
+              <Button type="submit" variant="accent" isLoading={isSubmitting} disabled={isSubmitting || (formData.hierarchy_level !== "battalion" && possibleParents.length === 0)} className="flex-1">{isEditing ? "Save Changes" : "Add Unit"}</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ============ Users Tab ============
+function UsersTab() {
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [units, setUnits] = useState<UnitSection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+
+  const fetchData = useCallback(() => {
+    try {
+      const usersData = getAllUsers();
+      const unitsData = getUnitSections();
+
+      setUsers(usersData.map(u => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        serviceId: u.serviceId || null,
+        personnel_id: u.personnel_id || null,
+        roles: (u.roles || []).map(r => ({
+          id: r.id,
+          role_name: r.role_name as RoleName,
+          scope_unit_id: r.scope_unit_id,
+        })),
+      })));
+      setUnits(unitsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const getRoleColor = (roleName: RoleName) => {
+    switch (roleName) {
+      case "App Admin": return "bg-highlight/20 text-highlight border-highlight/30";
+      case "Unit Admin": return "bg-primary/20 text-blue-400 border-primary/30";
+      default: return "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30";
+    }
+  };
+
+  const getUnitName = (unitId: string | null) => {
+    if (!unitId) return null;
+    const unit = units.find((u) => u.id === unitId);
+    return unit?.unit_name || "Unknown";
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
-      <div className="flex-1">
-        <h3 className="font-medium text-foreground">{title}</h3>
-        <p className="text-sm text-foreground-muted">{description}</p>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">User Management</h2>
+        <p className="text-sm text-foreground-muted">{users.length} registered users</p>
       </div>
-      {action && !disabled && <div>{action}</div>}
+
+      {error && (
+        <div className="p-4 rounded-lg bg-error/10 border border-error/20 text-error">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 text-error hover:underline">Dismiss</button>
+        </div>
+      )}
+
+      {editingUser && (
+        <RoleAssignmentModal
+          user={editingUser}
+          units={units}
+          onClose={() => setEditingUser(null)}
+          onSuccess={() => { setEditingUser(null); fetchData(); }}
+        />
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Registered Users</CardTitle>
+          <CardDescription>{users.length} user{users.length !== 1 ? "s" : ""} registered</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {users.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-foreground-muted">No users registered yet</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Username</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Email</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">EDIPI</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Roles</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className="border-b border-border hover:bg-surface-elevated">
+                      <td className="py-3 px-4">
+                        <span className="font-medium text-foreground">{user.username}</span>
+                      </td>
+                      <td className="py-3 px-4 text-foreground-muted">{user.email}</td>
+                      <td className="py-3 px-4 text-foreground-muted font-mono text-sm">{user.serviceId || "-"}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex flex-wrap gap-1">
+                          {user.roles.map((role, idx) => (
+                            <span key={idx} className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(role.role_name)}`}>
+                              {role.role_name}
+                              {role.scope_unit_id && <span className="ml-1 opacity-75">({getUnitName(role.scope_unit_id)})</span>}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Button variant="ghost" size="sm" onClick={() => setEditingUser(user)}>
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit Roles
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserData; units: UnitSection[]; onClose: () => void; onSuccess: () => void; }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
+  const [selectedUnit, setSelectedUnit] = useState<string>("");
+
+  const isUserAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
+
+  const handleAssignRole = () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const success = assignUserRole(user.id, selectedRole, selectedRole === "Unit Admin" ? selectedUnit : null);
+      if (!success) throw new Error("Failed to assign role");
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card variant="elevated" className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Manage Roles - {user.username}</CardTitle>
+          <CardDescription>Assign or modify user roles</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">{error}</div>}
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Current Roles</label>
+            <div className="flex flex-wrap gap-2">
+              {user.roles.map((role, idx) => (
+                <span key={idx} className="px-3 py-1 text-sm rounded-lg bg-surface-elevated border border-border">{role.role_name}</span>
+              ))}
+            </div>
+          </div>
+
+          {user.serviceId && (
+            <div className="p-3 rounded-lg bg-surface-elevated border border-border">
+              <label className="block text-sm font-medium text-foreground mb-1">EDIPI</label>
+              <span className="font-mono text-foreground-muted">{user.serviceId}</span>
+            </div>
+          )}
+
+          {!isUserAppAdmin && (
+            <div className="space-y-4 pt-4 border-t border-border">
+              <h4 className="font-medium text-foreground">Assign New Role</h4>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Role Type</label>
+                <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as RoleName)} disabled={isSubmitting}>
+                  <option value="Standard User">Standard User</option>
+                  <option value="Unit Admin">Unit Admin</option>
+                </select>
+              </div>
+
+              {selectedRole === "Unit Admin" && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Unit Scope</label>
+                  <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)} disabled={isSubmitting}>
+                    <option value="">Select a unit...</option>
+                    {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.unit_name} ({unit.hierarchy_level})</option>)}
+                  </select>
+                </div>
+              )}
+
+              <Button variant="accent" onClick={handleAssignRole} isLoading={isSubmitting} disabled={isSubmitting || (selectedRole === "Unit Admin" && !selectedUnit)} className="w-full">
+                Assign Role
+              </Button>
+            </div>
+          )}
+
+          {isUserAppAdmin && (
+            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
+              This user is an App Admin (assigned via EDIPI). Role changes for App Admins require updating the APP_ADMIN environment variable.
+            </div>
+          )}
+
+          <div className="flex justify-end pt-4">
+            <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>Close</Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
