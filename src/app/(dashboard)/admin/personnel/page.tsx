@@ -208,7 +208,7 @@ export default function PersonnelPage() {
                 value={filterUnit}
                 onChange={(e) => setFilterUnit(e.target.value)}
               >
-                <option value="">All Units</option>
+                <option value="">All Sections</option>
                 {units.map((unit) => (
                   <option key={unit.id} value={unit.id}>
                     {unit.unit_name}
