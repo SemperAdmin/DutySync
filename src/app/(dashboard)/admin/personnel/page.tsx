@@ -488,7 +488,8 @@ function ImportModal({
 
         const unitStructure = exportUnitStructure();
         const unitMembers = exportUnitMembers();
-        const pushResult = await pushSeedFilesToGitHub(unitStructure, unitMembers);
+        // Pass the detected RUC to push to the correct unit folder
+        const pushResult = await pushSeedFilesToGitHub(unitStructure, unitMembers, data.ruc);
 
         if (pushResult.success) {
           setGitHubStatus("success");

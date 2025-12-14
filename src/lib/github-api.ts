@@ -141,9 +141,11 @@ export async function updateGitHubFile(
 }
 
 // Update both unit-structure.json and unit-members.json
+// If ruc is provided, uses that to construct the path; otherwise uses settings.unitPath
 export async function pushSeedFilesToGitHub(
   unitStructure: object,
-  unitMembers: object
+  unitMembers: object,
+  ruc?: string | null
 ): Promise<{
   success: boolean;
   structureResult: GitHubUpdateResult;
@@ -159,12 +161,14 @@ export async function pushSeedFilesToGitHub(
     };
   }
 
+  // Use the provided RUC to construct path, or fall back to settings.unitPath
+  const unitPath = ruc ? `public/data/unit/${ruc}` : settings.unitPath;
   const timestamp = new Date().toISOString().split("T")[0];
 
   // Update unit-structure.json
   const structureResult = await updateGitHubFile(
     settings,
-    `${settings.unitPath}/unit-structure.json`,
+    `${unitPath}/unit-structure.json`,
     unitStructure,
     `chore: Update unit structure from import (${timestamp})`
   );
@@ -172,7 +176,7 @@ export async function pushSeedFilesToGitHub(
   // Update unit-members.json
   const membersResult = await updateGitHubFile(
     settings,
-    `${settings.unitPath}/unit-members.json`,
+    `${unitPath}/unit-members.json`,
     unitMembers,
     `chore: Update unit members from import (${timestamp})`
   );

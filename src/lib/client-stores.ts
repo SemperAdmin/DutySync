@@ -1146,13 +1146,15 @@ export function importManpowerData(
   personnel: { created: number; updated: number };
   units: { created: number };
   nonAvailability: { created: number };
-  errors: string[]
+  errors: string[];
+  ruc: string | null;
 } {
   const result = {
     personnel: { created: 0, updated: 0 },
     units: { created: 0 },
     nonAvailability: { created: 0 },
     errors: [] as string[],
+    ruc: null as string | null,
   };
 
   // Guard: prevent accidental data wipe from empty file
@@ -1196,6 +1198,11 @@ export function importManpowerData(
         }
       }
     }
+  }
+
+  // Capture the first RUC found (most reports are for a single unit)
+  if (topUnitSet.size > 0) {
+    result.ruc = Array.from(topUnitSet)[0];
   }
 
   // Create top-level Unit
