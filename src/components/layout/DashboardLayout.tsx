@@ -6,10 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/client-auth";
 import Logo from "@/components/ui/Logo";
 import Button from "@/components/ui/Button";
+import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 import type { SessionUser, RoleName } from "@/types";
-
-// Key for storing view mode preference
-const VIEW_MODE_KEY = "dutysync_admin_view_mode";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -80,6 +78,8 @@ export default function DashboardLayout({
     const newMode = !isAdminView;
     setIsAdminView(newMode);
     localStorage.setItem(VIEW_MODE_KEY, newMode ? "admin" : "user");
+    // Dispatch custom event for same-tab communication
+    window.dispatchEvent(new CustomEvent(VIEW_MODE_CHANGE_EVENT));
   };
 
   const handleLogout = () => {

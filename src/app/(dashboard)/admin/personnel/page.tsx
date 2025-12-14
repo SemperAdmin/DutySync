@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Card, {
   CardHeader,
   CardTitle,
@@ -56,15 +56,18 @@ export default function PersonnelPage() {
     fetchData();
   }, [fetchData]);
 
+  // Create a Map of units for O(1) lookups
+  const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
+
   const getUnitName = (unitId: string) => {
-    const unit = units.find((u) => u.id === unitId);
+    const unit = unitMap.get(unitId);
     return unit?.unit_name || "Unknown";
   };
 
   // Build full unit path (e.g., "H Company > S1DV > CUST")
   const getFullUnitPath = (unitId: string): string => {
     const path: string[] = [];
-    let currentUnit = units.find((u) => u.id === unitId);
+    let currentUnit = unitMap.get(unitId);
 
     while (currentUnit) {
       // Skip RUC level for cleaner display
@@ -72,7 +75,7 @@ export default function PersonnelPage() {
         path.unshift(currentUnit.unit_name);
       }
       currentUnit = currentUnit.parent_id
-        ? units.find((u) => u.id === currentUnit?.parent_id)
+        ? unitMap.get(currentUnit.parent_id)
         : undefined;
     }
 
@@ -84,14 +87,14 @@ export default function PersonnelPage() {
     unitId: string,
     level: "company" | "section" | "platoon" | "work_section"
   ): string => {
-    let currentUnit = units.find((u) => u.id === unitId);
+    let currentUnit = unitMap.get(unitId);
 
     while (currentUnit) {
       if (currentUnit.hierarchy_level === level) {
         return currentUnit.unit_name;
       }
       currentUnit = currentUnit.parent_id
-        ? units.find((u) => u.id === currentUnit?.parent_id)
+        ? unitMap.get(currentUnit.parent_id)
         : undefined;
     }
 
@@ -104,12 +107,12 @@ export default function PersonnelPage() {
     if (unitId === filterUnit) return true;
 
     // Walk up the hierarchy to see if filterUnit is an ancestor
-    let currentUnit = units.find((u) => u.id === unitId);
+    let currentUnit = unitMap.get(unitId);
     while (currentUnit?.parent_id) {
       if (currentUnit.parent_id === filterUnit) {
         return true;
       }
-      currentUnit = units.find((u) => u.id === currentUnit?.parent_id);
+      currentUnit = unitMap.get(currentUnit.parent_id);
     }
     return false;
   };
