@@ -30,8 +30,15 @@ export const qualificationStore: Map<string, Qualification> = new Map();
 // Helper functions for Unit Sections
 export function getUnitSections(): UnitSection[] {
   return Array.from(unitSectionStore.values()).sort((a, b) => {
-    const levelOrder = { battalion: 0, company: 1, platoon: 2, section: 3 };
-    return levelOrder[a.hierarchy_level] - levelOrder[b.hierarchy_level];
+    const levelOrder: Record<string, number> = {
+      ruc: 0,
+      battalion: 0,
+      company: 1,
+      section: 2,
+      work_section: 3,
+      platoon: 2,
+    };
+    return (levelOrder[a.hierarchy_level] || 0) - (levelOrder[b.hierarchy_level] || 0);
   });
 }
 

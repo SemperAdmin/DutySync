@@ -6,7 +6,7 @@
       "first_name": "OTTO",
       "last_name": "LYONS JR",
       "rank": "SGT",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -15,7 +15,7 @@
       "first_name": "AUBRIANA",
       "last_name": "GUERRERO",
       "rank": "SGT",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -24,7 +24,7 @@
       "first_name": "MATTHEW",
       "last_name": "RODAS",
       "rank": "GYSGT",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -33,7 +33,7 @@
       "first_name": "OLIVIA",
       "last_name": "TEMPLETON",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -42,7 +42,7 @@
       "first_name": "MARTINLUTH",
       "last_name": "SIMELEUMO",
       "rank": "CPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -51,7 +51,7 @@
       "first_name": "TAELOR",
       "last_name": "SCHOOLER",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -60,7 +60,7 @@
       "first_name": "MATTHEW",
       "last_name": "RIVERA",
       "rank": "GYSGT",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -69,7 +69,7 @@
       "first_name": "KACEY",
       "last_name": "FROST",
       "rank": "SGT",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -78,7 +78,7 @@
       "first_name": "JULIO",
       "last_name": "ACEVEDO",
       "rank": "GYSGT",
-      "unit_section_id": "unit-section-OPS",
+      "unit_section_id": "unit-worksection-OPS",
       "current_duty_score": 0
     },
     {
@@ -87,7 +87,7 @@
       "first_name": "ANTHONY",
       "last_name": "DIAZ",
       "rank": "SGT",
-      "unit_section_id": "unit-section-MPA0",
+      "unit_section_id": "unit-worksection-MPA0",
       "current_duty_score": 0
     },
     {
@@ -96,7 +96,7 @@
       "first_name": "PENITILA",
       "last_name": "LEAPAGA III",
       "rank": "CWO3",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -105,7 +105,7 @@
       "first_name": "KRISTINA",
       "last_name": "TREVINO",
       "rank": "GYSGT",
-      "unit_section_id": "unit-section-MPHQ",
+      "unit_section_id": "unit-worksection-MPHQ",
       "current_duty_score": 0
     },
     {
@@ -114,7 +114,7 @@
       "first_name": "GARRETT",
       "last_name": "SLOAN",
       "rank": "SGT",
-      "unit_section_id": "unit-section-OPS",
+      "unit_section_id": "unit-worksection-OPS",
       "current_duty_score": 0
     },
     {
@@ -123,7 +123,7 @@
       "first_name": "SHAFEEN",
       "last_name": "AHAMED",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -132,7 +132,7 @@
       "first_name": "CYNTHIA",
       "last_name": "ALVARADO",
       "rank": "SGT",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -141,7 +141,7 @@
       "first_name": "JOSE",
       "last_name": "ALVARADOHERNANDEZ",
       "rank": "GYSGT",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -150,7 +150,7 @@
       "first_name": "ESINAM",
       "last_name": "AMEEVOR",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -159,7 +159,7 @@
       "first_name": "FELIX",
       "last_name": "ARDITO",
       "rank": "CPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -168,7 +168,7 @@
       "first_name": "NATASHA",
       "last_name": "BARILLASDELCID",
       "rank": "CPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -177,7 +177,7 @@
       "first_name": "JAMES",
       "last_name": "BLAKE",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-MPHQ",
+      "unit_section_id": "unit-worksection-MPHQ",
       "current_duty_score": 0
     },
     {
@@ -186,7 +186,7 @@
       "first_name": "JOEL",
       "last_name": "BLASBELTRAN",
       "rank": "SGT",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -195,7 +195,7 @@
       "first_name": "TREVION",
       "last_name": "BOYD",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -204,7 +204,7 @@
       "first_name": "EUGENE",
       "last_name": "BUFFORD",
       "rank": "SGT",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -213,7 +213,7 @@
       "first_name": "VICTORIA",
       "last_name": "CALDERON",
       "rank": "CPL",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -222,7 +222,7 @@
       "first_name": "JONATHAN",
       "last_name": "CAPUSEGUACORTEZ",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -231,7 +231,7 @@
       "first_name": "JUANJOSE",
       "last_name": "CARBAJAL",
       "rank": "CPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -240,7 +240,7 @@
       "first_name": "DENORIS",
       "last_name": "CARTER JR",
       "rank": "SGT",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -249,7 +249,7 @@
       "first_name": "JHORDIN",
       "last_name": "CHINO",
       "rank": "CPL",
-      "unit_section_id": "unit-section-MPHQ",
+      "unit_section_id": "unit-worksection-MPHQ",
       "current_duty_score": 0
     },
     {
@@ -258,7 +258,7 @@
       "first_name": "SANIA",
       "last_name": "CHOUDRI",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -267,7 +267,7 @@
       "first_name": "DYLAN",
       "last_name": "CHRISTIAN",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -276,7 +276,7 @@
       "first_name": "MARISSA",
       "last_name": "CONTRERAS",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -285,7 +285,7 @@
       "first_name": "LYSANDER",
       "last_name": "CRUZSANTIAGO",
       "rank": "PFC",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -294,7 +294,7 @@
       "first_name": "KASEY",
       "last_name": "CUADRA",
       "rank": "CPL",
-      "unit_section_id": "unit-ruc-02301-H-S1DV",
+      "unit_section_id": "unit-section-S1DV",
       "current_duty_score": 0
     },
     {
@@ -303,7 +303,7 @@
       "first_name": "SANDRA",
       "last_name": "CUELLAR",
       "rank": "GYSGT",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -312,7 +312,7 @@
       "first_name": "DANIEL",
       "last_name": "DELGADO",
       "rank": "CPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -321,7 +321,7 @@
       "first_name": "EMMITT",
       "last_name": "DUHANEY",
       "rank": "CPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -330,7 +330,7 @@
       "first_name": "CHARLES",
       "last_name": "ESCO",
       "rank": "CPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -339,7 +339,7 @@
       "first_name": "THOMAS",
       "last_name": "ESTER JR",
       "rank": "CPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -348,7 +348,7 @@
       "first_name": "JOSEPH",
       "last_name": "FRALIX",
       "rank": "CWO2",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -357,7 +357,7 @@
       "first_name": "ALIZE",
       "last_name": "FRANCO",
       "rank": "SGT",
-      "unit_section_id": "unit-section-OPS",
+      "unit_section_id": "unit-worksection-OPS",
       "current_duty_score": 0
     },
     {
@@ -366,7 +366,7 @@
       "first_name": "TIGER",
       "last_name": "GALLIMORE",
       "rank": "PFC",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -375,7 +375,7 @@
       "first_name": "PARIS",
       "last_name": "GATES",
       "rank": "CPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -384,7 +384,7 @@
       "first_name": "JAYLA",
       "last_name": "GOMBER",
       "rank": "CPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -393,7 +393,7 @@
       "first_name": "JOHAN",
       "last_name": "GONZALEZ",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -402,7 +402,7 @@
       "first_name": "TIMOTHY",
       "last_name": "GOVAN JR",
       "rank": "CPL",
-      "unit_section_id": "unit-section-MPA0",
+      "unit_section_id": "unit-worksection-MPA0",
       "current_duty_score": 0
     },
     {
@@ -411,7 +411,7 @@
       "first_name": "ISIDRO",
       "last_name": "GRANA",
       "rank": "WO",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -420,7 +420,7 @@
       "first_name": "ANDRE",
       "last_name": "GREENE",
       "rank": "MGYSGT",
-      "unit_section_id": "unit-section-MPHQ",
+      "unit_section_id": "unit-worksection-MPHQ",
       "current_duty_score": 0
     },
     {
@@ -429,7 +429,7 @@
       "first_name": "ERICKA",
       "last_name": "HALL",
       "rank": "CPL",
-      "unit_section_id": "unit-section-MPHQ",
+      "unit_section_id": "unit-worksection-MPHQ",
       "current_duty_score": 0
     },
     {
@@ -438,7 +438,7 @@
       "first_name": "RICARDO",
       "last_name": "HERNANDEZ",
       "rank": "GYSGT",
-      "unit_section_id": "unit-section-MPA0",
+      "unit_section_id": "unit-worksection-MPA0",
       "current_duty_score": 0
     },
     {
@@ -447,7 +447,7 @@
       "first_name": "MARIA",
       "last_name": "HERNANDEZSANTOS",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -456,7 +456,7 @@
       "first_name": "BRYANT",
       "last_name": "HERRERA",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -465,7 +465,7 @@
       "first_name": "MADISON",
       "last_name": "HORTON",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -474,7 +474,7 @@
       "first_name": "JEREMIAH",
       "last_name": "IRELAND",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-OPS",
+      "unit_section_id": "unit-worksection-OPS",
       "current_duty_score": 0
     },
     {
@@ -483,7 +483,7 @@
       "first_name": "NATAVIA",
       "last_name": "JAMISON",
       "rank": "CPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -492,7 +492,7 @@
       "first_name": "JADEN",
       "last_name": "JOHNSON",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -501,7 +501,7 @@
       "first_name": "ALEXANDER",
       "last_name": "JUAREZ",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -510,7 +510,7 @@
       "first_name": "ANTHONY",
       "last_name": "KOCH",
       "rank": "CWO2",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -519,7 +519,7 @@
       "first_name": "JUAN",
       "last_name": "LEONPEREZYNGA",
       "rank": "SSGT",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -528,7 +528,7 @@
       "first_name": "TAYLOR",
       "last_name": "LOMAS",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -537,7 +537,7 @@
       "first_name": "SAMUEL",
       "last_name": "LOPEZ",
       "rank": "PFC",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -546,7 +546,7 @@
       "first_name": "MAITE",
       "last_name": "LORENZOMARTINEZ",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -555,7 +555,7 @@
       "first_name": "JESUS",
       "last_name": "MANCERABARRERAS",
       "rank": "CPL",
-      "unit_section_id": "unit-section-OPS",
+      "unit_section_id": "unit-worksection-OPS",
       "current_duty_score": 0
     },
     {
@@ -564,7 +564,7 @@
       "first_name": "TASHUWN",
       "last_name": "MARSHALL",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -573,7 +573,7 @@
       "first_name": "CALEB",
       "last_name": "MARTIN",
       "rank": "SGT",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -582,7 +582,7 @@
       "first_name": "ISAAC",
       "last_name": "MARTIN",
       "rank": "SSGT",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -591,7 +591,7 @@
       "first_name": "BRIAN",
       "last_name": "MARTINEZ",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -600,7 +600,7 @@
       "first_name": "DARA",
       "last_name": "MASGA",
       "rank": "MSGT",
-      "unit_section_id": "unit-section-HQ",
+      "unit_section_id": "unit-worksection-HQ",
       "current_duty_score": 0
     },
     {
@@ -609,7 +609,7 @@
       "first_name": "TRISTEN",
       "last_name": "MCCLARNON",
       "rank": "SGT",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -618,7 +618,7 @@
       "first_name": "JAYDEN",
       "last_name": "MCDONALD",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -627,7 +627,7 @@
       "first_name": "DEE",
       "last_name": "MEH",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -636,7 +636,7 @@
       "first_name": "LESLYE",
       "last_name": "MOLINAVALLEJO",
       "rank": "PFC",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -645,7 +645,7 @@
       "first_name": "TREVOR",
       "last_name": "MOMANYI",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -654,7 +654,7 @@
       "first_name": "MARINA",
       "last_name": "OCHOA",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -663,7 +663,7 @@
       "first_name": "JAVIER",
       "last_name": "PADILLA",
       "rank": "SSGT",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -672,7 +672,7 @@
       "first_name": "GEORGE",
       "last_name": "PARDO",
       "rank": "SGT",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -681,7 +681,7 @@
       "first_name": "FABRICIO",
       "last_name": "PINARGOTE",
       "rank": "CWO3",
-      "unit_section_id": "unit-section-HQ",
+      "unit_section_id": "unit-worksection-HQ",
       "current_duty_score": 0
     },
     {
@@ -690,7 +690,7 @@
       "first_name": "URIEL",
       "last_name": "RAMIREZ",
       "rank": "WO",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -699,7 +699,7 @@
       "first_name": "SHYHIEM",
       "last_name": "REED",
       "rank": "PFC",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -708,7 +708,7 @@
       "first_name": "ADRIAN",
       "last_name": "REYESMUNOZ",
       "rank": "CPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -717,7 +717,7 @@
       "first_name": "MARCIANO",
       "last_name": "RIBEIROSILVA",
       "rank": "SGT",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -726,7 +726,7 @@
       "first_name": "KEVIN",
       "last_name": "RICHARDSON II",
       "rank": "CWO4",
-      "unit_section_id": "unit-section-HQ",
+      "unit_section_id": "unit-worksection-HQ",
       "current_duty_score": 0
     },
     {
@@ -735,7 +735,7 @@
       "first_name": "ELIAS",
       "last_name": "RIVERA",
       "rank": "CPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -744,7 +744,7 @@
       "first_name": "JEAN",
       "last_name": "RODRIGUEZCOLON",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -753,7 +753,7 @@
       "first_name": "AVERY",
       "last_name": "RUSHING",
       "rank": "SGT",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -762,7 +762,7 @@
       "first_name": "JOSEPH",
       "last_name": "SANTONE",
       "rank": "SSGT",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -771,7 +771,7 @@
       "first_name": "ROODLEY",
       "last_name": "SAUREL",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -780,7 +780,7 @@
       "first_name": "LESAY",
       "last_name": "SENEGAL",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -789,7 +789,7 @@
       "first_name": "JORGE",
       "last_name": "SERRANO",
       "rank": "GYSGT",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -798,7 +798,7 @@
       "first_name": "JACE",
       "last_name": "SHEARER",
       "rank": "SGT",
-      "unit_section_id": "unit-section-OPS",
+      "unit_section_id": "unit-worksection-OPS",
       "current_duty_score": 0
     },
     {
@@ -807,7 +807,7 @@
       "first_name": "STEPHEN",
       "last_name": "SHORTER",
       "rank": "MSGT",
-      "unit_section_id": "unit-section-MPHQ",
+      "unit_section_id": "unit-worksection-MPHQ",
       "current_duty_score": 0
     },
     {
@@ -816,7 +816,7 @@
       "first_name": "SEAN",
       "last_name": "SMITH",
       "rank": "CPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -825,7 +825,7 @@
       "first_name": "AUSTIN",
       "last_name": "STEPHENSON",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-OPS",
+      "unit_section_id": "unit-worksection-OPS",
       "current_duty_score": 0
     },
     {
@@ -834,7 +834,7 @@
       "first_name": "DALVIN",
       "last_name": "STEWART",
       "rank": "SGT",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -843,7 +843,7 @@
       "first_name": "JESSICA",
       "last_name": "STOUT",
       "rank": "SGT",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -852,7 +852,7 @@
       "first_name": "OUMOU",
       "last_name": "SYLLA",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-INBD",
+      "unit_section_id": "unit-worksection-INBD",
       "current_duty_score": 0
     },
     {
@@ -861,7 +861,7 @@
       "first_name": "NOAH",
       "last_name": "TORRALBA",
       "rank": "CPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -870,7 +870,7 @@
       "first_name": "TROY",
       "last_name": "TURNER",
       "rank": "PFC",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -879,7 +879,7 @@
       "first_name": "MARLENE",
       "last_name": "URENA",
       "rank": "CPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -888,7 +888,7 @@
       "first_name": "PETER",
       "last_name": "VANG",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-MPHQ",
+      "unit_section_id": "unit-worksection-MPHQ",
       "current_duty_score": 0
     },
     {
@@ -897,7 +897,7 @@
       "first_name": "FRANK",
       "last_name": "VILLASENOR IV",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     },
     {
@@ -906,7 +906,7 @@
       "first_name": "ARTURO",
       "last_name": "VILLAVICENCIO",
       "rank": "CPL",
-      "unit_section_id": "unit-section-TAD",
+      "unit_section_id": "unit-worksection-TAD",
       "current_duty_score": 0
     },
     {
@@ -915,7 +915,7 @@
       "first_name": "COOPER",
       "last_name": "WALL",
       "rank": "CPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -924,7 +924,7 @@
       "first_name": "SHANITA",
       "last_name": "WATSON",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-APOS",
+      "unit_section_id": "unit-worksection-APOS",
       "current_duty_score": 0
     },
     {
@@ -933,7 +933,7 @@
       "first_name": "KENNETH",
       "last_name": "WILSON",
       "rank": "LCPL",
-      "unit_section_id": "unit-section-OBND",
+      "unit_section_id": "unit-worksection-OBND",
       "current_duty_score": 0
     },
     {
@@ -942,7 +942,7 @@
       "first_name": "SEAN",
       "last_name": "XIONG",
       "rank": "CPL",
-      "unit_section_id": "unit-section-CUST",
+      "unit_section_id": "unit-worksection-CUST",
       "current_duty_score": 0
     }
   ],

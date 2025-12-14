@@ -4,7 +4,8 @@
 export type UUID = string;
 
 // Hierarchy levels for unit_sections
-export type HierarchyLevel = 'battalion' | 'company' | 'platoon' | 'section';
+// RUC > Company > Section > Work Section
+export type HierarchyLevel = 'ruc' | 'company' | 'section' | 'work_section' | 'battalion' | 'platoon';
 
 // User roles for RBAC
 export type RoleName = 'App Admin' | 'Unit Admin' | 'Standard User';
@@ -14,7 +15,9 @@ export interface UnitSection {
   id: UUID;
   parent_id: UUID | null;
   unit_name: string;
+  unit_code?: string; // Short code (e.g., "02301", "H", "S1DV", "CUST")
   hierarchy_level: HierarchyLevel;
+  description?: string;
   created_at: Date;
   updated_at: Date;
 }
