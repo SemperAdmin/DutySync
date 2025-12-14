@@ -799,8 +799,8 @@ function UsersTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Registered Users</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-sm font-medium">Registered Users</CardTitle>
+          <CardDescription className="text-sm">
             {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""}
             {searchQuery && ` matching "${searchQuery}"`}
           </CardDescription>
@@ -891,12 +891,21 @@ function UsersTab() {
   );
 }
 
+interface PendingRole {
+  role_name: RoleName;
+  scope_unit_id: string | null;
+}
+
 function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: UserData; units: UnitSection[]; rucs: RucEntry[]; onClose: () => void; onSuccess: () => void; }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
   const [selectedRuc, setSelectedRuc] = useState<string>("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Track pending changes (roles to add and remove)
+  const [pendingAdds, setPendingAdds] = useState<PendingRole[]>([]);
+  const [pendingRemoves, setPendingRemoves] = useState<PendingRole[]>([]);
 
   const isUserAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
@@ -905,37 +914,97 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     return ["Unit Admin", ...MANAGER_ROLES].includes(role as RoleName);
   };
 
-  // Check if user already has a manager role
-  const existingManagerRole = user.roles.find((r) => MANAGER_ROLES.includes(r.role_name as RoleName));
+  // Calculate the effective roles (current - pending removes + pending adds)
+  const effectiveRoles = useMemo(() => {
+    // Start with current roles minus pending removes
+    let roles = user.roles.filter(r =>
+      !pendingRemoves.some(pr => pr.role_name === r.role_name && pr.scope_unit_id === r.scope_unit_id)
+    );
+    // Add pending adds (avoiding duplicates)
+    for (const add of pendingAdds) {
+      const exists = roles.some(r => r.role_name === add.role_name && r.scope_unit_id === add.scope_unit_id);
+      if (!exists) {
+        roles.push({ role_name: add.role_name, scope_unit_id: add.scope_unit_id });
+      }
+    }
+    return roles;
+  }, [user.roles, pendingAdds, pendingRemoves]);
 
-  const handleAssignRole = () => {
-    setIsSubmitting(true);
+  // Check if user has a manager role in effective roles
+  const existingManagerRole = effectiveRoles.find((r) => MANAGER_ROLES.includes(r.role_name as RoleName));
+
+  // Check if there are unsaved changes
+  const hasChanges = pendingAdds.length > 0 || pendingRemoves.length > 0;
+
+  const handleAddRole = () => {
     setError(null);
 
-    try {
-      // If assigning a manager role and user already has one, remove the existing one first
-      if (MANAGER_ROLES.includes(selectedRole as RoleName) && existingManagerRole) {
-        removeUserRole(user.id, existingManagerRole.role_name, existingManagerRole.scope_unit_id);
-      }
+    const scopeUnitId = roleRequiresScope(selectedRole) ? selectedRuc : null;
 
-      const scopeUnitId = roleRequiresScope(selectedRole) ? selectedRuc : null;
-      const success = assignUserRole(user.id, selectedRole, scopeUnitId);
-      if (!success) throw new Error("Failed to assign role");
-      onSuccess();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsSubmitting(false);
+    // Check if already exists in effective roles
+    const alreadyExists = effectiveRoles.some(r => r.role_name === selectedRole && r.scope_unit_id === scopeUnitId);
+    if (alreadyExists) {
+      setError("This role is already assigned");
+      return;
     }
+
+    // If assigning a manager role and user already has one, mark it for removal
+    if (MANAGER_ROLES.includes(selectedRole as RoleName) && existingManagerRole) {
+      // Check if it's an original role (not a pending add)
+      const isOriginal = user.roles.some(r => r.role_name === existingManagerRole.role_name && r.scope_unit_id === existingManagerRole.scope_unit_id);
+      if (isOriginal) {
+        setPendingRemoves(prev => {
+          const alreadyPending = prev.some(pr => pr.role_name === existingManagerRole.role_name && pr.scope_unit_id === existingManagerRole.scope_unit_id);
+          if (alreadyPending) return prev;
+          return [...prev, { role_name: existingManagerRole.role_name as RoleName, scope_unit_id: existingManagerRole.scope_unit_id }];
+        });
+      } else {
+        // Remove from pending adds
+        setPendingAdds(prev => prev.filter(pa => !(pa.role_name === existingManagerRole.role_name && pa.scope_unit_id === existingManagerRole.scope_unit_id)));
+      }
+    }
+
+    // Add to pending adds
+    setPendingAdds(prev => [...prev, { role_name: selectedRole, scope_unit_id: scopeUnitId }]);
+
+    // Reset selection
+    setSelectedRole("Standard User");
+    setSelectedRuc("");
   };
 
   const handleRemoveRole = (roleName: string, scopeUnitId: string | null) => {
+    // Check if it's a pending add - just remove from pending adds
+    const isPendingAdd = pendingAdds.some(pa => pa.role_name === roleName && pa.scope_unit_id === scopeUnitId);
+    if (isPendingAdd) {
+      setPendingAdds(prev => prev.filter(pa => !(pa.role_name === roleName && pa.scope_unit_id === scopeUnitId)));
+      return;
+    }
+
+    // Otherwise add to pending removes
+    setPendingRemoves(prev => {
+      const alreadyPending = prev.some(pr => pr.role_name === roleName && pr.scope_unit_id === scopeUnitId);
+      if (alreadyPending) return prev;
+      return [...prev, { role_name: roleName as RoleName, scope_unit_id: scopeUnitId }];
+    });
+  };
+
+  const handleSave = async () => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const success = removeUserRole(user.id, roleName, scopeUnitId);
-      if (!success) throw new Error("Failed to remove role");
+      // Process removals first
+      for (const remove of pendingRemoves) {
+        const success = removeUserRole(user.id, remove.role_name, remove.scope_unit_id);
+        if (!success) throw new Error(`Failed to remove role: ${remove.role_name}`);
+      }
+
+      // Then process adds
+      for (const add of pendingAdds) {
+        const success = assignUserRole(user.id, add.role_name, add.scope_unit_id);
+        if (!success) throw new Error(`Failed to assign role: ${add.role_name}`);
+      }
+
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -960,11 +1029,14 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
   };
 
   // Get role color for badges
-  const getRoleBadgeColor = (roleName: string) => {
-    if (roleName === "App Admin") return "bg-highlight/20 text-highlight border-highlight/30";
-    if (roleName === "Unit Admin") return "bg-primary/20 text-blue-400 border-primary/30";
-    if (MANAGER_ROLES.includes(roleName as RoleName)) return "bg-success/20 text-success border-success/30";
-    return "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30";
+  const getRoleBadgeColor = (roleName: string, isPending: boolean = false) => {
+    const baseColor = (() => {
+      if (roleName === "App Admin") return "bg-highlight/20 text-highlight border-highlight/30";
+      if (roleName === "Unit Admin") return "bg-primary/20 text-blue-400 border-primary/30";
+      if (MANAGER_ROLES.includes(roleName as RoleName)) return "bg-success/20 text-success border-success/30";
+      return "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30";
+    })();
+    return isPending ? `${baseColor} ring-2 ring-warning/50` : baseColor;
   };
 
   // Get RUC display name
@@ -972,6 +1044,11 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     if (!rucCode) return null;
     const ruc = rucs.find(r => r.ruc === rucCode);
     return ruc?.name ? `${rucCode} - ${ruc.name}` : rucCode;
+  };
+
+  // Check if a role is a pending addition
+  const isPendingAdd = (roleName: string, scopeUnitId: string | null) => {
+    return pendingAdds.some(pa => pa.role_name === roleName && pa.scope_unit_id === scopeUnitId);
   };
 
   return (
@@ -988,18 +1065,20 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Current Roles</label>
             <div className="flex flex-wrap gap-2">
-              {user.roles.map((role, idx) => {
+              {effectiveRoles.map((role, idx) => {
                 const canRemove = role.role_name !== "App Admin" && role.role_name !== "Standard User";
+                const pending = isPendingAdd(role.role_name, role.scope_unit_id);
                 return (
                   <span
-                    key={role.id ?? `${idx}-${role.role_name}`}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-lg border ${getRoleBadgeColor(role.role_name)}`}
+                    key={role.id ?? `${idx}-${role.role_name}-${role.scope_unit_id}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-lg border ${getRoleBadgeColor(role.role_name, pending)}`}
                   >
                     <span>
                       {role.role_name}
                       {role.scope_unit_id && (
                         <span className="ml-1 opacity-75 text-xs">({getRucDisplayName(role.scope_unit_id)})</span>
                       )}
+                      {pending && <span className="ml-1 text-xs text-warning">(new)</span>}
                     </span>
                     {canRemove && (
                       <button
@@ -1061,10 +1140,10 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
                 </div>
               )}
 
-              <Button variant="accent" onClick={handleAssignRole} isLoading={isSubmitting} disabled={isSubmitting || (roleRequiresScope(selectedRole) && !selectedRuc)} className="w-full">
+              <Button variant="secondary" onClick={handleAddRole} disabled={isSubmitting || (roleRequiresScope(selectedRole) && !selectedRuc)} className="w-full">
                 {existingManagerRole && MANAGER_ROLES.includes(selectedRole as RoleName) && selectedRole !== existingManagerRole.role_name
-                  ? "Replace Manager Role"
-                  : "Assign Role"}
+                  ? "Add Role (replaces manager)"
+                  : "Add Role"}
               </Button>
             </div>
           )}
@@ -1119,8 +1198,19 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
             </div>
           )}
 
-          <div className="flex justify-end pt-4">
-            <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>Close</Button>
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <Button variant="secondary" onClick={onClose} disabled={isSubmitting} className="flex-1">
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={handleSave}
+              isLoading={isSubmitting}
+              disabled={isSubmitting || !hasChanges}
+              className="flex-1"
+            >
+              Save Changes
+            </Button>
           </div>
         </CardContent>
       </Card>
