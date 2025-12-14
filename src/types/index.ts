@@ -140,6 +140,8 @@ export interface SessionUser {
   email: string;
   personnel_id: string | null;
   roles: UserRole[];
+  // Permission flags
+  can_approve_non_availability?: boolean; // Allows manager to approve/reject non-availability requests within their scope
   // Display info from personnel record (populated on login if EDIPI matches)
   displayName?: string; // e.g., "SGT SMITH"
   rank?: string;

@@ -807,7 +807,7 @@ export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: stri
 
 // Get non-availability requests with personnel info
 export interface EnrichedNonAvailability extends NonAvailability {
-  personnel: { id: string; first_name: string; last_name: string; rank: string } | null;
+  personnel: { id: string; first_name: string; last_name: string; rank: string; unit_section_id: string } | null;
 }
 
 export function getEnrichedNonAvailability(status?: string): EnrichedNonAvailability[] {
@@ -820,7 +820,7 @@ export function getEnrichedNonAvailability(status?: string): EnrichedNonAvailabi
     const personnel = getPersonnelById(req.personnel_id);
     return {
       ...req,
-      personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank } : null,
+      personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank, unit_section_id: personnel.unit_section_id } : null,
     };
   });
 }
@@ -1191,6 +1191,7 @@ interface StoredUser {
   email: string;
   password?: string;
   personnel_id?: string | null;
+  can_approve_non_availability?: boolean;
   roles: Array<{
     id?: string;
     role_name: string;
@@ -1254,6 +1255,21 @@ export function assignUserRole(
   user.roles.push(newRole);
 
   console.warn("Role assigned in memory cache. To persist, update seed data files and re-export.");
+  return true;
+}
+
+// Update user's non-availability approval permission
+export function updateUserApprovalPermission(
+  userId: string,
+  canApprove: boolean
+): boolean {
+  // Note: This only updates memory cache. To persist, use GitHub workflow.
+  const user = seedUsersCache.find((u) => u.id === userId);
+  if (!user) return false;
+
+  user.can_approve_non_availability = canApprove;
+
+  console.warn("Approval permission updated in memory cache. To persist, use the update workflow.");
   return true;
 }
 

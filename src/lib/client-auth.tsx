@@ -43,16 +43,27 @@ const GITHUB_OWNER = process.env.NEXT_PUBLIC_GITHUB_OWNER || "";
 const GITHUB_REPO = process.env.NEXT_PUBLIC_GITHUB_REPO || "";
 const GITHUB_TOKEN = process.env.NEXT_PUBLIC_GITHUB_TOKEN || "";
 
-// Trigger GitHub workflow to update user roles
+// Trigger GitHub workflow to update user roles and permissions
 export async function triggerUpdateRolesWorkflow(
   userId: string,
-  roles: Array<{ role_name: string; scope_unit_id: string | null }>
+  roles: Array<{ role_name: string; scope_unit_id: string | null }>,
+  canApproveNonAvailability?: boolean
 ): Promise<{ success: boolean; error?: string }> {
   if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
     return { success: false, error: "GitHub API not configured" };
   }
 
   try {
+    const inputs: Record<string, string> = {
+      user_id: userId,
+      roles_json: JSON.stringify(roles),
+    };
+
+    // Only include can_approve_non_availability if explicitly set
+    if (canApproveNonAvailability !== undefined) {
+      inputs.can_approve_non_availability = canApproveNonAvailability ? "true" : "false";
+    }
+
     const response = await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/update-user-roles.yml/dispatches`,
       {
@@ -64,10 +75,7 @@ export async function triggerUpdateRolesWorkflow(
         },
         body: JSON.stringify({
           ref: "main",
-          inputs: {
-            user_id: userId,
-            roles_json: JSON.stringify(roles),
-          },
+          inputs,
         }),
       }
     );
@@ -291,6 +299,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: found.email,
         personnel_id: personnel?.id || found.personnel_id || null,
         roles,
+        can_approve_non_availability: found.can_approve_non_availability || false,
         displayName,
         rank,
         firstName,

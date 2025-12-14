@@ -11,6 +11,11 @@ on:
         description: 'JSON array of roles [{role_name, scope_unit_id}]'
         required: true
         type: string
+      can_approve_non_availability:
+        description: 'Whether user can approve non-availability requests (true/false)'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -53,6 +58,7 @@ jobs:
         run: |
           USER_FILE="public/data/user/${{ inputs.user_id }}.json"
           ROLES_JSON='${{ inputs.roles_json }}'
+          CAN_APPROVE='${{ inputs.can_approve_non_availability }}'
           UPDATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
 
           # Parse roles JSON and add IDs and timestamps
@@ -68,7 +74,16 @@ jobs:
           # Update the user file with new roles
           jq --argjson roles "$PROCESSED_ROLES" '.roles = $roles' "$USER_FILE" > "${USER_FILE}.tmp" && mv "${USER_FILE}.tmp" "$USER_FILE"
 
-          echo "Updated user roles in $USER_FILE"
+          # Update can_approve_non_availability if provided
+          if [ -n "$CAN_APPROVE" ]; then
+            if [ "$CAN_APPROVE" = "true" ]; then
+              jq '.can_approve_non_availability = true' "$USER_FILE" > "${USER_FILE}.tmp" && mv "${USER_FILE}.tmp" "$USER_FILE"
+            else
+              jq '.can_approve_non_availability = false' "$USER_FILE" > "${USER_FILE}.tmp" && mv "${USER_FILE}.tmp" "$USER_FILE"
+            fi
+          fi
+
+          echo "Updated user in $USER_FILE"
           cat "$USER_FILE"
 
       - name: Commit and push changes
