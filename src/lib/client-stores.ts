@@ -92,7 +92,21 @@ export async function getAvailableRucs(): Promise<UnitsIndex["units"]> {
   return [];
 }
 
+// Raw personnel record from JSON (without required date fields)
+interface RawPersonnelRecord {
+  id: string;
+  service_id: string;
+  unit_section_id: string;
+  first_name: string;
+  last_name: string;
+  rank: string;
+  current_duty_score: number;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
 // Load seed data from JSON files if localStorage is empty
+// Uses atomic loading: either all data loads successfully or nothing is saved
 export async function loadSeedDataIfNeeded(): Promise<{
   unitsLoaded: number;
   personnelLoaded: number;
@@ -118,59 +132,82 @@ export async function loadSeedDataIfNeeded(): Promise<{
     return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: true };
   }
 
-  let unitsLoaded = 0;
-  let personnelLoaded = 0;
+  // Collect all data before saving (atomic operation)
+  const allUnits: UnitSection[] = [];
+  const allPersonnel: Personnel[] = [];
 
   try {
     // Load units index to get available RUCs
     const availableRucs = await getAvailableRucs();
 
-    // Load data from each RUC folder
-    for (const rucInfo of availableRucs) {
-      const ruc = rucInfo.ruc;
-
-      // Load unit structure from RUC folder
-      const unitResponse = await fetch(`/data/${ruc}/unit-structure.json`);
-      if (unitResponse.ok) {
-        const unitData = await unitResponse.json();
-        if (unitData.units && Array.isArray(unitData.units)) {
-          const existingUnits = getFromStorage<UnitSection>(KEYS.units);
-          const mergedUnits = [...existingUnits, ...unitData.units];
-          saveToStorage(KEYS.units, mergedUnits);
-          unitsLoaded += unitData.units.length;
-        }
-      }
-
-      // Load personnel from RUC folder
-      const personnelResponse = await fetch(`/data/${ruc}/unit-members.json`);
-      if (personnelResponse.ok) {
-        const personnelData = await personnelResponse.json();
-        if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
-          // Decrypt EDIPIs and add timestamps to personnel records
-          const personnelWithDates = personnelData.personnel.map((p: Personnel) => ({
-            ...p,
-            // Decrypt service_id (EDIPI) if it's encrypted
-            service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
-            created_at: p.created_at || new Date(),
-            updated_at: p.updated_at || new Date(),
-          }));
-          const existingPersonnel = getFromStorage<Personnel>(KEYS.personnel);
-          const mergedPersonnel = [...existingPersonnel, ...personnelWithDates];
-          saveToStorage(KEYS.personnel, mergedPersonnel);
-          personnelLoaded += personnelWithDates.length;
-        }
-      }
+    if (availableRucs.length === 0) {
+      console.warn("No RUCs found in units index");
+      return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: false };
     }
 
-    // Mark seed data as loaded
+    // Fetch all data in parallel for each RUC
+    const fetchPromises = availableRucs.map(async (rucInfo) => {
+      const ruc = rucInfo.ruc;
+      const unitResponse = await fetch(`/data/${ruc}/unit-structure.json`);
+      const personnelResponse = await fetch(`/data/${ruc}/unit-members.json`);
+
+      // Both fetches must succeed for this RUC
+      if (!unitResponse.ok) {
+        throw new Error(`Failed to fetch unit structure for RUC ${ruc}: ${unitResponse.status}`);
+      }
+      if (!personnelResponse.ok) {
+        throw new Error(`Failed to fetch personnel for RUC ${ruc}: ${personnelResponse.status}`);
+      }
+
+      const unitData = await unitResponse.json();
+      const personnelData = await personnelResponse.json();
+
+      // Validate data structure
+      if (!unitData.units || !Array.isArray(unitData.units)) {
+        throw new Error(`Invalid unit structure for RUC ${ruc}: missing units array`);
+      }
+      if (!personnelData.personnel || !Array.isArray(personnelData.personnel)) {
+        throw new Error(`Invalid personnel data for RUC ${ruc}: missing personnel array`);
+      }
+
+      return { ruc, unitData, personnelData };
+    });
+
+    // Wait for all fetches to complete
+    const results = await Promise.all(fetchPromises);
+
+    // Process all results after successful fetch
+    for (const { unitData, personnelData } of results) {
+      // Add units
+      allUnits.push(...unitData.units);
+
+      // Process and add personnel with decrypted EDIPIs and timestamps
+      const personnelWithDates = personnelData.personnel.map((p: RawPersonnelRecord) => ({
+        ...p,
+        service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
+        created_at: p.created_at || new Date(),
+        updated_at: p.updated_at || new Date(),
+      }));
+      allPersonnel.push(...personnelWithDates);
+    }
+
+    // All data fetched and validated - now save atomically
+    saveToStorage(KEYS.units, allUnits);
+    saveToStorage(KEYS.personnel, allPersonnel);
+
+    // Only mark as loaded after all data is successfully saved
     localStorage.setItem(KEYS.seedDataLoaded, "true");
 
-    console.log(`Seed data loaded: ${unitsLoaded} units, ${personnelLoaded} personnel`);
+    console.log(`Seed data loaded: ${allUnits.length} units, ${allPersonnel.length} personnel`);
+    return { unitsLoaded: allUnits.length, personnelLoaded: allPersonnel.length, alreadyLoaded: false };
   } catch (error) {
-    console.error("Failed to load seed data:", error);
+    // Clean up any partial data on failure
+    localStorage.removeItem(KEYS.units);
+    localStorage.removeItem(KEYS.personnel);
+    // Do NOT set seedDataLoaded - allow retry on next page load
+    console.error("Failed to load seed data (atomic rollback):", error);
+    return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: false };
   }
-
-  return { unitsLoaded, personnelLoaded, alreadyLoaded: false };
 }
 
 // Load data for a specific RUC
@@ -203,7 +240,7 @@ export async function loadRucData(ruc: string): Promise<{
       const personnelData = await personnelResponse.json();
       if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
         // Decrypt EDIPIs and add timestamps
-        const personnelWithDates = personnelData.personnel.map((p: Personnel) => ({
+        const personnelWithDates = personnelData.personnel.map((p: RawPersonnelRecord) => ({
           ...p,
           // Decrypt service_id (EDIPI) if it's encrypted
           service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
@@ -226,7 +263,7 @@ export async function loadRucData(ruc: string): Promise<{
   return { unitsLoaded, personnelLoaded };
 }
 
-// Force reload seed data (clears existing and reloads from JSON)
+// Force reload seed data (clears ALL existing data and reloads from JSON)
 export async function reloadSeedData(): Promise<{
   unitsLoaded: number;
   personnelLoaded: number;
@@ -235,10 +272,10 @@ export async function reloadSeedData(): Promise<{
     return { unitsLoaded: 0, personnelLoaded: 0 };
   }
 
-  // Clear existing data
-  localStorage.removeItem(KEYS.units);
-  localStorage.removeItem(KEYS.personnel);
-  localStorage.removeItem(KEYS.seedDataLoaded);
+  // Clear ALL existing data to ensure clean state
+  Object.values(KEYS).forEach((key) => {
+    localStorage.removeItem(key);
+  });
 
   // Reload
   const result = await loadSeedDataIfNeeded();
