@@ -96,21 +96,22 @@ export default function ManagerDashboard() {
   }, [user?.roles]);
 
   // Get all descendant unit IDs for the manager's scope - O(1) per level using childrenMap
+  // Uses index-based iteration instead of shift() for O(1) queue operations
   const scopeUnitIds = useMemo(() => {
     if (!managerScopeUnitId) return new Set<string>();
 
     const ids = new Set<string>([managerScopeUnitId]);
     const queue = [managerScopeUnitId];
 
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
+    for (let i = 0; i < queue.length; i++) {
+      const currentId = queue[i];
       const children = childrenMap.get(currentId) || [];
-      children.forEach(childId => {
+      for (const childId of children) {
         if (!ids.has(childId)) {
           ids.add(childId);
           queue.push(childId);
         }
-      });
+      }
     }
 
     return ids;
@@ -281,16 +282,17 @@ export default function ManagerDashboard() {
 
   // Handle approve/deny non-availability
   const handleApproveRequest = (naId: string, approved: boolean) => {
+    const updatePayload = {
+      status: approved ? "approved" : "rejected",
+      approved_by: user?.id || null,
+    };
     try {
-      updateNonAvailability(naId, {
-        status: approved ? "approved" : "rejected",
-        approved_by: user?.id || null,
-      });
+      updateNonAvailability(naId, updatePayload);
       // Update state directly for efficiency
       setNonAvailability(prev =>
         prev.map(na =>
           na.id === naId
-            ? { ...na, status: approved ? "approved" : "rejected", approved_by: user?.id || null }
+            ? { ...na, ...updatePayload }
             : na
         )
       );
