@@ -1079,6 +1079,20 @@ export function getUserById(id: string): StoredUser | undefined {
   return getAllUsers().find((u) => u.id === id);
 }
 
+export function deleteUser(userId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const users = JSON.parse(localStorage.getItem(KEYS.users) || "[]");
+    const filtered = users.filter((u: StoredUser) => u.id !== userId);
+    if (filtered.length === users.length) return false; // User not found
+    localStorage.setItem(KEYS.users, JSON.stringify(filtered));
+    return true;
+  } catch (error) {
+    console.error("Failed to delete user:", error);
+    return false;
+  }
+}
+
 export function assignUserRole(
   userId: string,
   roleName: string,
