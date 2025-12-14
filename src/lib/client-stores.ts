@@ -1232,13 +1232,16 @@ export function assignUserRole(
 
 // ============ Seed User Data Loading ============
 
+// User entry in the users index
+export interface UserIndexEntry {
+  id: string;
+  edipi_encrypted: string;
+  email: string;
+}
+
 // Users index structure for seed data
 interface UsersIndex {
-  users: Array<{
-    id: string;
-    edipi_encrypted: string;
-    email: string;
-  }>;
+  users: UserIndexEntry[];
   version: string;
   updatedAt: string;
 }
@@ -1370,7 +1373,7 @@ export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
 
 // Export a single user to JSON format (for saving to /data/user/)
 export function exportUserToSeedFormat(userId: string): {
-  indexEntry: { id: string; edipi_encrypted: string; email: string };
+  indexEntry: UserIndexEntry;
   userData: SeedUserRecord;
 } | null {
   const user = getUserById(userId);
