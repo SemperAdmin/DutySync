@@ -148,19 +148,7 @@ jobs:
           git add public/data/user/ public/data/users-index.json
           git commit -m "feat: Add new user account (${{ inputs.email }})"
           git push
-
-      - name: Trigger deployment
-        if: steps.user-check.outputs.exists != 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'deploy.yml',
-              ref: 'main'
-            });
-            console.log('Triggered deployment workflow');
+          # Note: Push to main automatically triggers deploy.yml workflow
 
       - name: Output result
         run: |
