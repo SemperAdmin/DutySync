@@ -16,6 +16,9 @@ import {
   createPersonnel,
   parseManpowerTsv,
   importManpowerData,
+  exportUnitStructure,
+  exportUnitMembers,
+  downloadAsJson,
 } from "@/lib/client-stores";
 
 export default function PersonnelPage() {
@@ -494,6 +497,31 @@ function ImportModal({
                   </li>
                 )}
               </ul>
+
+              {/* Export buttons for seed files */}
+              {(result.personnel.created > 0 || result.units?.created) && (
+                <div className="mt-4 pt-3 border-t border-success/20">
+                  <p className="text-xs text-foreground-muted mb-2">
+                    Download updated seed files to persist changes:
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-surface hover:bg-surface-elevated border border-border text-foreground transition-colors"
+                      onClick={() => downloadAsJson(exportUnitStructure(), "unit-structure.json")}
+                    >
+                      unit-structure.json
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-surface hover:bg-surface-elevated border border-border text-foreground transition-colors"
+                      onClick={() => downloadAsJson(exportUnitMembers(), "unit-members.json")}
+                    >
+                      unit-members.json
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
