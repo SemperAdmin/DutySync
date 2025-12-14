@@ -26,6 +26,31 @@ const KEYS = {
 
 // ============ Seed Data Loading ============
 
+// Units index structure
+interface UnitsIndex {
+  units: Array<{
+    ruc: string;
+    name: string;
+    description?: string;
+  }>;
+  version: string;
+  updatedAt: string;
+}
+
+// Get available RUCs from the units index
+export async function getAvailableRucs(): Promise<UnitsIndex["units"]> {
+  try {
+    const response = await fetch("/data/units-index.json");
+    if (response.ok) {
+      const data: UnitsIndex = await response.json();
+      return data.units || [];
+    }
+  } catch (error) {
+    console.error("Failed to load units index:", error);
+  }
+  return [];
+}
+
 // Load seed data from JSON files if localStorage is empty
 export async function loadSeedDataIfNeeded(): Promise<{
   unitsLoaded: number;
@@ -56,29 +81,41 @@ export async function loadSeedDataIfNeeded(): Promise<{
   let personnelLoaded = 0;
 
   try {
-    // Load unit structure
-    const unitResponse = await fetch("/data/unit-structure.json");
-    if (unitResponse.ok) {
-      const unitData = await unitResponse.json();
-      if (unitData.units && Array.isArray(unitData.units)) {
-        saveToStorage(KEYS.units, unitData.units);
-        unitsLoaded = unitData.units.length;
-      }
-    }
+    // Load units index to get available RUCs
+    const availableRucs = await getAvailableRucs();
 
-    // Load personnel
-    const personnelResponse = await fetch("/data/unit-members.json");
-    if (personnelResponse.ok) {
-      const personnelData = await personnelResponse.json();
-      if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
-        // Add timestamps to personnel records
-        const personnelWithDates = personnelData.personnel.map((p: Personnel) => ({
-          ...p,
-          created_at: p.created_at || new Date(),
-          updated_at: p.updated_at || new Date(),
-        }));
-        saveToStorage(KEYS.personnel, personnelWithDates);
-        personnelLoaded = personnelWithDates.length;
+    // Load data from each RUC folder
+    for (const rucInfo of availableRucs) {
+      const ruc = rucInfo.ruc;
+
+      // Load unit structure from RUC folder
+      const unitResponse = await fetch(`/data/${ruc}/unit-structure.json`);
+      if (unitResponse.ok) {
+        const unitData = await unitResponse.json();
+        if (unitData.units && Array.isArray(unitData.units)) {
+          const existingUnits = getFromStorage<UnitSection>(KEYS.units);
+          const mergedUnits = [...existingUnits, ...unitData.units];
+          saveToStorage(KEYS.units, mergedUnits);
+          unitsLoaded += unitData.units.length;
+        }
+      }
+
+      // Load personnel from RUC folder
+      const personnelResponse = await fetch(`/data/${ruc}/unit-members.json`);
+      if (personnelResponse.ok) {
+        const personnelData = await personnelResponse.json();
+        if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
+          // Add timestamps to personnel records
+          const personnelWithDates = personnelData.personnel.map((p: Personnel) => ({
+            ...p,
+            created_at: p.created_at || new Date(),
+            updated_at: p.updated_at || new Date(),
+          }));
+          const existingPersonnel = getFromStorage<Personnel>(KEYS.personnel);
+          const mergedPersonnel = [...existingPersonnel, ...personnelWithDates];
+          saveToStorage(KEYS.personnel, mergedPersonnel);
+          personnelLoaded += personnelWithDates.length;
+        }
       }
     }
 
@@ -91,6 +128,56 @@ export async function loadSeedDataIfNeeded(): Promise<{
   }
 
   return { unitsLoaded, personnelLoaded, alreadyLoaded: false };
+}
+
+// Load data for a specific RUC
+export async function loadRucData(ruc: string): Promise<{
+  unitsLoaded: number;
+  personnelLoaded: number;
+}> {
+  let unitsLoaded = 0;
+  let personnelLoaded = 0;
+
+  try {
+    // Load unit structure from RUC folder
+    const unitResponse = await fetch(`/data/${ruc}/unit-structure.json`);
+    if (unitResponse.ok) {
+      const unitData = await unitResponse.json();
+      if (unitData.units && Array.isArray(unitData.units)) {
+        const existingUnits = getFromStorage<UnitSection>(KEYS.units);
+        // Filter out any existing units with same IDs to avoid duplicates
+        const existingIds = new Set(existingUnits.map(u => u.id));
+        const newUnits = unitData.units.filter((u: UnitSection) => !existingIds.has(u.id));
+        const mergedUnits = [...existingUnits, ...newUnits];
+        saveToStorage(KEYS.units, mergedUnits);
+        unitsLoaded = newUnits.length;
+      }
+    }
+
+    // Load personnel from RUC folder
+    const personnelResponse = await fetch(`/data/${ruc}/unit-members.json`);
+    if (personnelResponse.ok) {
+      const personnelData = await personnelResponse.json();
+      if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
+        const personnelWithDates = personnelData.personnel.map((p: Personnel) => ({
+          ...p,
+          created_at: p.created_at || new Date(),
+          updated_at: p.updated_at || new Date(),
+        }));
+        const existingPersonnel = getFromStorage<Personnel>(KEYS.personnel);
+        // Filter out duplicates by service_id (EDIPI)
+        const existingEdipis = new Set(existingPersonnel.map(p => p.service_id));
+        const newPersonnel = personnelWithDates.filter((p: Personnel) => !existingEdipis.has(p.service_id));
+        const mergedPersonnel = [...existingPersonnel, ...newPersonnel];
+        saveToStorage(KEYS.personnel, mergedPersonnel);
+        personnelLoaded = newPersonnel.length;
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to load data for RUC ${ruc}:`, error);
+  }
+
+  return { unitsLoaded, personnelLoaded };
 }
 
 // Force reload seed data (clears existing and reloads from JSON)
