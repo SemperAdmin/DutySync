@@ -267,7 +267,14 @@ function saveToStorage<T>(key: string, data: T[]): void {
 // Unit Sections
 export function getUnitSections(): UnitSection[] {
   return getFromStorage<UnitSection>(KEYS.units).sort((a, b) => {
-    const levelOrder: Record<string, number> = { battalion: 0, company: 1, platoon: 2, section: 3 };
+    const levelOrder: Record<string, number> = {
+      ruc: 0,
+      battalion: 0,
+      company: 1,
+      section: 2,
+      work_section: 3,
+      platoon: 2,
+    };
     return (levelOrder[a.hierarchy_level] || 0) - (levelOrder[b.hierarchy_level] || 0);
   });
 }
