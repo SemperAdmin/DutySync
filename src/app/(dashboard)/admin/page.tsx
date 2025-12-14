@@ -14,12 +14,21 @@ import {
   getAllUsers,
   getAllPersonnel,
   assignUserRole,
+  removeUserRole,
   deleteUser,
   loadRucs,
   getAllRucs,
   updateRucName,
   type RucEntry,
 } from "@/lib/client-stores";
+
+// Manager role names - a user can only have one of these at a time
+const MANAGER_ROLES: RoleName[] = [
+  "Unit Manager",
+  "Company Manager",
+  "Platoon Manager",
+  "Section Manager",
+];
 import { levelColors } from "@/lib/unit-constants";
 import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 import UserDashboard from "@/components/dashboard/UserDashboard";
@@ -891,13 +900,42 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
 
   const isUserAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
+  // Check if role requires a unit scope
+  const roleRequiresScope = (role: string) => {
+    return ["Unit Admin", ...MANAGER_ROLES].includes(role as RoleName);
+  };
+
+  // Check if user already has a manager role
+  const existingManagerRole = user.roles.find((r) => MANAGER_ROLES.includes(r.role_name as RoleName));
+
   const handleAssignRole = () => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const success = assignUserRole(user.id, selectedRole, selectedRole === "Unit Admin" ? selectedRuc : null);
+      // If assigning a manager role and user already has one, remove the existing one first
+      if (MANAGER_ROLES.includes(selectedRole as RoleName) && existingManagerRole) {
+        removeUserRole(user.id, existingManagerRole.role_name, existingManagerRole.scope_unit_id);
+      }
+
+      const scopeUnitId = roleRequiresScope(selectedRole) ? selectedRuc : null;
+      const success = assignUserRole(user.id, selectedRole, scopeUnitId);
       if (!success) throw new Error("Failed to assign role");
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveRole = (roleName: string, scopeUnitId: string | null) => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const success = removeUserRole(user.id, roleName, scopeUnitId);
+      if (!success) throw new Error("Failed to remove role");
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -921,22 +959,63 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     }
   };
 
+  // Get role color for badges
+  const getRoleBadgeColor = (roleName: string) => {
+    if (roleName === "App Admin") return "bg-highlight/20 text-highlight border-highlight/30";
+    if (roleName === "Unit Admin") return "bg-primary/20 text-blue-400 border-primary/30";
+    if (MANAGER_ROLES.includes(roleName as RoleName)) return "bg-success/20 text-success border-success/30";
+    return "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30";
+  };
+
+  // Get RUC display name
+  const getRucDisplayName = (rucCode: string | null) => {
+    if (!rucCode) return null;
+    const ruc = rucs.find(r => r.ruc === rucCode);
+    return ruc?.name ? `${rucCode} - ${ruc.name}` : rucCode;
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card variant="elevated" className="w-full max-w-md">
+      <Card variant="elevated" className="w-full max-w-md max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <CardTitle>Manage Roles - {user.edipi}</CardTitle>
-          <CardDescription>Assign or modify user roles</CardDescription>
+          <CardDescription>Assign or remove user roles</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">{error}</div>}
 
+          {/* Current Roles with Remove Buttons */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Current Roles</label>
             <div className="flex flex-wrap gap-2">
-              {user.roles.map((role, idx) => (
-                <span key={role.id ?? `${idx}-${role.role_name}`} className="px-3 py-1 text-sm rounded-lg bg-surface-elevated border border-border">{role.role_name}</span>
-              ))}
+              {user.roles.map((role, idx) => {
+                const canRemove = role.role_name !== "App Admin" && role.role_name !== "Standard User";
+                return (
+                  <span
+                    key={role.id ?? `${idx}-${role.role_name}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-lg border ${getRoleBadgeColor(role.role_name)}`}
+                  >
+                    <span>
+                      {role.role_name}
+                      {role.scope_unit_id && (
+                        <span className="ml-1 opacity-75 text-xs">({getRucDisplayName(role.scope_unit_id)})</span>
+                      )}
+                    </span>
+                    {canRemove && (
+                      <button
+                        onClick={() => handleRemoveRole(role.role_name, role.scope_unit_id)}
+                        disabled={isSubmitting}
+                        className="ml-1 hover:bg-white/20 rounded p-0.5 transition-colors"
+                        title={`Remove ${role.role_name}`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
             </div>
           </div>
 
@@ -948,15 +1027,31 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
           {!isUserAppAdmin && (
             <div className="space-y-4 pt-4 border-t border-border">
               <h4 className="font-medium text-foreground">Assign New Role</h4>
+
+              {/* Warning if replacing manager role */}
+              {existingManagerRole && MANAGER_ROLES.includes(selectedRole as RoleName) && selectedRole !== existingManagerRole.role_name && (
+                <div className="p-2 rounded-lg bg-warning/10 border border-warning/20 text-warning text-xs">
+                  This will replace the existing {existingManagerRole.role_name} role. Users can only have one manager role.
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Role Type</label>
                 <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as RoleName)} disabled={isSubmitting}>
                   <option value="Standard User">Standard User</option>
-                  <option value="Unit Admin">Unit Admin</option>
+                  <optgroup label="Admin Roles">
+                    <option value="Unit Admin">Unit Admin</option>
+                  </optgroup>
+                  <optgroup label="Manager Roles (one at a time)">
+                    <option value="Unit Manager">Unit Manager</option>
+                    <option value="Company Manager">Company Manager</option>
+                    <option value="Platoon Manager">Platoon Manager</option>
+                    <option value="Section Manager">Section Manager</option>
+                  </optgroup>
                 </select>
               </div>
 
-              {selectedRole === "Unit Admin" && (
+              {roleRequiresScope(selectedRole) && (
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Unit Scope (RUC)</label>
                   <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedRuc} onChange={(e) => setSelectedRuc(e.target.value)} disabled={isSubmitting}>
@@ -966,15 +1061,17 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
                 </div>
               )}
 
-              <Button variant="accent" onClick={handleAssignRole} isLoading={isSubmitting} disabled={isSubmitting || (selectedRole === "Unit Admin" && !selectedRuc)} className="w-full">
-                Assign Role
+              <Button variant="accent" onClick={handleAssignRole} isLoading={isSubmitting} disabled={isSubmitting || (roleRequiresScope(selectedRole) && !selectedRuc)} className="w-full">
+                {existingManagerRole && MANAGER_ROLES.includes(selectedRole as RoleName) && selectedRole !== existingManagerRole.role_name
+                  ? "Replace Manager Role"
+                  : "Assign Role"}
               </Button>
             </div>
           )}
 
           {isUserAppAdmin && (
             <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
-              This user is an App Admin (assigned via EDIPI). Role changes for App Admins require updating the APP_ADMIN environment variable.
+              This user is an App Admin (assigned via EDIPI). The App Admin role cannot be removed here.
             </div>
           )}
 
