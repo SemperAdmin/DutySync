@@ -1505,13 +1505,13 @@ export async function getAvailableSeedUsers(): Promise<UsersIndex["users"]> {
 }
 
 // Load seed users from JSON files into memory cache (no localStorage)
-export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
+export async function loadSeedUsers(forceReload = false): Promise<{ usersLoaded: number }> {
   if (typeof window === "undefined") {
     return { usersLoaded: 0 };
   }
 
-  // If already loaded, return cached count
-  if (seedUsersCache.length > 0) {
+  // If already loaded and not forcing reload, return cached count
+  if (seedUsersCache.length > 0 && !forceReload) {
     return { usersLoaded: seedUsersCache.length };
   }
 
@@ -1549,6 +1549,7 @@ export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
         email: userData.email,
         personnel_id: userData.personnel_id || null,
         roles: userData.roles,
+        can_approve_non_availability: (userData as Record<string, unknown>).can_approve_non_availability as boolean | undefined,
         created_at: userData.created_at,
         password_hash: userData.password_hash,
       };
