@@ -303,10 +303,15 @@ export default function DashboardLayout({
     if (!item.allowedRoles || item.allowedRoles.length === 0) {
       return true;
     }
-    // If App Admin in user view mode, only show items accessible to Standard User
+    // If App Admin in user view mode, hide admin-only items but still show manager items
     if (actuallyIsAdmin && !isAdminView) {
-      // In user view, hide admin-only items
-      return false;
+      // Check if item is admin-only (only has admin roles, no manager roles)
+      const isAdminOnly = item.allowedRoles.every(role => ADMIN_ROLES.includes(role));
+      if (isAdminOnly) {
+        return false;
+      }
+      // For items that allow manager roles, check if user actually has those roles
+      return hasAnyRole(user, item.allowedRoles);
     }
     // Check if user has any of the allowed roles
     return hasAnyRole(user, item.allowedRoles);
