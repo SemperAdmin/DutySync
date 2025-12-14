@@ -322,6 +322,38 @@ function ImportModal({
     }
   };
 
+  // Parse a CSV line handling quoted fields with commas
+  const parseCsvLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          // Escaped quote inside quoted field
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // Field separator
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    // Push last field
+    result.push(current.trim());
+    return result;
+  };
+
   const handleSubmit = async () => {
     if (!selectedFile) {
       setError("Please select a file");
@@ -340,8 +372,8 @@ function ImportModal({
         throw new Error("CSV file must have a header row and at least one data row");
       }
 
-      // Parse header
-      const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      // Parse header using the robust parser
+      const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
       const serviceIdIdx = header.indexOf("service_id");
       const firstNameIdx = header.indexOf("first_name");
       const lastNameIdx = header.indexOf("last_name");
@@ -352,10 +384,10 @@ function ImportModal({
         throw new Error("CSV must have columns: service_id, first_name, last_name, rank");
       }
 
-      // Parse records
+      // Parse records using the robust parser
       const records = [];
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",").map((v) => v.trim());
+        const values = parseCsvLine(lines[i]);
         if (values.length > rankIdx) {
           records.push({
             service_id: values[serviceIdIdx],

@@ -119,6 +119,15 @@ export default function RosterPage() {
 
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  // Helper to properly escape a CSV cell (handles commas, quotes, newlines)
+  function escapeCsvCell(cell: string | number | null | undefined): string {
+    const str = String(cell ?? "");
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
   // Export to CSV
   function exportToCSV() {
     // Get first and last day of current month for export
@@ -144,7 +153,11 @@ export default function RosterPage() {
       ];
     });
 
-    const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    // Properly escape all cells for CSV format
+    const csv = [
+      headers.map(escapeCsvCell).join(","),
+      ...rows.map((row) => row.map(escapeCsvCell).join(",")),
+    ].join("\n");
 
     // Download the file
     const blob = new Blob([csv], { type: "text/csv" });

@@ -29,7 +29,9 @@ function getFromStorage<T>(key: string): T[] {
   try {
     const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
-  } catch {
+  } catch (error) {
+    console.error(`Failed to parse ${key} from localStorage. Clearing item.`, error);
+    localStorage.removeItem(key);
     return [];
   }
 }
@@ -68,10 +70,21 @@ export function updateUnitSection(id: string, updates: Partial<UnitSection>): Un
   return units[idx];
 }
 
+export function getChildUnits(parentId: string): UnitSection[] {
+  return getFromStorage<UnitSection>(KEYS.units).filter((u) => u.parent_id === parentId);
+}
+
 export function deleteUnitSection(id: string): boolean {
-  const units = getFromStorage<UnitSection>(KEYS.units);
-  const filtered = units.filter((u) => u.id !== id);
-  if (filtered.length === units.length) return false;
+  const allUnits = getFromStorage<UnitSection>(KEYS.units);
+
+  // Check for child units before deleting
+  const children = allUnits.filter((u) => u.parent_id === id);
+  if (children.length > 0) {
+    throw new Error("Cannot delete a unit that has child units. Please delete or reassign them first.");
+  }
+
+  const filtered = allUnits.filter((u) => u.id !== id);
+  if (filtered.length === allUnits.length) return false;
   saveToStorage(KEYS.units, filtered);
   return true;
 }
@@ -539,27 +552,32 @@ export function assignUserRole(
     const idx = users.findIndex((u: StoredUser) => u.id === userId);
     if (idx === -1) return false;
 
+    // Initialize roles array if needed
+    users[idx].roles = users[idx].roles || [];
+
+    // Check if this exact role already exists (same role name AND same scope unit)
+    const roleExists = users[idx].roles.some(
+      (r: { role_name: string; scope_unit_id: string | null }) =>
+        r.role_name === roleName && r.scope_unit_id === (scopeUnitId || null)
+    );
+
+    if (roleExists) {
+      // Role already exists, nothing to do
+      return true;
+    }
+
+    // Add the new role (allows multiple Unit Admin roles for different units)
     const newRole = {
       id: `role-${Date.now()}`,
       role_name: roleName,
       scope_unit_id: scopeUnitId || null,
     };
-
-    // Check if role already exists
-    const existingRoleIdx = users[idx].roles?.findIndex(
-      (r: { role_name: string }) => r.role_name === roleName
-    );
-
-    if (existingRoleIdx !== undefined && existingRoleIdx >= 0) {
-      users[idx].roles[existingRoleIdx] = newRole;
-    } else {
-      users[idx].roles = users[idx].roles || [];
-      users[idx].roles.push(newRole);
-    }
+    users[idx].roles.push(newRole);
 
     localStorage.setItem("dutysync_users", JSON.stringify(users));
     return true;
-  } catch {
+  } catch (error) {
+    console.error("Failed to assign user role:", error);
     return false;
   }
 }

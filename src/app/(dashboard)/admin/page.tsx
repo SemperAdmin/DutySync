@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -119,6 +119,7 @@ function UnitsTab() {
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState<UnitSection | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const fetchUnits = useCallback(() => {
     try {
@@ -135,13 +136,19 @@ function UnitsTab() {
     fetchUnits();
   }, [fetchUnits]);
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Are you sure you want to delete this unit?")) return;
+  const handleDeleteRequest = (id: string, name: string) => {
+    setDeleteConfirm({ id, name });
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!deleteConfirm) return;
     try {
-      deleteUnitSection(id);
+      deleteUnitSection(deleteConfirm.id);
       fetchUnits();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -190,6 +197,31 @@ function UnitsTab() {
         />
       )}
 
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card variant="elevated" className="w-full max-w-sm">
+            <CardHeader>
+              <CardTitle>Delete Unit</CardTitle>
+              <CardDescription>This action cannot be undone</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-foreground">
+                Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
+              </p>
+              <div className="flex gap-3">
+                <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button variant="accent" onClick={handleDeleteConfirm} className="flex-1 bg-error hover:bg-error/90">
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {units.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -205,10 +237,10 @@ function UnitsTab() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {battalions.length > 0 && <UnitHierarchyCard title="Battalions" level="battalion" units={battalions} allUnits={units} onEdit={setEditingUnit} onDelete={handleDelete} />}
-          {companies.length > 0 && <UnitHierarchyCard title="Companies" level="company" units={companies} allUnits={units} onEdit={setEditingUnit} onDelete={handleDelete} />}
-          {platoons.length > 0 && <UnitHierarchyCard title="Platoons" level="platoon" units={platoons} allUnits={units} onEdit={setEditingUnit} onDelete={handleDelete} />}
-          {sections.length > 0 && <UnitHierarchyCard title="Sections" level="section" units={sections} allUnits={units} onEdit={setEditingUnit} onDelete={handleDelete} />}
+          {battalions.length > 0 && <UnitHierarchyCard title="Battalions" level="battalion" units={battalions} allUnits={units} onEdit={setEditingUnit} onDelete={handleDeleteRequest} />}
+          {companies.length > 0 && <UnitHierarchyCard title="Companies" level="company" units={companies} allUnits={units} onEdit={setEditingUnit} onDelete={handleDeleteRequest} />}
+          {platoons.length > 0 && <UnitHierarchyCard title="Platoons" level="platoon" units={platoons} allUnits={units} onEdit={setEditingUnit} onDelete={handleDeleteRequest} />}
+          {sections.length > 0 && <UnitHierarchyCard title="Sections" level="section" units={sections} allUnits={units} onEdit={setEditingUnit} onDelete={handleDeleteRequest} />}
         </div>
       )}
     </div>
@@ -228,7 +260,7 @@ function UnitHierarchyCard({
   units: UnitSection[];
   allUnits: UnitSection[];
   onEdit: (unit: UnitSection) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
 }) {
   const levelColors = {
     battalion: "bg-highlight/20 text-highlight border-highlight/30",
@@ -237,10 +269,17 @@ function UnitHierarchyCard({
     section: "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30",
   };
 
+  // Memoize parent name lookups for better performance
+  const parentNameMap = useMemo(() => {
+    return allUnits.reduce((acc, unit) => {
+      acc[unit.id] = unit.unit_name;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [allUnits]);
+
   const getParentName = (parentId: string | null) => {
     if (!parentId) return null;
-    const parent = allUnits.find((u) => u.id === parentId);
-    return parent?.unit_name || "Unknown";
+    return parentNameMap[parentId] || "Unknown";
   };
 
   return (
@@ -268,7 +307,7 @@ function UnitHierarchyCard({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => onDelete(unit.id)} className="text-error hover:bg-error/10">
+                <Button variant="ghost" size="sm" onClick={() => onDelete(unit.id, unit.unit_name)} className="text-error hover:bg-error/10">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
@@ -420,10 +459,17 @@ function UsersTab() {
     }
   };
 
+  // Memoize unit name lookups for better performance
+  const unitNameMap = useMemo(() => {
+    return units.reduce((acc, unit) => {
+      acc[unit.id] = unit.unit_name;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [units]);
+
   const getUnitName = (unitId: string | null) => {
     if (!unitId) return null;
-    const unit = units.find((u) => u.id === unitId);
-    return unit?.unit_name || "Unknown";
+    return unitNameMap[unitId] || "Unknown";
   };
 
   if (isLoading) {
@@ -491,7 +537,7 @@ function UsersTab() {
                       <td className="py-3 px-4">
                         <div className="flex flex-wrap gap-1">
                           {user.roles.map((role, idx) => (
-                            <span key={idx} className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(role.role_name)}`}>
+                            <span key={role.id ?? `${idx}-${role.role_name}`} className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(role.role_name)}`}>
                               {role.role_name}
                               {role.scope_unit_id && <span className="ml-1 opacity-75">({getUnitName(role.scope_unit_id)})</span>}
                             </span>
@@ -555,7 +601,7 @@ function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserDa
             <label className="block text-sm font-medium text-foreground mb-2">Current Roles</label>
             <div className="flex flex-wrap gap-2">
               {user.roles.map((role, idx) => (
-                <span key={idx} className="px-3 py-1 text-sm rounded-lg bg-surface-elevated border border-border">{role.role_name}</span>
+                <span key={role.id ?? `${idx}-${role.role_name}`} className="px-3 py-1 text-sm rounded-lg bg-surface-elevated border border-border">{role.role_name}</span>
               ))}
             </div>
           </div>
