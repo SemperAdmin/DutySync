@@ -227,3 +227,98 @@ export async function testGitHubConnection(
     };
   }
 }
+
+// Update a user file in GitHub (for role changes)
+export async function pushUserFileToGitHub(
+  userId: string,
+  userData: object
+): Promise<GitHubUpdateResult> {
+  const settings = getGitHubSettings();
+
+  if (!settings) {
+    return { success: false, message: "GitHub not configured" };
+  }
+
+  const filePath = `public/data/user/${userId}.json`;
+  const timestamp = new Date().toISOString().split("T")[0];
+
+  return updateGitHubFile(
+    settings,
+    filePath,
+    userData,
+    `chore: Update user roles (${timestamp})`
+  );
+}
+
+// Delete a user file from GitHub
+export async function deleteUserFileFromGitHub(
+  userId: string
+): Promise<GitHubUpdateResult> {
+  const settings = getGitHubSettings();
+
+  if (!settings) {
+    return { success: false, message: "GitHub not configured" };
+  }
+
+  const filePath = `public/data/user/${userId}.json`;
+
+  try {
+    // Get current file SHA (required for deletion)
+    const shaResponse = await fetch(
+      `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${filePath}?ref=${settings.branch}`,
+      {
+        headers: {
+          Authorization: `Bearer ${settings.token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    if (shaResponse.status === 404) {
+      return { success: true, message: "File already deleted" };
+    }
+
+    if (!shaResponse.ok) {
+      throw new Error(`Failed to get file info: ${shaResponse.statusText}`);
+    }
+
+    const shaData = await shaResponse.json();
+    const sha = shaData.sha;
+
+    // Delete the file
+    const timestamp = new Date().toISOString().split("T")[0];
+    const response = await fetch(
+      `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${filePath}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${settings.token}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: `chore: Delete user account (${timestamp})`,
+          sha: sha,
+          branch: settings.branch,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || `GitHub API error: ${response.statusText}`
+      );
+    }
+
+    return {
+      success: true,
+      message: "User file deleted successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
