@@ -276,9 +276,6 @@ export default function PersonnelPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
-                      EDIPI
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Name
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
@@ -304,9 +301,6 @@ export default function PersonnelPage() {
                       key={person.id}
                       className="border-b border-border hover:bg-surface-elevated"
                     >
-                      <td className="py-3 px-4 font-mono text-sm">
-                        {person.service_id}
-                      </td>
                       <td className="py-3 px-4">
                         <span className="font-medium text-foreground">
                           {person.last_name}, {person.first_name}
