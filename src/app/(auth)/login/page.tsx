@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/lib/client-auth";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Card, {
@@ -17,13 +17,17 @@ import Card, {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
-  const error = searchParams.get("error");
+  const callbackUrl = searchParams.get("callbackUrl") || "/admin";
+  const { login, user, isLoading: authLoading } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [formError, setFormError] = useState<string | null>(
-    error === "CredentialsSignin" ? "Invalid username or password" : null
-  );
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push(callbackUrl);
+    }
+  }, [user, authLoading, router, callbackUrl]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,25 +39,23 @@ function LoginForm() {
     const password = formData.get("password") as string;
 
     try {
-      const result = await signIn("credentials", {
-        username,
-        password,
-        redirect: false,
-        callbackUrl,
-      });
+      const success = await login(username, password);
 
-      if (result?.error) {
+      if (success) {
+        router.push(callbackUrl);
+      } else {
         setFormError("Invalid username or password");
         setIsLoading(false);
-      } else if (result?.ok) {
-        router.push(callbackUrl);
-        router.refresh();
       }
     } catch {
       setFormError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
   };
+
+  if (authLoading) {
+    return <LoginLoading />;
+  }
 
   return (
     <Card variant="elevated" className="w-full max-w-md">

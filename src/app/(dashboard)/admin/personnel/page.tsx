@@ -10,6 +10,12 @@ import Card, {
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import type { Personnel, UnitSection } from "@/types";
+import {
+  getAllPersonnel,
+  getUnitSections,
+  createPersonnel,
+  importPersonnel,
+} from "@/lib/client-stores";
 
 export default function PersonnelPage() {
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
@@ -21,22 +27,13 @@ export default function PersonnelPage() {
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     try {
-      const [personnelRes, unitsRes] = await Promise.all([
-        fetch("/api/personnel"),
-        fetch("/api/units"),
-      ]);
+      const personnelData = getAllPersonnel();
+      const unitsData = getUnitSections();
 
-      const personnelData = await personnelRes.json();
-      const unitsData = await unitsRes.json();
-
-      if (!personnelRes.ok) {
-        throw new Error(personnelData.error || "Failed to fetch personnel");
-      }
-
-      setPersonnel(personnelData.personnel || []);
-      setUnits(unitsData.units || []);
+      setPersonnel(personnelData);
+      setUnits(unitsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -335,22 +332,43 @@ function ImportModal({
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      if (selectedUnit) {
-        formData.append("unit_id", selectedUnit);
+      // Parse CSV file client-side
+      const text = await selectedFile.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+
+      if (lines.length < 2) {
+        throw new Error("CSV file must have a header row and at least one data row");
       }
 
-      const response = await fetch("/api/personnel/import", {
-        method: "POST",
-        body: formData,
-      });
+      // Parse header
+      const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      const serviceIdIdx = header.indexOf("service_id");
+      const firstNameIdx = header.indexOf("first_name");
+      const lastNameIdx = header.indexOf("last_name");
+      const rankIdx = header.indexOf("rank");
+      const unitNameIdx = header.indexOf("unit_name");
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Import failed");
+      if (serviceIdIdx === -1 || firstNameIdx === -1 || lastNameIdx === -1 || rankIdx === -1) {
+        throw new Error("CSV must have columns: service_id, first_name, last_name, rank");
       }
+
+      // Parse records
+      const records = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",").map((v) => v.trim());
+        if (values.length > rankIdx) {
+          records.push({
+            service_id: values[serviceIdIdx],
+            first_name: values[firstNameIdx],
+            last_name: values[lastNameIdx],
+            rank: values[rankIdx],
+            unit_name: unitNameIdx >= 0 ? values[unitNameIdx] : undefined,
+          });
+        }
+      }
+
+      // Import using client-stores
+      const data = importPersonnel(records, selectedUnit || undefined);
 
       setResult({
         created: data.created,
@@ -563,24 +581,25 @@ function AddPersonnelModal({
     unit_section_id: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/personnel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const newPerson: Personnel = {
+        id: crypto.randomUUID(),
+        service_id: formData.service_id,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        rank: formData.rank,
+        unit_section_id: formData.unit_section_id,
+        current_duty_score: 0,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create personnel");
-      }
-
+      createPersonnel(newPerson);
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");

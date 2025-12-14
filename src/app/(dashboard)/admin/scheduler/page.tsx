@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
-import type { UnitSection, DutySlot, DutyType, Personnel } from "@/types";
-
-interface EnrichedSlot extends DutySlot {
-  duty_type: { id: string; duty_name: string; unit_section_id: string } | null;
-  personnel: { id: string; first_name: string; last_name: string; rank: string } | null;
-}
+import type { UnitSection } from "@/types";
+import {
+  getUnitSections,
+  getDutyTypeById,
+  getPersonnelById,
+  type EnrichedSlot,
+} from "@/lib/client-stores";
+import { generateSchedule, previewSchedule } from "@/lib/duty-thruster";
 
 interface ScheduleResult {
   success: boolean;
@@ -44,13 +46,10 @@ export default function SchedulerPage() {
     setEndDate(thirtyDaysLater.toISOString().split("T")[0]);
   }, []);
 
-  async function fetchUnits() {
+  function fetchUnits() {
     try {
-      const res = await fetch("/api/units");
-      if (res.ok) {
-        const data = await res.json();
-        setUnits(data.units || []);
-      }
+      const data = getUnitSections();
+      setUnits(data);
     } catch (err) {
       console.error("Error fetching units:", err);
     } finally {
@@ -58,7 +57,7 @@ export default function SchedulerPage() {
     }
   }
 
-  async function handleGenerate(preview: boolean) {
+  function handleGenerate(preview: boolean) {
     if (!selectedUnit || !startDate || !endDate) {
       setError("Please select a unit and date range");
       return;
@@ -69,25 +68,38 @@ export default function SchedulerPage() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/scheduler", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          unit_id: selectedUnit,
-          start_date: startDate,
-          end_date: endDate,
-          preview,
-          clear_existing: clearExisting,
-        }),
+      const request = {
+        unitId: selectedUnit,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        assignedBy: "admin",
+        clearExisting,
+      };
+
+      const scheduleResult = preview
+        ? previewSchedule(request)
+        : generateSchedule(request);
+
+      // Enrich slots with duty type and personnel info
+      const enrichedSlots: EnrichedSlot[] = scheduleResult.slots.map((slot) => {
+        const dutyType = getDutyTypeById(slot.duty_type_id);
+        const personnel = slot.personnel_id ? getPersonnelById(slot.personnel_id) : undefined;
+        return {
+          ...slot,
+          duty_type: dutyType ? { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id } : null,
+          personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank } : null,
+        };
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to generate schedule");
-      }
-
-      setResult(data);
+      setResult({
+        success: scheduleResult.success,
+        preview,
+        slots_created: scheduleResult.slotsCreated,
+        slots_skipped: scheduleResult.slotsSkipped,
+        errors: scheduleResult.errors,
+        warnings: scheduleResult.warnings,
+        slots: enrichedSlots,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate schedule");
     } finally {

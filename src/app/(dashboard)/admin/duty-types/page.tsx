@@ -3,11 +3,19 @@
 import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import type { DutyType, DutyValue, DutyRequirement, UnitSection } from "@/types";
-
-interface EnrichedDutyType extends DutyType {
-  requirements: DutyRequirement[];
-  duty_value: DutyValue | null;
-}
+import {
+  getUnitSections,
+  getEnrichedDutyTypes,
+  createDutyType,
+  updateDutyType,
+  deleteDutyType,
+  createDutyValue,
+  updateDutyValue,
+  getDutyValueByDutyType,
+  addDutyRequirement,
+  clearDutyRequirements,
+  type EnrichedDutyType,
+} from "@/lib/client-stores";
 
 // Common qualifications that can be required for duties
 const COMMON_QUALIFICATIONS = [
@@ -64,28 +72,14 @@ export default function DutyTypesPage() {
     fetchData();
   }, [selectedUnitFilter]);
 
-  async function fetchData() {
+  function fetchData() {
     try {
       setLoading(true);
+      const unitsData = getUnitSections();
+      setUnits(unitsData);
 
-      // Fetch units
-      const unitsRes = await fetch("/api/units");
-      if (unitsRes.ok) {
-        const unitsData = await unitsRes.json();
-        setUnits(unitsData.units || []);
-      }
-
-      // Fetch duty types
-      let url = "/api/duty-types";
-      if (selectedUnitFilter) {
-        url += `?unit_id=${selectedUnitFilter}`;
-      }
-
-      const dutyTypesRes = await fetch(url);
-      if (dutyTypesRes.ok) {
-        const dutyTypesData = await dutyTypesRes.json();
-        setDutyTypes(dutyTypesData.duty_types || []);
-      }
+      const dutyTypesData = getEnrichedDutyTypes(selectedUnitFilter || undefined);
+      setDutyTypes(dutyTypesData);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -137,27 +131,40 @@ export default function DutyTypesPage() {
     setIsDeleteModalOpen(true);
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
     try {
-      const res = await fetch("/api/duty-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          slots_needed: parseInt(formData.slots_needed),
-          base_weight: parseFloat(formData.base_weight),
-          weekend_multiplier: parseFloat(formData.weekend_multiplier),
-          holiday_multiplier: parseFloat(formData.holiday_multiplier),
-        }),
-      });
+      // Create duty type
+      const newDutyType: DutyType = {
+        id: crypto.randomUUID(),
+        unit_section_id: formData.unit_section_id,
+        duty_name: formData.duty_name,
+        description: formData.description || null,
+        slots_needed: parseInt(formData.slots_needed),
+        required_rank_min: formData.required_rank_min || null,
+        required_rank_max: formData.required_rank_max || null,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      createDutyType(newDutyType);
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to create duty type");
+      // Create duty value
+      const newDutyValue: DutyValue = {
+        id: crypto.randomUUID(),
+        duty_type_id: newDutyType.id,
+        base_weight: parseFloat(formData.base_weight),
+        weekend_multiplier: parseFloat(formData.weekend_multiplier),
+        holiday_multiplier: parseFloat(formData.holiday_multiplier),
+      };
+      createDutyValue(newDutyValue);
+
+      // Create requirements
+      for (const qual of formData.requirements) {
+        addDutyRequirement(newDutyType.id, qual);
       }
 
       setIsAddModalOpen(false);
@@ -169,7 +176,7 @@ export default function DutyTypesPage() {
     }
   }
 
-  async function handleUpdate(e: React.FormEvent) {
+  function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
     if (!editingDutyType) return;
 
@@ -177,21 +184,38 @@ export default function DutyTypesPage() {
     setError("");
 
     try {
-      const res = await fetch(`/api/duty-types/${editingDutyType.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          slots_needed: parseInt(formData.slots_needed),
+      // Update duty type
+      updateDutyType(editingDutyType.id, {
+        duty_name: formData.duty_name,
+        description: formData.description || null,
+        slots_needed: parseInt(formData.slots_needed),
+        required_rank_min: formData.required_rank_min || null,
+        required_rank_max: formData.required_rank_max || null,
+      });
+
+      // Update duty value
+      const existingValue = getDutyValueByDutyType(editingDutyType.id);
+      if (existingValue) {
+        updateDutyValue(existingValue.id, {
           base_weight: parseFloat(formData.base_weight),
           weekend_multiplier: parseFloat(formData.weekend_multiplier),
           holiday_multiplier: parseFloat(formData.holiday_multiplier),
-        }),
-      });
+        });
+      } else {
+        const newDutyValue: DutyValue = {
+          id: crypto.randomUUID(),
+          duty_type_id: editingDutyType.id,
+          base_weight: parseFloat(formData.base_weight),
+          weekend_multiplier: parseFloat(formData.weekend_multiplier),
+          holiday_multiplier: parseFloat(formData.holiday_multiplier),
+        };
+        createDutyValue(newDutyValue);
+      }
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update duty type");
+      // Update requirements - clear and re-add
+      clearDutyRequirements(editingDutyType.id);
+      for (const qual of formData.requirements) {
+        addDutyRequirement(editingDutyType.id, qual);
       }
 
       setIsEditModalOpen(false);
@@ -204,20 +228,14 @@ export default function DutyTypesPage() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!deletingDutyType) return;
 
     setSubmitting(true);
 
     try {
-      const res = await fetch(`/api/duty-types/${deletingDutyType.id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete duty type");
-      }
+      clearDutyRequirements(deletingDutyType.id);
+      deleteDutyType(deletingDutyType.id);
 
       setIsDeleteModalOpen(false);
       setDeletingDutyType(null);

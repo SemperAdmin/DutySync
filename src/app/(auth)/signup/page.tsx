@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/lib/client-auth";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Card, {
@@ -15,6 +16,7 @@ import Card, {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { signup } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -45,16 +47,10 @@ export default function SignupPage() {
     }
 
     try {
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, serviceId, password }),
-      });
+      const result = await signup(username, email, password, serviceId);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setFormError(data.error || "Failed to create account");
+      if (!result.success) {
+        setFormError(result.error || "Failed to create account");
         setIsLoading(false);
         return;
       }

@@ -9,6 +9,7 @@ import Card, {
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import type { UnitSection, RoleName } from "@/types";
+import { getAllUsers, getUnitSections, assignUserRole } from "@/lib/client-stores";
 
 interface UserData {
   id: string;
@@ -16,7 +17,7 @@ interface UserData {
   email: string;
   personnel_id: string | null;
   roles: Array<{
-    id: string;
+    id?: string;
     role_name: RoleName;
     scope_unit_id: string | null;
   }>;
@@ -29,22 +30,23 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     try {
-      const [usersRes, unitsRes] = await Promise.all([
-        fetch("/api/users"),
-        fetch("/api/units"),
-      ]);
+      const usersData = getAllUsers();
+      const unitsData = getUnitSections();
 
-      const usersData = await usersRes.json();
-      const unitsData = await unitsRes.json();
-
-      if (!usersRes.ok) {
-        throw new Error(usersData.error || "Failed to fetch users");
-      }
-
-      setUsers(usersData.users || []);
-      setUnits(unitsData.units || []);
+      setUsers(usersData.map(u => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        personnel_id: u.personnel_id || null,
+        roles: (u.roles || []).map(r => ({
+          id: r.id,
+          role_name: r.role_name as RoleName,
+          scope_unit_id: r.scope_unit_id,
+        })),
+      })));
+      setUnits(unitsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -234,24 +236,19 @@ function RoleAssignmentModal({
 
   const isAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
-  const handleAssignRole = async () => {
+  const handleAssignRole = () => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/users/${user.id}/roles`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          role_name: selectedRole,
-          scope_unit_id: selectedRole === "Unit Admin" ? selectedUnit : null,
-        }),
-      });
+      const success = assignUserRole(
+        user.id,
+        selectedRole,
+        selectedRole === "Unit Admin" ? selectedUnit : null
+      );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to assign role");
+      if (!success) {
+        throw new Error("Failed to assign role");
       }
 
       onSuccess();

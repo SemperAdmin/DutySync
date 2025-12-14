@@ -1,11 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import { auth, getSessionUser } from "@/lib/auth";
 import Logo from "@/components/ui/Logo";
 import Button from "@/components/ui/Button";
+import { useAuth } from "@/lib/client-auth";
 
-export default async function HomePage() {
-  const session = await auth();
-  const user = getSessionUser(session);
+export default function HomePage() {
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col">

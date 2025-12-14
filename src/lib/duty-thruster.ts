@@ -8,7 +8,6 @@
  * 4. Point calculation: Apply multipliers for weekends and holidays
  */
 
-import { v4 as uuidv4 } from "uuid";
 import type { DutySlot, DutyType, Personnel, DutyValue } from "@/types";
 import {
   getDutyTypesByUnit,
@@ -20,9 +19,8 @@ import {
   getDutySlotsByDate,
   createDutySlot,
   updatePersonnel,
-  getPersonnelById,
   clearDutySlotsInRange,
-} from "./stores";
+} from "./client-stores";
 
 // US Federal Holidays (approximate - would need proper holiday calculation in production)
 const FEDERAL_HOLIDAYS_2024 = [
@@ -289,7 +287,7 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
 
         // Create the duty slot
         const newSlot: DutySlot = {
-          id: uuidv4(),
+          id: crypto.randomUUID(),
           duty_type_id: dutyType.id,
           personnel_id: selected.personnel.id,
           date_assigned: date,
@@ -409,7 +407,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
 
         // Create preview slot (not saved)
         const previewSlot: DutySlot = {
-          id: `preview-${uuidv4()}`,
+          id: `preview-${crypto.randomUUID()}`,
           duty_type_id: dutyType.id,
           personnel_id: selected.personnel.id,
           date_assigned: date,

@@ -1,23 +1,35 @@
-import { redirect } from "next/navigation";
-import { auth, getSessionUser } from "@/lib/auth";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/client-auth";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
-export default async function DashboardRootLayout({
+export default function DashboardRootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
 
-  if (!session) {
-    redirect("/login");
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, isLoading, router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground-muted">Loading...</div>
+      </div>
+    );
   }
 
-  const user = getSessionUser(session);
+  if (!user) {
+    return null;
+  }
 
-  return (
-    <DashboardLayout user={user}>
-      {children}
-    </DashboardLayout>
-  );
+  return <DashboardLayout user={user}>{children}</DashboardLayout>;
 }
