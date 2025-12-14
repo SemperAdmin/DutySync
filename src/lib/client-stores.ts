@@ -1685,6 +1685,66 @@ export function exportPersonnel(): { personnel: Personnel[]; exportedAt: string;
   };
 }
 
+// Export unit structure in seed file format (for public/data/unit/{ruc}/unit-structure.json)
+export function exportUnitStructure(): { units: Array<{
+  id: string;
+  parent_id: string | null;
+  unit_name: string;
+  unit_code: string;
+  hierarchy_level: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}>; exportedAt: string; version: string } {
+  const units = getFromStorage<UnitSection>(KEYS.units);
+  // Format units for seed file (remove created_at/updated_at timestamps, add ISO strings)
+  const formattedUnits = units.map(u => ({
+    id: u.id,
+    parent_id: u.parent_id,
+    unit_name: u.unit_name,
+    unit_code: u.unit_code || u.unit_name,
+    hierarchy_level: u.hierarchy_level,
+    description: u.description || u.unit_name,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+
+  return {
+    units: formattedUnits,
+    exportedAt: new Date().toISOString(),
+    version: "1.1",
+  };
+}
+
+// Export unit members in seed file format (for public/data/unit/{ruc}/unit-members.json)
+export function exportUnitMembers(): { personnel: Array<{
+  id: string;
+  service_id: string;
+  first_name: string;
+  last_name: string;
+  rank: string;
+  unit_section_id: string;
+  current_duty_score: number;
+}>; exportedAt: string; version: string } {
+  const personnel = getFromStorage<Personnel>(KEYS.personnel);
+  // Format personnel for seed file (keep service_id encrypted, remove timestamps)
+  const formattedPersonnel = personnel.map(p => ({
+    id: p.id,
+    service_id: isEncryptedEdipi(p.service_id) ? p.service_id : encryptEdipi(p.service_id),
+    first_name: p.first_name,
+    last_name: p.last_name,
+    rank: p.rank,
+    unit_section_id: p.unit_section_id,
+    current_duty_score: p.current_duty_score,
+  }));
+
+  return {
+    personnel: formattedPersonnel,
+    exportedAt: new Date().toISOString(),
+    version: "1.1",
+  };
+}
+
 // Helper to download data as JSON file
 export function downloadAsJson(data: object, filename: string): void {
   if (typeof window === "undefined") return;

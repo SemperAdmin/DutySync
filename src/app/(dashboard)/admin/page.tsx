@@ -20,7 +20,6 @@ import {
   type RucEntry,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
-import { isValidEdipi } from "@/lib/utils";
 import UserDashboard from "@/components/dashboard/UserDashboard";
 
 // Key must match DashboardLayout
