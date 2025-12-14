@@ -474,17 +474,32 @@ export function deleteUnitSection(id: string): boolean {
 
 // Personnel
 export function getAllPersonnel(): Personnel[] {
-  return getFromStorage<Personnel>(KEYS.personnel).sort((a, b) =>
-    a.last_name.localeCompare(b.last_name)
-  );
+  const personnel = getFromStorage<Personnel>(KEYS.personnel);
+
+  // Ensure service_ids are decrypted (handles legacy data or corrupted state)
+  return personnel.map(p => ({
+    ...p,
+    // Decrypt if it looks like an encrypted value (not 10 digits)
+    service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
+  })).sort((a, b) => a.last_name.localeCompare(b.last_name));
 }
 
 export function getPersonnelByUnit(unitId: string): Personnel[] {
-  return getFromStorage<Personnel>(KEYS.personnel).filter((p) => p.unit_section_id === unitId);
+  return getFromStorage<Personnel>(KEYS.personnel)
+    .filter((p) => p.unit_section_id === unitId)
+    .map(p => ({
+      ...p,
+      service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
+    }));
 }
 
 export function getPersonnelById(id: string): Personnel | undefined {
-  return getFromStorage<Personnel>(KEYS.personnel).find((p) => p.id === id);
+  const person = getFromStorage<Personnel>(KEYS.personnel).find((p) => p.id === id);
+  if (!person) return undefined;
+  return {
+    ...person,
+    service_id: isEncryptedEdipi(person.service_id) ? decryptEdipi(person.service_id) : person.service_id,
+  };
 }
 
 export function createPersonnel(person: Personnel): Personnel {
@@ -1153,7 +1168,19 @@ export function importManpowerData(
 
 // Get personnel by EDIPI (service_id)
 export function getPersonnelByEdipi(edipi: string): Personnel | undefined {
-  return getFromStorage<Personnel>(KEYS.personnel).find(p => p.service_id === edipi);
+  const personnel = getFromStorage<Personnel>(KEYS.personnel);
+  // Find by comparing decrypted service_id
+  const person = personnel.find(p => {
+    const decryptedId = isEncryptedEdipi(p.service_id)
+      ? decryptEdipi(p.service_id)
+      : p.service_id;
+    return decryptedId === edipi;
+  });
+  if (!person) return undefined;
+  return {
+    ...person,
+    service_id: isEncryptedEdipi(person.service_id) ? decryptEdipi(person.service_id) : person.service_id,
+  };
 }
 
 // ============ User Management (from localStorage) ============
