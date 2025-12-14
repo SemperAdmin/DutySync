@@ -3,27 +3,29 @@
 import { useState, useEffect } from "react";
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/client-auth";
-import { getUnitSections, getPersonnelById } from "@/lib/client-stores";
-import type { UnitSection } from "@/types";
+import { getUnitSections, getPersonnelById, getPersonnelByEdipi } from "@/lib/client-stores";
+import type { UnitSection, Personnel } from "@/types";
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [fullUnitPath, setFullUnitPath] = useState<string>("");
+  const [personnel, setPersonnel] = useState<Personnel | null>(null);
 
   useEffect(() => {
     const allUnits = getUnitSections();
     setUnits(allUnits);
 
-    // Build full unit path if user has a personnel_id
-    if (user?.personnel_id) {
-      const personnel = getPersonnelById(user.personnel_id);
-      if (personnel) {
-        const path = buildUnitPath(personnel.unit_section_id, allUnits);
+    // Fetch fresh personnel data by EDIPI (not from stale session)
+    if (user?.edipi) {
+      const person = getPersonnelByEdipi(user.edipi);
+      if (person) {
+        setPersonnel(person);
+        const path = buildUnitPath(person.unit_section_id, allUnits);
         setFullUnitPath(path);
       }
     }
-  }, [user?.personnel_id]);
+  }, [user?.edipi]);
 
   // Build the full unit hierarchy path (e.g., "H Company > S1DV > CUST")
   function buildUnitPath(unitId: string, allUnits: UnitSection[]): string {
@@ -63,11 +65,11 @@ export default function ProfilePage() {
             <CardTitle>Account Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {(user?.displayName || user?.personnel_id) && (
+            {personnel && (
               <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
                 <label className="text-sm text-foreground-muted">Service Member</label>
                 <p className="text-lg font-bold text-foreground">
-                  {user?.displayName || "Loading..."}
+                  {personnel.rank} {personnel.last_name}, {personnel.first_name}
                 </p>
                 {fullUnitPath && (
                   <p className="text-sm text-foreground-muted mt-1">
@@ -83,27 +85,27 @@ export default function ProfilePage() {
                   {user?.edipi}
                 </p>
               </div>
-              {user?.rank && (
+              {personnel?.rank && (
                 <div>
                   <label className="text-sm text-foreground-muted">Rank</label>
                   <p className="font-medium text-foreground">
-                    {user.rank}
+                    {personnel.rank}
                   </p>
                 </div>
               )}
             </div>
-            {user?.firstName && user?.lastName && (
+            {personnel && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-foreground-muted">First Name</label>
                   <p className="font-medium text-foreground">
-                    {user.firstName}
+                    {personnel.first_name}
                   </p>
                 </div>
                 <div>
                   <label className="text-sm text-foreground-muted">Last Name</label>
                   <p className="font-medium text-foreground">
-                    {user.lastName}
+                    {personnel.last_name}
                   </p>
                 </div>
               </div>
@@ -119,7 +121,7 @@ export default function ProfilePage() {
                 Personnel Linked
               </label>
               <p className="font-medium text-foreground">
-                {user?.personnel_id ? (
+                {personnel ? (
                   <span className="text-success">Yes - Linked to roster</span>
                 ) : (
                   <span className="text-warning">Not linked - Import roster with matching EDIPI</span>
