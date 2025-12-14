@@ -117,6 +117,15 @@ export default function UserDashboard() {
   // Create a Map of units for O(1) lookups (memoized separately from unitPath)
   const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
 
+  // Create a Map of duty types for O(1) lookups
+  const dutyTypeMap = useMemo(() => new Map(dutyTypes.map(dt => [dt.id, dt])), [dutyTypes]);
+
+  // Get duty type name by ID - O(1) lookup with useCallback
+  const getDutyTypeName = useCallback((dutyTypeId: string): string => {
+    const dt = dutyTypeMap.get(dutyTypeId);
+    return dt?.duty_name || "Unknown Duty";
+  }, [dutyTypeMap]);
+
   // Build unit hierarchy path
   const unitPath = useMemo(() => {
     if (!personnel) return "";
@@ -135,12 +144,6 @@ export default function UserDashboard() {
 
     return path.join(" > ");
   }, [personnel, unitMap]);
-
-  // Get duty type name by ID
-  const getDutyTypeName = (dutyTypeId: string): string => {
-    const dt = dutyTypes.find((d) => d.id === dutyTypeId);
-    return dt?.duty_name || "Unknown Duty";
-  };
 
   // Get next duty
   const nextDuty = upcomingDuties.length > 0 ? upcomingDuties[0] : null;
