@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Card, {
   CardHeader,
   CardTitle,
@@ -16,7 +16,7 @@ import {
   updateUnitSection,
   deleteUnitSection,
   getAllUsers,
-  getPersonnelByEdipi,
+  getAllPersonnel,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
 
@@ -48,12 +48,18 @@ export default function UnitsPage() {
       const unitsData = getUnitSections();
       setUnits(unitsData);
 
+      // Build personnel lookup map by EDIPI (service_id) for O(1) lookups
+      const personnelList = getAllPersonnel();
+      const personnelByEdipi = new Map(
+        personnelList.map((p) => [p.service_id, p])
+      );
+
       // Fetch users to display Unit Admins with personnel data
       const usersData = getAllUsers();
       setUsers(
         usersData.map((u) => {
-          // Look up personnel by EDIPI to get rank/name
-          const personnel = getPersonnelByEdipi(u.edipi);
+          // O(1) lookup instead of O(n) search
+          const personnel = personnelByEdipi.get(u.edipi);
           return {
             id: u.id,
             edipi: u.edipi,
@@ -84,42 +90,61 @@ export default function UnitsPage() {
     u.roles.some((r) => r.role_name === "Unit Admin" && r.scope_unit_id)
   );
 
-  // Get unit name by ID
+  // Build lookup maps for O(1) access - memoized to avoid recalculation
+  const { unitById, childrenByParentId } = useMemo(() => {
+    const unitMap = new Map(units.map((u) => [u.id, u]));
+    const childrenMap = new Map<string, UnitSection[]>();
+    for (const unit of units) {
+      const parentId = unit.parent_id || "__root__";
+      const existing = childrenMap.get(parentId) || [];
+      existing.push(unit);
+      childrenMap.set(parentId, existing);
+    }
+    return { unitById: unitMap, childrenByParentId: childrenMap };
+  }, [units]);
+
+  // Get unit name by ID - O(1) with Map
   const getUnitName = (unitId: string | null) => {
     if (!unitId) return "Global";
-    const unit = units.find((u) => u.id === unitId);
-    return unit?.unit_name || "Unknown";
+    return unitById.get(unitId)?.unit_name || "Unknown";
   };
 
-  // Get all ancestor IDs (parents, grandparents, etc.)
-  const getAncestorIds = (unitId: string): string[] => {
+  // Get all ancestor IDs (parents, grandparents, etc.) - O(1) lookups
+  const getAncestorIds = useCallback((unitId: string): string[] => {
     const ancestors: string[] = [];
-    let current = units.find((u) => u.id === unitId);
+    let current = unitById.get(unitId);
     while (current?.parent_id) {
       ancestors.push(current.parent_id);
-      current = units.find((u) => u.id === current?.parent_id);
+      current = unitById.get(current.parent_id);
     }
     return ancestors;
-  };
+  }, [unitById]);
 
-  // Get all descendant IDs (children, grandchildren, etc.)
-  const getDescendantIds = (unitId: string): string[] => {
+  // Get all descendant IDs (children, grandchildren, etc.) - uses pre-built children map
+  const getDescendantIds = useCallback((unitId: string): string[] => {
     const descendants: string[] = [];
-    const children = units.filter((u) => u.parent_id === unitId);
+    const children = childrenByParentId.get(unitId) || [];
     for (const child of children) {
       descendants.push(child.id);
       descendants.push(...getDescendantIds(child.id));
     }
     return descendants;
-  };
+  }, [childrenByParentId]);
 
-  // Check if a unit is in the selected path (ancestor, self, or descendant)
+  // Memoize the selected path set for O(1) membership checks
+  const selectedPathIds = useMemo(() => {
+    if (!selectedUnitId) return null;
+    const pathSet = new Set<string>();
+    pathSet.add(selectedUnitId);
+    getAncestorIds(selectedUnitId).forEach((id) => pathSet.add(id));
+    getDescendantIds(selectedUnitId).forEach((id) => pathSet.add(id));
+    return pathSet;
+  }, [selectedUnitId, getAncestorIds, getDescendantIds]);
+
+  // Check if a unit is in the selected path - O(1) with Set
   const isInSelectedPath = (unitId: string): boolean => {
-    if (!selectedUnitId) return true; // No filter, show all
-    if (unitId === selectedUnitId) return true;
-    const ancestors = getAncestorIds(selectedUnitId);
-    const descendants = getDescendantIds(selectedUnitId);
-    return ancestors.includes(unitId) || descendants.includes(unitId);
+    if (!selectedPathIds) return true; // No filter, show all
+    return selectedPathIds.has(unitId);
   };
 
   // Handle unit click for filtering
