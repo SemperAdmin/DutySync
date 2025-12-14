@@ -7,7 +7,7 @@ import type { UserRole, SessionUser } from "@/types";
 // In production, this will be replaced with Hasura/Neon PostgreSQL queries
 interface StoredUser {
   id: string;
-  username: string;
+  edipi: string;
   email: string;
   password_hash: string;
   personnel_id: string | null;
@@ -22,9 +22,9 @@ export const userStore: Map<string, StoredUser> = new Map();
 const initializeDefaultAdmin = async () => {
   if (userStore.size === 0) {
     const hashedPassword = await bcrypt.hash("admin123", 12);
-    userStore.set("admin", {
+    userStore.set("1234567890", {
       id: "00000000-0000-0000-0000-000000000001",
-      username: "admin",
+      edipi: "1234567890",
       email: "admin@dutysync.mil",
       password_hash: hashedPassword,
       personnel_id: null,
@@ -49,19 +49,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Credentials({
       name: "Credentials",
       credentials: {
-        username: { label: "Username", type: "text" },
+        edipi: { label: "EDIPI", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
+        if (!credentials?.edipi || !credentials?.password) {
           return null;
         }
 
-        const username = credentials.username as string;
+        const edipi = credentials.edipi as string;
         const password = credentials.password as string;
 
         // Look up user (will be replaced with Hasura query)
-        const user = userStore.get(username);
+        const user = userStore.get(edipi);
 
         if (!user) {
           return null;
@@ -77,7 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Return user object for session
         return {
           id: user.id,
-          name: user.username,
+          name: user.edipi,
           email: user.email,
         };
       },
@@ -90,7 +90,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const storedUser = userStore.get(user.name || "");
         if (storedUser) {
           token.id = storedUser.id;
-          token.username = storedUser.username;
+          token.edipi = storedUser.edipi;
           token.personnel_id = storedUser.personnel_id;
           token.roles = storedUser.roles;
         }
@@ -104,7 +104,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Use double casting to satisfy TypeScript
         const user = session.user as unknown as SessionUser;
         user.id = token.id as string;
-        user.username = token.username as string;
+        user.edipi = token.edipi as string;
         user.personnel_id = token.personnel_id as string | null;
         user.roles = token.roles as UserRole[];
       }

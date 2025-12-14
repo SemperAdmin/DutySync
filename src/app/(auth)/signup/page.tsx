@@ -27,9 +27,8 @@ export default function SignupPage() {
     setFormError(null);
 
     const formData = new FormData(e.currentTarget);
-    const username = formData.get("username") as string;
+    const edipi = formData.get("edipi") as string;
     const email = formData.get("email") as string;
-    const serviceId = formData.get("serviceId") as string;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
 
@@ -47,7 +46,7 @@ export default function SignupPage() {
     }
 
     try {
-      const result = await signup(username, email, password, serviceId);
+      const result = await signup(edipi, email, password);
 
       if (!result.success) {
         setFormError(result.error || "Failed to create account");
@@ -113,18 +112,12 @@ export default function SignupPage() {
           )}
 
           <Input
-            name="serviceId"
-            label="Service ID"
-            placeholder="Enter your military service ID"
-            helperText="Used to link your account to personnel records"
-            required
-            disabled={isLoading}
-          />
-
-          <Input
-            name="username"
-            label="Username"
-            placeholder="Choose a username"
+            name="edipi"
+            label="EDIPI"
+            placeholder="Enter your 10-digit EDIPI"
+            helperText="Your Electronic Data Interchange Personal Identifier"
+            pattern="[0-9]{10}"
+            title="EDIPI must be exactly 10 digits"
             autoComplete="username"
             required
             disabled={isLoading}

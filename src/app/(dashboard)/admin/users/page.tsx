@@ -13,7 +13,7 @@ import { getAllUsers, getUnitSections, assignUserRole } from "@/lib/client-store
 
 interface UserData {
   id: string;
-  username: string;
+  edipi: string;
   email: string;
   personnel_id: string | null;
   roles: Array<{
@@ -37,7 +37,7 @@ export default function UsersPage() {
 
       setUsers(usersData.map(u => ({
         id: u.id,
-        username: u.username,
+        edipi: u.edipi,
         email: u.email,
         personnel_id: u.personnel_id || null,
         roles: (u.roles || []).map(r => ({
@@ -138,7 +138,7 @@ export default function UsersPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
-                      Username
+                      EDIPI
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Email
@@ -158,8 +158,8 @@ export default function UsersPage() {
                       className="border-b border-border hover:bg-surface-elevated"
                     >
                       <td className="py-3 px-4">
-                        <span className="font-medium text-foreground">
-                          {user.username}
+                        <span className="font-medium text-foreground font-mono">
+                          {user.edipi}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-foreground-muted">
@@ -263,7 +263,7 @@ function RoleAssignmentModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card variant="elevated" className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Manage Roles - {user.username}</CardTitle>
+          <CardTitle>Manage Roles - {user.edipi}</CardTitle>
           <CardDescription>
             Assign or modify user roles and permissions
           </CardDescription>

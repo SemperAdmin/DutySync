@@ -17,9 +17,8 @@ import {
 
 interface UserData {
   id: string;
-  username: string;
+  edipi: string;
   email: string;
-  serviceId?: string | null;
   personnel_id: string | null;
   roles: Array<{
     id?: string;
@@ -39,7 +38,7 @@ export default function AdminDashboard() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
           <p className="text-foreground-muted mt-1">
-            Welcome back, {user?.username}
+            Welcome back, {user?.edipi}
           </p>
         </div>
         <Card>
@@ -429,9 +428,8 @@ function UsersTab() {
 
       setUsers(usersData.map(u => ({
         id: u.id,
-        username: u.username,
+        edipi: u.edipi,
         email: u.email,
-        serviceId: u.serviceId || null,
         personnel_id: u.personnel_id || null,
         roles: (u.roles || []).map(r => ({
           id: r.id,
@@ -519,9 +517,8 @@ function UsersTab() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Username</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Email</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">EDIPI</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Email</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Roles</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">Actions</th>
                   </tr>
@@ -530,10 +527,9 @@ function UsersTab() {
                   {users.map((user) => (
                     <tr key={user.id} className="border-b border-border hover:bg-surface-elevated">
                       <td className="py-3 px-4">
-                        <span className="font-medium text-foreground">{user.username}</span>
+                        <span className="font-medium text-foreground font-mono">{user.edipi}</span>
                       </td>
                       <td className="py-3 px-4 text-foreground-muted">{user.email}</td>
-                      <td className="py-3 px-4 text-foreground-muted font-mono text-sm">{user.serviceId || "-"}</td>
                       <td className="py-3 px-4">
                         <div className="flex flex-wrap gap-1">
                           {user.roles.map((role, idx) => (
@@ -591,7 +587,7 @@ function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserDa
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card variant="elevated" className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Manage Roles - {user.username}</CardTitle>
+          <CardTitle>Manage Roles - {user.edipi}</CardTitle>
           <CardDescription>Assign or modify user roles</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -606,12 +602,10 @@ function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserDa
             </div>
           </div>
 
-          {user.serviceId && (
-            <div className="p-3 rounded-lg bg-surface-elevated border border-border">
-              <label className="block text-sm font-medium text-foreground mb-1">EDIPI</label>
-              <span className="font-mono text-foreground-muted">{user.serviceId}</span>
-            </div>
-          )}
+          <div className="p-3 rounded-lg bg-surface-elevated border border-border">
+            <label className="block text-sm font-medium text-foreground mb-1">EDIPI</label>
+            <span className="font-mono text-foreground-muted">{user.edipi}</span>
+          </div>
 
           {!isUserAppAdmin && (
             <div className="space-y-4 pt-4 border-t border-border">

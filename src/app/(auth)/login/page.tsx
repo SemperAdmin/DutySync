@@ -35,16 +35,16 @@ function LoginForm() {
     setFormError(null);
 
     const formData = new FormData(e.currentTarget);
-    const username = formData.get("username") as string;
+    const edipi = formData.get("edipi") as string;
     const password = formData.get("password") as string;
 
     try {
-      const success = await login(username, password);
+      const success = await login(edipi, password);
 
       if (success) {
         router.push(callbackUrl);
       } else {
-        setFormError("Invalid username or password");
+        setFormError("Invalid EDIPI or password");
         setIsLoading(false);
       }
     } catch {
@@ -75,10 +75,12 @@ function LoginForm() {
           )}
 
           <Input
-            name="username"
-            label="Username"
-            placeholder="Enter your username"
+            name="edipi"
+            label="EDIPI"
+            placeholder="Enter your 10-digit EDIPI"
             autoComplete="username"
+            pattern="[0-9]{10}"
+            title="EDIPI must be exactly 10 digits"
             required
             disabled={isLoading}
           />
@@ -116,7 +118,7 @@ function LoginForm() {
           </Link>
         </p>
         <p className="text-xs text-foreground-muted text-center">
-          Demo credentials: admin / admin123
+          Demo credentials: EDIPI 1234567890 / password admin123
         </p>
       </CardFooter>
     </Card>

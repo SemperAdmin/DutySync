@@ -11,9 +11,9 @@ interface SignupResult {
 interface AuthContextType {
   user: SessionUser | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (edipi: string, password: string) => Promise<boolean>;
   logout: () => void;
-  signup: (username: string, email: string, password: string, serviceId?: string) => Promise<SignupResult>;
+  signup: (edipi: string, email: string, password: string) => Promise<SignupResult>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -77,19 +77,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (edipi: string, password: string): Promise<boolean> => {
     try {
       // Check for registered users in localStorage
       const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
       const found = users.find(
-        (u: { username: string; password: string }) =>
-          u.username === username && u.password === password
+        (u: { edipi: string; password: string }) =>
+          u.edipi === edipi && u.password === password
       );
 
       if (found) {
         // Determine roles based on EDIPI match
         const roles: UserRole[] = [];
-        const userIsAppAdminByEdipi = isAppAdmin(found.serviceId);
+        const userIsAppAdminByEdipi = isAppAdmin(found.edipi);
 
         // Check if user's service ID matches App Admin EDIPI
         if (userIsAppAdminByEdipi) {
@@ -123,10 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const sessionUser: SessionUser = {
           id: found.id,
-          username: found.username,
+          edipi: found.edipi,
           email: found.email,
           personnel_id: found.personnel_id || null,
-          serviceId: found.serviceId || null,
           roles,
         };
         setUser(sessionUser);
@@ -142,17 +141,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signup = async (
-    username: string,
+    edipi: string,
     email: string,
-    password: string,
-    serviceId?: string
+    password: string
   ): Promise<SignupResult> => {
     try {
       const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
 
+      // Validate EDIPI format
+      if (!/^[0-9]{10}$/.test(edipi)) {
+        return { success: false, error: "EDIPI must be exactly 10 digits" };
+      }
+
       // Check if user exists
-      if (users.some((u: { username: string }) => u.username === username)) {
-        return { success: false, error: "Username already exists" };
+      if (users.some((u: { edipi: string }) => u.edipi === edipi)) {
+        return { success: false, error: "EDIPI already registered" };
       }
 
       if (users.some((u: { email: string }) => u.email === email)) {
@@ -161,10 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const newUser = {
         id: `user-${Date.now()}`,
-        username,
+        edipi,
         email,
         password,
-        serviceId: serviceId || null,
         roles: [{ role_name: ROLE_NAMES.STANDARD_USER, scope_unit_id: null, created_at: new Date().toISOString() }],
         created_at: new Date().toISOString(),
       };
