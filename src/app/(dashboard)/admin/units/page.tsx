@@ -108,9 +108,13 @@ export default function UnitsPage() {
     const childrenMap = new Map<string, UnitSection[]>();
     for (const unit of units) {
       const parentId = unit.parent_id || "__root__";
-      const existing = childrenMap.get(parentId) || [];
-      existing.push(unit);
-      childrenMap.set(parentId, existing);
+      // Avoid redundant set() when key already exists
+      const children = childrenMap.get(parentId);
+      if (children) {
+        children.push(unit);
+      } else {
+        childrenMap.set(parentId, [unit]);
+      }
     }
     return { unitById: unitMap, childrenByParentId: childrenMap };
   }, [units]);
@@ -153,13 +157,19 @@ export default function UnitsPage() {
     return ancestors;
   }, [unitById]);
 
-  // Get all descendant IDs (children, grandchildren, etc.) - uses pre-built children map
+  // Get all descendant IDs (children, grandchildren, etc.) - iterative to avoid stack overflow
   const getDescendantIds = useCallback((unitId: string): string[] => {
     const descendants: string[] = [];
-    const children = childrenByParentId.get(unitId) || [];
-    for (const child of children) {
-      descendants.push(child.id);
-      descendants.push(...getDescendantIds(child.id));
+    if (!unitId) return descendants;
+
+    const stack: string[] = [unitId];
+    while (stack.length > 0) {
+      const currentId = stack.pop()!;
+      const children = childrenByParentId.get(currentId) || [];
+      for (const child of children) {
+        descendants.push(child.id);
+        stack.push(child.id);
+      }
     }
     return descendants;
   }, [childrenByParentId]);
