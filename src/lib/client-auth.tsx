@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import type { SessionUser, UserRole, RoleName } from "@/types";
+import { getPersonnelByEdipi, getUnitSectionById } from "@/lib/client-stores";
 
 interface SignupResult {
   success: boolean;
@@ -121,12 +122,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           roles.push(createRole(found.id, ROLE_NAMES.STANDARD_USER));
         }
 
+        // Look up personnel record by EDIPI for display info
+        const personnel = getPersonnelByEdipi(found.edipi);
+        let displayName: string | undefined;
+        let rank: string | undefined;
+        let firstName: string | undefined;
+        let lastName: string | undefined;
+        let unitId: string | undefined;
+        let unitName: string | undefined;
+
+        if (personnel) {
+          rank = personnel.rank;
+          firstName = personnel.first_name;
+          lastName = personnel.last_name;
+          displayName = `${rank} ${lastName}`;
+          unitId = personnel.unit_section_id;
+          const unit = getUnitSectionById(unitId);
+          unitName = unit?.unit_name;
+        }
+
         const sessionUser: SessionUser = {
           id: found.id,
           edipi: found.edipi,
           email: found.email,
-          personnel_id: found.personnel_id || null,
+          personnel_id: personnel?.id || found.personnel_id || null,
           roles,
+          displayName,
+          rank,
+          firstName,
+          lastName,
+          unitId,
+          unitName,
         };
         setUser(sessionUser);
         localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));

@@ -22,22 +22,55 @@ export default function ProfilePage() {
             <CardTitle>Account Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm text-foreground-muted">EDIPI</label>
-              <p className="font-medium text-foreground font-mono">
-                {user?.edipi}
-              </p>
+            {user?.displayName && (
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <label className="text-sm text-foreground-muted">Service Member</label>
+                <p className="text-lg font-bold text-foreground">
+                  {user.displayName}
+                </p>
+                {user.unitName && (
+                  <p className="text-sm text-foreground-muted mt-1">
+                    {user.unitName}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-foreground-muted">EDIPI</label>
+                <p className="font-medium text-foreground font-mono">
+                  {user?.edipi}
+                </p>
+              </div>
+              {user?.rank && (
+                <div>
+                  <label className="text-sm text-foreground-muted">Rank</label>
+                  <p className="font-medium text-foreground">
+                    {user.rank}
+                  </p>
+                </div>
+              )}
             </div>
+            {user?.firstName && user?.lastName && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-foreground-muted">First Name</label>
+                  <p className="font-medium text-foreground">
+                    {user.firstName}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm text-foreground-muted">Last Name</label>
+                  <p className="font-medium text-foreground">
+                    {user.lastName}
+                  </p>
+                </div>
+              </div>
+            )}
             <div>
               <label className="text-sm text-foreground-muted">Email</label>
               <p className="font-medium text-foreground">
                 {user?.email}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm text-foreground-muted">User ID</label>
-              <p className="font-mono text-sm text-foreground-muted">
-                {user?.id}
               </p>
             </div>
             <div>
@@ -46,9 +79,9 @@ export default function ProfilePage() {
               </label>
               <p className="font-medium text-foreground">
                 {user?.personnel_id ? (
-                  <span className="text-success">Yes</span>
+                  <span className="text-success">Yes - Linked to roster</span>
                 ) : (
-                  <span className="text-warning">Not linked</span>
+                  <span className="text-warning">Not linked - Import roster with matching EDIPI</span>
                 )}
               </p>
             </div>

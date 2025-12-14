@@ -496,6 +496,283 @@ export function importPersonnel(
   return result;
 }
 
+// ============ Manpower TSV Import ============
+
+interface ManpowerRecord {
+  rank: string;
+  name: string;
+  edipi: string;
+  sex: string;
+  edd: string;
+  unit: string;
+  category: string;
+  dutyStatus: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+}
+
+// Parse a name like "LASTNAME JR, FIRSTNAME M." into first/last
+function parseName(name: string): { first_name: string; last_name: string } {
+  const parts = name.split(",").map(s => s.trim());
+  const lastName = parts[0] || "";
+  const firstName = parts[1]?.split(" ")[0] || "";
+  return { first_name: firstName, last_name: lastName };
+}
+
+// Parse unit code like "02301-H-S1DV-CUST" into RUC and section
+function parseUnitCode(unitCode: string): { ruc: string; section: string | null } {
+  // Pattern: BASE-X-XXXX-SECTION or BASE-X-XXXX
+  const parts = unitCode.split("-");
+  if (parts.length >= 4) {
+    // Has section: 02301-H-S1DV-CUST -> ruc: 02301-H-S1DV, section: CUST
+    const section = parts.slice(3).join("-");
+    const ruc = parts.slice(0, 3).join("-");
+    return { ruc, section };
+  } else if (parts.length === 3) {
+    // No section, just RUC: 02301-H-S1DV
+    return { ruc: unitCode, section: null };
+  }
+  return { ruc: unitCode, section: null };
+}
+
+// Clean TSV value by removing weird quote patterns
+function cleanTsvValue(value: string): string {
+  return value
+    .replace(/^["'\s]+|["'\s]+$/g, "") // Remove leading/trailing quotes and spaces
+    .replace(/"\s*"/g, "") // Remove empty quote pairs
+    .trim();
+}
+
+// Parse date from format like "2025/08/08" or "2025/12/10"
+function parseManpowerDate(dateStr: string): Date | null {
+  const cleaned = cleanTsvValue(dateStr);
+  if (!cleaned || cleaned === "" || cleaned === '""') return null;
+  const match = cleaned.match(/(\d{4})\/(\d{2})\/(\d{2})/);
+  if (match) {
+    return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+  }
+  return null;
+}
+
+// Parse the manpower TSV format
+export function parseManpowerTsv(content: string): ManpowerRecord[] {
+  const lines = content.split("\n");
+  const records: ManpowerRecord[] = [];
+
+  // Find the header row (contains "Rank" and "EDIPI")
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i].toLowerCase();
+    if (line.includes("rank") && line.includes("edipi") && line.includes("name")) {
+      headerIdx = i;
+      break;
+    }
+  }
+
+  if (headerIdx === -1) {
+    throw new Error("Could not find header row with Rank, Name, EDIPI columns");
+  }
+
+  // Parse data rows (after header)
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // Split by tab
+    const values = line.split("\t").map(v => cleanTsvValue(v));
+
+    // Need at least rank, name, edipi, sex, edd, unit, category, status, location, start, end
+    if (values.length < 6) continue;
+
+    // Validate EDIPI is 10 digits
+    const edipi = values[2]?.replace(/\D/g, "");
+    if (!edipi || edipi.length !== 10) continue;
+
+    records.push({
+      rank: values[0] || "",
+      name: values[1] || "",
+      edipi: edipi,
+      sex: values[3] || "",
+      edd: values[4] || "",
+      unit: values[5] || "",
+      category: values[6] || "",
+      dutyStatus: values[7] || "",
+      location: values[8] || "",
+      startDate: values[9] || "",
+      endDate: values[10] || "",
+    });
+  }
+
+  return records;
+}
+
+// Import manpower data, auto-creating units as needed
+export function importManpowerData(
+  records: ManpowerRecord[]
+): {
+  personnel: { created: number; updated: number };
+  units: { created: number };
+  nonAvailability: { created: number };
+  errors: string[]
+} {
+  const result = {
+    personnel: { created: 0, updated: 0 },
+    units: { created: 0 },
+    nonAvailability: { created: 0 },
+    errors: [] as string[],
+  };
+
+  const personnel = getFromStorage<Personnel>(KEYS.personnel);
+  const units = getFromStorage<UnitSection>(KEYS.units);
+  const nonAvailList = getFromStorage<NonAvailability>(KEYS.nonAvailability);
+
+  // Track created units to avoid duplicates
+  const unitMap = new Map<string, string>(); // code -> id
+  units.forEach(u => unitMap.set(u.unit_name, u.id));
+
+  // First pass: create units from unit codes
+  const rucSet = new Set<string>();
+  const sectionSet = new Set<string>();
+
+  for (const record of records) {
+    if (!record.unit) continue;
+    const { ruc, section } = parseUnitCode(record.unit);
+    rucSet.add(ruc);
+    if (section) sectionSet.add(`${ruc}|${section}`);
+  }
+
+  // Create RUC units (battalion level)
+  for (const ruc of rucSet) {
+    if (!unitMap.has(ruc)) {
+      const newUnit: UnitSection = {
+        id: crypto.randomUUID(),
+        parent_id: null,
+        unit_name: ruc,
+        hierarchy_level: "battalion",
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      units.push(newUnit);
+      unitMap.set(ruc, newUnit.id);
+      result.units.created++;
+    }
+  }
+
+  // Create section units under their RUC parent
+  for (const combo of sectionSet) {
+    const [ruc, section] = combo.split("|");
+    const fullName = `${ruc}-${section}`;
+    if (!unitMap.has(fullName)) {
+      const parentId = unitMap.get(ruc);
+      const newUnit: UnitSection = {
+        id: crypto.randomUUID(),
+        parent_id: parentId || null,
+        unit_name: fullName,
+        hierarchy_level: "section",
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      units.push(newUnit);
+      unitMap.set(fullName, newUnit.id);
+      result.units.created++;
+    }
+  }
+
+  // Second pass: create/update personnel
+  for (const record of records) {
+    try {
+      const { first_name, last_name } = parseName(record.name);
+      const { ruc, section } = parseUnitCode(record.unit);
+      const unitName = section ? `${ruc}-${section}` : ruc;
+      const unitId = unitMap.get(unitName);
+
+      if (!unitId) {
+        result.errors.push(`No unit for ${record.edipi}: ${record.unit}`);
+        continue;
+      }
+
+      // Check if personnel exists by EDIPI
+      const existingIdx = personnel.findIndex(p => p.service_id === record.edipi);
+
+      if (existingIdx !== -1) {
+        // Update existing
+        personnel[existingIdx] = {
+          ...personnel[existingIdx],
+          first_name,
+          last_name,
+          rank: record.rank,
+          unit_section_id: unitId,
+          updated_at: new Date(),
+        };
+        result.personnel.updated++;
+      } else {
+        // Create new
+        const newPerson: Personnel = {
+          id: crypto.randomUUID(),
+          service_id: record.edipi,
+          first_name,
+          last_name,
+          rank: record.rank,
+          unit_section_id: unitId,
+          current_duty_score: 0,
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        personnel.push(newPerson);
+        result.personnel.created++;
+      }
+
+      // Create non-availability if on Leave or TAD
+      if (record.category === "Leave" || record.category === "TAD") {
+        const startDate = parseManpowerDate(record.startDate);
+        const endDate = parseManpowerDate(record.endDate);
+
+        if (startDate && endDate) {
+          const personId = personnel.find(p => p.service_id === record.edipi)?.id;
+          if (personId) {
+            // Check if this non-availability already exists
+            const exists = nonAvailList.some(na =>
+              na.personnel_id === personId &&
+              new Date(na.start_date).getTime() === startDate.getTime() &&
+              new Date(na.end_date).getTime() === endDate.getTime()
+            );
+
+            if (!exists) {
+              const newNa: NonAvailability = {
+                id: crypto.randomUUID(),
+                personnel_id: personId,
+                start_date: startDate,
+                end_date: endDate,
+                reason: `${record.category}: ${record.dutyStatus} - ${record.location}`,
+                status: "approved",
+                approved_by: null,
+                created_at: new Date(),
+              };
+              nonAvailList.push(newNa);
+              result.nonAvailability.created++;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      result.errors.push(`Error processing ${record.edipi}: ${err}`);
+    }
+  }
+
+  // Save all data
+  saveToStorage(KEYS.units, units);
+  saveToStorage(KEYS.personnel, personnel);
+  saveToStorage(KEYS.nonAvailability, nonAvailList);
+
+  return result;
+}
+
+// Get personnel by EDIPI (service_id)
+export function getPersonnelByEdipi(edipi: string): Personnel | undefined {
+  return getFromStorage<Personnel>(KEYS.personnel).find(p => p.service_id === edipi);
+}
+
 // ============ User Management (from localStorage) ============
 
 interface StoredUser {

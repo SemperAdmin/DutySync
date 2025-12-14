@@ -15,6 +15,8 @@ import {
   getUnitSections,
   createPersonnel,
   importPersonnel,
+  parseManpowerTsv,
+  importManpowerData,
 } from "@/lib/client-stores";
 
 export default function PersonnelPage() {
@@ -305,12 +307,14 @@ function ImportModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
-    created: number;
-    updated: number;
+    personnel: { created: number; updated: number };
+    units?: { created: number };
+    nonAvailability?: { created: number };
     errors: string[];
   } | null>(null);
   const [selectedUnit, setSelectedUnit] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [importFormat, setImportFormat] = useState<"standard" | "manpower">("manpower");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,54 +368,75 @@ function ImportModal({
     setError(null);
 
     try {
-      // Parse CSV file client-side
       const text = await selectedFile.text();
-      const lines = text.split("\n").filter((l) => l.trim());
 
-      if (lines.length < 2) {
-        throw new Error("CSV file must have a header row and at least one data row");
-      }
+      if (importFormat === "manpower") {
+        // Parse manpower TSV format
+        const records = parseManpowerTsv(text);
 
-      // Parse header using the robust parser
-      const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
-      const serviceIdIdx = header.indexOf("service_id");
-      const firstNameIdx = header.indexOf("first_name");
-      const lastNameIdx = header.indexOf("last_name");
-      const rankIdx = header.indexOf("rank");
-      const unitNameIdx = header.indexOf("unit_name");
-
-      if (serviceIdIdx === -1 || firstNameIdx === -1 || lastNameIdx === -1 || rankIdx === -1) {
-        throw new Error("CSV must have columns: service_id, first_name, last_name, rank");
-      }
-
-      // Parse records using the robust parser
-      const records = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = parseCsvLine(lines[i]);
-        if (values.length > rankIdx) {
-          records.push({
-            service_id: values[serviceIdIdx],
-            first_name: values[firstNameIdx],
-            last_name: values[lastNameIdx],
-            rank: values[rankIdx],
-            unit_name: unitNameIdx >= 0 ? values[unitNameIdx] : undefined,
-          });
+        if (records.length === 0) {
+          throw new Error("No valid records found in file. Make sure it contains Rank, Name, EDIPI columns.");
         }
-      }
 
-      // Import using client-stores
-      const data = importPersonnel(records, selectedUnit || undefined);
+        const data = importManpowerData(records);
 
-      setResult({
-        created: data.created,
-        updated: data.updated,
-        errors: data.errors || [],
-      });
+        setResult({
+          personnel: data.personnel,
+          units: data.units,
+          nonAvailability: data.nonAvailability,
+          errors: data.errors || [],
+        });
 
-      if (data.created > 0 || data.updated > 0) {
-        setTimeout(() => {
-          onSuccess();
-        }, 2000);
+        if (data.personnel.created > 0 || data.personnel.updated > 0) {
+          setTimeout(() => {
+            onSuccess();
+          }, 2000);
+        }
+      } else {
+        // Standard CSV format
+        const lines = text.split("\n").filter((l) => l.trim());
+
+        if (lines.length < 2) {
+          throw new Error("CSV file must have a header row and at least one data row");
+        }
+
+        const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
+        const serviceIdIdx = header.indexOf("service_id");
+        const firstNameIdx = header.indexOf("first_name");
+        const lastNameIdx = header.indexOf("last_name");
+        const rankIdx = header.indexOf("rank");
+        const unitNameIdx = header.indexOf("unit_name");
+
+        if (serviceIdIdx === -1 || firstNameIdx === -1 || lastNameIdx === -1 || rankIdx === -1) {
+          throw new Error("CSV must have columns: service_id, first_name, last_name, rank");
+        }
+
+        const records = [];
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCsvLine(lines[i]);
+          if (values.length > rankIdx) {
+            records.push({
+              service_id: values[serviceIdIdx],
+              first_name: values[firstNameIdx],
+              last_name: values[lastNameIdx],
+              rank: values[rankIdx],
+              unit_name: unitNameIdx >= 0 ? values[unitNameIdx] : undefined,
+            });
+          }
+        }
+
+        const data = importPersonnel(records, selectedUnit || undefined);
+
+        setResult({
+          personnel: { created: data.created, updated: data.updated },
+          errors: data.errors || [],
+        });
+
+        if (data.created > 0 || data.updated > 0) {
+          setTimeout(() => {
+            onSuccess();
+          }, 2000);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -440,15 +465,21 @@ function ImportModal({
           {result && (
             <div
               className={`p-3 rounded-lg border text-sm ${
-                result.created > 0 || result.updated > 0
+                result.personnel.created > 0 || result.personnel.updated > 0
                   ? "bg-success/10 border-success/20 text-success"
                   : "bg-warning/10 border-warning/20 text-warning"
               }`}
             >
               <p className="font-medium">Import Results:</p>
               <ul className="mt-1 space-y-1">
-                <li>Created: {result.created}</li>
-                <li>Updated: {result.updated}</li>
+                <li>Personnel Created: {result.personnel.created}</li>
+                <li>Personnel Updated: {result.personnel.updated}</li>
+                {result.units && result.units.created > 0 && (
+                  <li>Units Created: {result.units.created}</li>
+                )}
+                {result.nonAvailability && result.nonAvailability.created > 0 && (
+                  <li>Non-Availability Records: {result.nonAvailability.created}</li>
+                )}
                 {result.errors.length > 0 && (
                   <li className="text-error">
                     Errors: {result.errors.length}
@@ -466,10 +497,41 @@ function ImportModal({
             </div>
           )}
 
+          {/* Import Format Selection */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Import Format
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="manpower"
+                  checked={importFormat === "manpower"}
+                  onChange={() => setImportFormat("manpower")}
+                  className="w-4 h-4 text-primary"
+                />
+                <span className="text-sm text-foreground">Manpower Report (TSV)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="format"
+                  value="standard"
+                  checked={importFormat === "standard"}
+                  onChange={() => setImportFormat("standard")}
+                  className="w-4 h-4 text-primary"
+                />
+                <span className="text-sm text-foreground">Standard CSV</span>
+              </label>
+            </div>
+          </div>
+
           {/* File Upload */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              CSV File
+              {importFormat === "manpower" ? "Manpower Report File" : "CSV File"}
             </label>
             <div
               className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
@@ -532,39 +594,58 @@ function ImportModal({
             </div>
           </div>
 
-          {/* Default Unit */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Default Unit (optional)
-            </label>
-            <select
-              className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              value={selectedUnit}
-              onChange={(e) => setSelectedUnit(e.target.value)}
-              disabled={isSubmitting}
-            >
-              <option value="">-- Select if CSV lacks unit column --</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.unit_name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-foreground-muted mt-1">
-              Used when CSV doesn&apos;t include unit_name or unit_section_id column
-            </p>
-          </div>
+          {/* Default Unit - only for standard CSV format */}
+          {importFormat === "standard" && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Default Unit (optional)
+              </label>
+              <select
+                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                value={selectedUnit}
+                onChange={(e) => setSelectedUnit(e.target.value)}
+                disabled={isSubmitting}
+              >
+                <option value="">-- Select if CSV lacks unit column --</option>
+                {units.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.unit_name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-foreground-muted mt-1">
+                Used when CSV doesn&apos;t include unit_name or unit_section_id column
+              </p>
+            </div>
+          )}
 
-          {/* CSV Format Help */}
+          {/* Format Help */}
           <div className="p-3 rounded-lg bg-surface-elevated border border-border">
-            <p className="text-sm font-medium text-foreground mb-2">
-              Expected CSV Format:
-            </p>
-            <pre className="text-xs text-foreground-muted font-mono overflow-x-auto">
+            {importFormat === "manpower" ? (
+              <>
+                <p className="text-sm font-medium text-foreground mb-2">
+                  Manpower Report Format:
+                </p>
+                <ul className="text-xs text-foreground-muted space-y-1">
+                  <li>• Tab-separated file from Manpower system</li>
+                  <li>• Auto-detects header row with Rank, Name, EDIPI</li>
+                  <li>• Auto-creates units from Unit column (RUC-Section)</li>
+                  <li>• Creates Leave/TAD non-availability records</li>
+                  <li>• Uses EDIPI as unique identifier</li>
+                </ul>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-foreground mb-2">
+                  Expected CSV Format:
+                </p>
+                <pre className="text-xs text-foreground-muted font-mono overflow-x-auto">
 {`service_id,first_name,last_name,rank,unit_name
 123456789,John,Doe,SGT,Alpha Company
 234567890,Jane,Smith,CPL,Alpha Company`}
-            </pre>
+                </pre>
+              </>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4">

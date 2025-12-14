@@ -27,7 +27,7 @@ export default function HomePage() {
           {user ? (
             <>
               <span className="text-foreground-muted text-sm">
-                Welcome, {user.edipi || user.email}
+                Welcome, {user.displayName || user.edipi || user.email}
               </span>
               <Link href="/admin">
                 <Button variant="secondary" size="sm">
