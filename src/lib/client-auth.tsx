@@ -165,10 +165,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Verify password if password_hash exists in seed data
-      // For MVP: use simple base64 encoded password comparison
-      // In production, use proper bcrypt/argon2 with a backend
+      // SECURITY WARNING: btoa() is NOT cryptographically secure - it's just base64 encoding.
+      // This MVP approach is ONLY acceptable because:
+      // 1. This is a demo/prototype with no real user data
+      // 2. There is no backend server to handle proper password hashing
+      // PRODUCTION REQUIREMENT: Use bcrypt/argon2 with a secure backend API
       if (found.password_hash) {
-        const inputHash = btoa(password); // Simple encoding for MVP
+        const inputHash = btoa(password);
         if (inputHash !== found.password_hash) {
           return false; // Password mismatch
         }
@@ -272,7 +275,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Generate encrypted values for the workflow
       const edipiEncrypted = encryptEdipi(edipi);
-      const passwordHash = btoa(password); // Simple base64 encoding for MVP
+      // SECURITY WARNING: btoa() is NOT cryptographically secure - it's just base64 encoding.
+      // PRODUCTION REQUIREMENT: Use bcrypt/argon2 with a secure backend API
+      const passwordHash = btoa(password);
 
       // Trigger GitHub workflow to create user
       const workflowResult = await triggerCreateUserWorkflow(

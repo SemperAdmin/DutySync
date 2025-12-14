@@ -17,8 +17,6 @@ import {
   loadRucs,
   getAllRucs,
   updateRucName,
-  encryptEdipi,
-  downloadAsJson,
   type RucEntry,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
@@ -244,9 +242,14 @@ function UnitsTab() {
             <div>
               <CardTitle>Unit Codes</CardTitle>
               <CardDescription>
-                {searchQuery.trim()
-                  ? `${filteredRucs.length} results found`
-                  : `Showing ${filteredRucs.length > 0 ? startIndex + 1 : 0}-${Math.min(endIndex, filteredRucs.length)} of ${filteredRucs.length}`}
+                {(() => {
+                  if (searchQuery.trim()) {
+                    return `${filteredRucs.length} results found`;
+                  }
+                  const startItem = filteredRucs.length > 0 ? startIndex + 1 : 0;
+                  const endItem = Math.min(endIndex, filteredRucs.length);
+                  return `Showing ${startItem}-${endItem} of ${filteredRucs.length}`;
+                })()}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -585,7 +588,6 @@ function UsersTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
-  const [exportStatus, setExportStatus] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -640,58 +642,6 @@ function UsersTab() {
     return rucNameMap[rucCode] || rucCode;
   };
 
-  // Export all users for seed data (to be committed to public/data/user/)
-  const handleExportUsers = () => {
-    try {
-      // Get raw users from localStorage (including passwords for re-import)
-      const rawUsers = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
-
-      if (rawUsers.length === 0) {
-        setExportStatus("No users to export");
-        setTimeout(() => setExportStatus(null), 3000);
-        return;
-      }
-
-      // Create users-index.json entries
-      const usersIndex = {
-        users: rawUsers.map((u: { edipi: string; email: string }) => ({
-          edipi_encrypted: encryptEdipi(u.edipi),
-          email: u.email,
-        })),
-        version: "1.0",
-        updatedAt: new Date().toISOString(),
-        description: "Index of seed user accounts. User files are stored in /data/user/{encrypted-edipi}.json",
-      };
-
-      // Download users-index.json
-      downloadAsJson(usersIndex, "users-index.json");
-
-      // Create and download individual user files
-      rawUsers.forEach((u: { id: string; edipi: string; email: string; personnel_id?: string | null; roles: Array<{ id?: string; role_name: string; scope_unit_id: string | null; created_at?: string }>; created_at?: string }) => {
-        const encryptedEdipi = encryptEdipi(u.edipi);
-        const userSeedData = {
-          id: u.id,
-          edipi_encrypted: encryptedEdipi,
-          email: u.email,
-          personnel_id: u.personnel_id || null,
-          roles: (u.roles || []).map((r) => ({
-            id: r.id,
-            role_name: r.role_name,
-            scope_unit_id: r.scope_unit_id,
-            created_at: r.created_at || new Date().toISOString(),
-          })),
-          created_at: u.created_at || new Date().toISOString(),
-        };
-        // Download each user file (named by encrypted EDIPI)
-        downloadAsJson(userSeedData, `${encryptedEdipi}.json`);
-      });
-
-      setExportStatus(`Exported ${rawUsers.length} user(s). Add files to public/data/user/ and update users-index.json`);
-      setTimeout(() => setExportStatus(null), 5000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Export failed");
-    }
-  };
 
   if (isLoading) {
     return (
@@ -704,24 +654,10 @@ function UsersTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">User Management</h2>
-          <p className="text-sm text-foreground-muted">{users.length} registered users</p>
-        </div>
-        <Button variant="secondary" onClick={handleExportUsers}>
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Export Users for Seed Data
-        </Button>
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">User Management</h2>
+        <p className="text-sm text-foreground-muted">{users.length} registered users</p>
       </div>
-
-      {exportStatus && (
-        <div className="p-4 rounded-lg bg-success/10 border border-success/20 text-success">
-          {exportStatus}
-        </div>
-      )}
 
       {error && (
         <div className="p-4 rounded-lg bg-error/10 border border-error/20 text-error">
