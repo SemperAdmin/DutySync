@@ -2,6 +2,16 @@
  * GitHub API service for updating seed files in the repository
  */
 
+// Hardcoded GitHub configuration (non-sensitive)
+const GITHUB_CONFIG = {
+  owner: "SemperAdmin",
+  repo: "DutySync",
+  branch: "main",
+};
+
+// Token from environment variable (set at build time via GitHub secret)
+const GITHUB_TOKEN = process.env.NEXT_PUBLIC_GITHUB_WORKFLOW_TOKEN || "";
+
 const GITHUB_SETTINGS_KEY = "dutysync_github_settings";
 
 export interface GitHubSettings {
@@ -18,8 +28,32 @@ export interface GitHubUpdateResult {
   sha?: string;
 }
 
-// Get stored GitHub settings
+// Get GitHub settings - uses hardcoded config + env var token, with localStorage fallback for unitPath
 export function getGitHubSettings(): GitHubSettings | null {
+  // First check if we have the env var token (preferred)
+  if (GITHUB_TOKEN) {
+    // Get unitPath from localStorage if available
+    let unitPath = "public/data/unit/02301"; // default
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(GITHUB_SETTINGS_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.unitPath) unitPath = parsed.unitPath;
+        } catch {
+          // ignore parse errors
+        }
+      }
+    }
+
+    return {
+      ...GITHUB_CONFIG,
+      token: GITHUB_TOKEN,
+      unitPath,
+    };
+  }
+
+  // Fallback to localStorage settings (for local development)
   if (typeof window === "undefined") return null;
   const stored = localStorage.getItem(GITHUB_SETTINGS_KEY);
   if (!stored) return null;
@@ -30,7 +64,7 @@ export function getGitHubSettings(): GitHubSettings | null {
   }
 }
 
-// Save GitHub settings
+// Save GitHub settings (only unitPath is really needed now)
 export function saveGitHubSettings(settings: GitHubSettings): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(settings));
@@ -44,6 +78,11 @@ export function clearGitHubSettings(): void {
 
 // Check if GitHub is configured
 export function isGitHubConfigured(): boolean {
+  // Check env var first
+  if (GITHUB_TOKEN) {
+    return true;
+  }
+  // Fallback to localStorage
   const settings = getGitHubSettings();
   return !!(settings?.owner && settings?.repo && settings?.token);
 }
