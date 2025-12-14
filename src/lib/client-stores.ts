@@ -39,18 +39,45 @@ export function encryptEdipi(edipi: string): string {
 // Decrypt an EDIPI from JSON storage
 export function decryptEdipi(encrypted: string): string {
   if (!encrypted) return "";
-  try {
-    const decoded = atob(encrypted);
-    let result = "";
-    for (let i = 0; i < decoded.length; i++) {
-      const charCode = decoded.charCodeAt(i) ^ EDIPI_KEY.charCodeAt(i % EDIPI_KEY.length);
-      result += String.fromCharCode(charCode);
+
+  // Helper to try decryption with a specific key
+  const tryDecrypt = (key: string): string | null => {
+    try {
+      const decoded = atob(encrypted);
+      let result = "";
+      for (let i = 0; i < decoded.length; i++) {
+        const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+        result += String.fromCharCode(charCode);
+      }
+      // Validate result is a 10-digit EDIPI
+      if (/^\d{10}$/.test(result)) {
+        return result;
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return result;
-  } catch {
-    // If decryption fails, assume it's already decrypted (legacy data)
+  };
+
+  // Try with the configured key first
+  const result = tryDecrypt(EDIPI_KEY);
+  if (result) return result;
+
+  // If env key is set but different from default, try default as fallback
+  const defaultKey = "DutySync2024";
+  if (EDIPI_KEY !== defaultKey) {
+    const fallbackResult = tryDecrypt(defaultKey);
+    if (fallbackResult) return fallbackResult;
+  }
+
+  // If all decryption attempts fail, check if it's already a plain EDIPI
+  if (/^\d{10}$/.test(encrypted)) {
     return encrypted;
   }
+
+  // Return the encrypted value as-is (will show as encrypted in UI)
+  console.warn("EDIPI decryption failed, key mismatch or invalid data:", encrypted.substring(0, 10) + "...");
+  return encrypted;
 }
 
 // Check if a value looks like an encrypted EDIPI (base64 encoded)
