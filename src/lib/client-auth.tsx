@@ -189,13 +189,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "EDIPI must be exactly 10 digits" };
       }
 
-      // Check if user exists
+      // Check if EDIPI already registered (EDIPI is the unique identifier)
       if (users.some((u: { edipi: string }) => u.edipi === edipi)) {
         return { success: false, error: "EDIPI already registered" };
-      }
-
-      if (users.some((u: { email: string }) => u.email === email)) {
-        return { success: false, error: "Email already registered" };
       }
 
       const newUser = {
