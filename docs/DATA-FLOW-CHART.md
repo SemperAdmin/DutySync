@@ -391,16 +391,16 @@ LOCALSTORAGE KEYS:
 │  All Data ──────► localStorage (cache) ────► dutysync_*                    │
 │                                                                             │
 │                                                                             │
-│  HOW TO PERSIST DATA:                                                       │
-│  ═══════════════════                                                       │
+│  AUTO-SAVE (enabled by default):                                           │
+│  ═══════════════════════════════                                           │
 │                                                                             │
-│  1. Use export functions:                                                   │
-│     exportDutyTypes(), exportDutyRoster(),                                 │
-│     exportNonAvailability(), exportQualifications()                        │
+│  CRUD operations → triggerAutoSave() → 5s debounce → GitHub push           │
 │                                                                             │
-│  2. Push to GitHub:                                                         │
-│     pushUnitSeedFile(ruc, fileType, data)                                  │
-│     pushAllUnitSeedFiles(ruc, ...)                                         │
+│  Status indicator in header shows: idle/pending/saving/saved/error         │
+│  Admins can toggle auto-save on/off and trigger manual saves               │
+│                                                                             │
+│  Files: src/lib/auto-save.ts, src/hooks/useAutoSave.ts,                    │
+│         src/components/AutoSaveStatus.tsx                                   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -417,10 +417,10 @@ LOCALSTORAGE KEYS:
 
 ### Future Enhancements:
 
-1. **Add auto-save** - Periodically push localStorage changes to GitHub
+1. ~~**Add auto-save** - Periodically push localStorage changes to GitHub~~ ✅ DONE
 2. **Add UI export button** - Let admins manually trigger exports
 3. **Add import from JSON** - Let admins restore from seed files
 
 ---
 
-*Last updated: 2024-12-14 - Added JSON seed files for duty data*
+*Last updated: 2024-12-14 - Added auto-save functionality*
