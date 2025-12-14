@@ -1452,9 +1452,14 @@ export function removeUserRole(
 ): boolean {
   // Note: This only updates memory cache. To persist, update seed data files.
   const user = seedUsersCache.find((u) => u.id === userId);
+  console.log("[removeUserRole] Looking for user:", userId, "found:", !!user);
+
   if (!user || !user.roles) return false;
 
   const initialLength = user.roles.length;
+  console.log("[removeUserRole] User has", initialLength, "roles");
+  console.log("[removeUserRole] Looking for role:", roleName, "scope:", scopeUnitId);
+  console.log("[removeUserRole] Current roles:", user.roles.map(r => ({ role_name: r.role_name, scope_unit_id: r.scope_unit_id })));
 
   // Remove the matching role (must match both role name AND scope unit)
   user.roles = user.roles.filter(
@@ -1463,8 +1468,10 @@ export function removeUserRole(
   );
 
   const removed = user.roles.length < initialLength;
+  console.log("[removeUserRole] After filter:", user.roles.length, "roles. Removed:", removed);
+
   if (removed) {
-    console.warn("Role removed from memory cache. To persist, update seed data files and re-export.");
+    console.log("[removeUserRole] Role removed from memory cache.");
   }
   return removed;
 }

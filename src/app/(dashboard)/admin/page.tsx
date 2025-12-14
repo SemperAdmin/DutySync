@@ -999,22 +999,38 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     setIsSubmitting(true);
     setError(null);
 
+    console.log("[RoleAssignment] Starting save...", {
+      userId: user.id,
+      edipi: user.edipi,
+      pendingAdds,
+      pendingRemoves,
+    });
+
     try {
       // Process removals first
       for (const remove of pendingRemoves) {
+        console.log("[RoleAssignment] Removing role:", remove);
         const success = removeUserRole(user.id, remove.role_name, remove.scope_unit_id);
+        console.log("[RoleAssignment] Remove result:", success);
         if (!success) throw new Error(`Failed to remove role: ${remove.role_name}`);
       }
 
       // Then process adds
       for (const add of pendingAdds) {
+        console.log("[RoleAssignment] Adding role:", add);
         const success = assignUserRole(user.id, add.role_name, add.scope_unit_id);
+        console.log("[RoleAssignment] Add result:", success);
         if (!success) throw new Error(`Failed to assign role: ${add.role_name}`);
       }
 
       // Push updated user data to GitHub if configured
-      if (isGitHubConfigured()) {
+      const gitHubConfigured = isGitHubConfigured();
+      console.log("[RoleAssignment] GitHub configured:", gitHubConfigured);
+
+      if (gitHubConfigured) {
         const updatedUser = getSeedUserByEdipi(user.edipi);
+        console.log("[RoleAssignment] Updated user from cache:", updatedUser?.id, "roles:", updatedUser?.roles?.length);
+
         if (updatedUser) {
           // Build the user file data structure (encrypt edipi for storage)
           const userFileData = {
@@ -1032,15 +1048,21 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
             created_at: updatedUser.created_at || new Date().toISOString(),
             can_approve_non_availability: updatedUser.can_approve_non_availability || false,
           };
+          console.log("[RoleAssignment] Pushing to GitHub:", userFileData);
           const pushResult = await pushUserFileToGitHub(user.id, userFileData);
+          console.log("[RoleAssignment] GitHub push result:", pushResult);
           if (!pushResult.success) {
-            console.warn("Failed to push user file to GitHub:", pushResult.message);
+            // Show error to user instead of just warning
+            throw new Error(`GitHub sync failed: ${pushResult.message}`);
           }
+        } else {
+          console.warn("[RoleAssignment] Could not find updated user in cache");
         }
       }
 
       onSuccess();
     } catch (err) {
+      console.error("[RoleAssignment] Error:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsSubmitting(false);

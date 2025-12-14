@@ -233,7 +233,9 @@ export async function pushUserFileToGitHub(
   userId: string,
   userData: object
 ): Promise<GitHubUpdateResult> {
+  console.log("[pushUserFileToGitHub] Starting push for user:", userId);
   const settings = getGitHubSettings();
+  console.log("[pushUserFileToGitHub] Settings:", settings ? `${settings.owner}/${settings.repo}` : "not configured");
 
   if (!settings) {
     return { success: false, message: "GitHub not configured" };
@@ -242,12 +244,15 @@ export async function pushUserFileToGitHub(
   const filePath = `public/data/user/${userId}.json`;
   const timestamp = new Date().toISOString().split("T")[0];
 
-  return updateGitHubFile(
+  console.log("[pushUserFileToGitHub] Pushing to path:", filePath);
+  const result = await updateGitHubFile(
     settings,
     filePath,
     userData,
     `chore: Update user roles (${timestamp})`
   );
+  console.log("[pushUserFileToGitHub] Result:", result);
+  return result;
 }
 
 // Delete a user file from GitHub
