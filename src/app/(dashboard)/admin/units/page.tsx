@@ -16,6 +16,7 @@ import {
   updateUnitSection,
   deleteUnitSection,
   getAllUsers,
+  getPersonnelByEdipi,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
 
@@ -24,6 +25,9 @@ interface UserWithRoles {
   id: string;
   edipi: string;
   email: string;
+  rank?: string;
+  firstName?: string;
+  lastName?: string;
   roles: Array<{
     role_name: RoleName;
     scope_unit_id: string | null;
@@ -37,24 +41,32 @@ export default function UnitsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState<UnitSection | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
   const fetchData = useCallback(() => {
     try {
       const unitsData = getUnitSections();
       setUnits(unitsData);
 
-      // Fetch users to display Unit Admins
+      // Fetch users to display Unit Admins with personnel data
       const usersData = getAllUsers();
       setUsers(
-        usersData.map((u) => ({
-          id: u.id,
-          edipi: u.edipi,
-          email: u.email,
-          roles: (u.roles || []).map((r) => ({
-            role_name: r.role_name as RoleName,
-            scope_unit_id: r.scope_unit_id,
-          })),
-        }))
+        usersData.map((u) => {
+          // Look up personnel by EDIPI to get rank/name
+          const personnel = getPersonnelByEdipi(u.edipi);
+          return {
+            id: u.id,
+            edipi: u.edipi,
+            email: u.email,
+            rank: personnel?.rank,
+            firstName: personnel?.first_name,
+            lastName: personnel?.last_name,
+            roles: (u.roles || []).map((r) => ({
+              role_name: r.role_name as RoleName,
+              scope_unit_id: r.scope_unit_id,
+            })),
+          };
+        })
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -79,6 +91,46 @@ export default function UnitsPage() {
     return unit?.unit_name || "Unknown";
   };
 
+  // Get all ancestor IDs (parents, grandparents, etc.)
+  const getAncestorIds = (unitId: string): string[] => {
+    const ancestors: string[] = [];
+    let current = units.find((u) => u.id === unitId);
+    while (current?.parent_id) {
+      ancestors.push(current.parent_id);
+      current = units.find((u) => u.id === current?.parent_id);
+    }
+    return ancestors;
+  };
+
+  // Get all descendant IDs (children, grandchildren, etc.)
+  const getDescendantIds = (unitId: string): string[] => {
+    const descendants: string[] = [];
+    const children = units.filter((u) => u.parent_id === unitId);
+    for (const child of children) {
+      descendants.push(child.id);
+      descendants.push(...getDescendantIds(child.id));
+    }
+    return descendants;
+  };
+
+  // Check if a unit is in the selected path (ancestor, self, or descendant)
+  const isInSelectedPath = (unitId: string): boolean => {
+    if (!selectedUnitId) return true; // No filter, show all
+    if (unitId === selectedUnitId) return true;
+    const ancestors = getAncestorIds(selectedUnitId);
+    const descendants = getDescendantIds(selectedUnitId);
+    return ancestors.includes(unitId) || descendants.includes(unitId);
+  };
+
+  // Handle unit click for filtering
+  const handleUnitClick = (unitId: string) => {
+    if (selectedUnitId === unitId) {
+      setSelectedUnitId(null); // Clear filter if clicking same unit
+    } else {
+      setSelectedUnitId(unitId);
+    }
+  };
+
   const handleDelete = (id: string) => {
     if (!confirm("Are you sure you want to delete this unit?")) return;
 
@@ -90,11 +142,11 @@ export default function UnitsPage() {
     }
   };
 
-  // Group units by hierarchy level
-  const topUnits = units.filter((u) => u.hierarchy_level === "unit");
-  const companies = units.filter((u) => u.hierarchy_level === "company");
-  const sections = units.filter((u) => u.hierarchy_level === "section");
-  const workSections = units.filter((u) => u.hierarchy_level === "work_section");
+  // Group units by hierarchy level (filtered by selected path)
+  const topUnits = units.filter((u) => u.hierarchy_level === "unit" && isInSelectedPath(u.id));
+  const companies = units.filter((u) => u.hierarchy_level === "company" && isInSelectedPath(u.id));
+  const sections = units.filter((u) => u.hierarchy_level === "section" && isInSelectedPath(u.id));
+  const workSections = units.filter((u) => u.hierarchy_level === "work_section" && isInSelectedPath(u.id));
 
   if (isLoading) {
     return (
@@ -191,8 +243,10 @@ export default function UnitsPage() {
                   className="flex items-center justify-between p-3 rounded-lg bg-surface-elevated border border-border"
                 >
                   <div>
-                    <p className="font-medium text-foreground font-mono">
-                      {admin.edipi}
+                    <p className="font-medium text-foreground">
+                      {admin.rank && admin.lastName
+                        ? `${admin.rank} ${admin.lastName}, ${admin.firstName || ""}`
+                        : admin.edipi}
                     </p>
                     <p className="text-sm text-foreground-muted">{admin.email}</p>
                   </div>
@@ -248,6 +302,26 @@ export default function UnitsPage() {
         </Card>
       )}
 
+      {/* Filter Indicator */}
+      {selectedUnitId && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
+          <span className="text-sm text-foreground">
+            Filtering by: <strong>{getUnitName(selectedUnitId)}</strong>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedUnitId(null)}
+            className="ml-auto"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear Filter
+          </Button>
+        </div>
+      )}
+
       {/* Units Hierarchy Display */}
       {units.length > 0 && (
         <div className="space-y-6">
@@ -258,6 +332,8 @@ export default function UnitsPage() {
               level="unit"
               units={topUnits}
               allUnits={units}
+              selectedUnitId={selectedUnitId}
+              onUnitClick={handleUnitClick}
               onEdit={setEditingUnit}
               onDelete={handleDelete}
             />
@@ -270,6 +346,8 @@ export default function UnitsPage() {
               level="company"
               units={companies}
               allUnits={units}
+              selectedUnitId={selectedUnitId}
+              onUnitClick={handleUnitClick}
               onEdit={setEditingUnit}
               onDelete={handleDelete}
             />
@@ -282,6 +360,8 @@ export default function UnitsPage() {
               level="section"
               units={sections}
               allUnits={units}
+              selectedUnitId={selectedUnitId}
+              onUnitClick={handleUnitClick}
               onEdit={setEditingUnit}
               onDelete={handleDelete}
             />
@@ -294,6 +374,8 @@ export default function UnitsPage() {
               level="work_section"
               units={workSections}
               allUnits={units}
+              selectedUnitId={selectedUnitId}
+              onUnitClick={handleUnitClick}
               onEdit={setEditingUnit}
               onDelete={handleDelete}
             />
@@ -309,6 +391,8 @@ function HierarchySection({
   level,
   units,
   allUnits,
+  selectedUnitId,
+  onUnitClick,
   onEdit,
   onDelete,
 }: {
@@ -316,6 +400,8 @@ function HierarchySection({
   level: HierarchyLevel;
   units: UnitSection[];
   allUnits: UnitSection[];
+  selectedUnitId: string | null;
+  onUnitClick: (unitId: string) => void;
   onEdit: (unit: UnitSection) => void;
   onDelete: (id: string) => void;
 }) {
@@ -342,62 +428,80 @@ function HierarchySection({
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {units.map((unit) => (
-            <div
-              key={unit.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-surface-elevated border border-border hover:border-border-light transition-colors"
-            >
-              <div>
-                <h3 className="font-medium text-foreground">{unit.unit_name}</h3>
-                {unit.parent_id && (
-                  <p className="text-sm text-foreground-muted">
-                    Parent: {getParentName(unit.parent_id)}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEdit(unit)}
+          {units.map((unit) => {
+            const isSelected = selectedUnitId === unit.id;
+            return (
+              <div
+                key={unit.id}
+                className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                  isSelected
+                    ? "bg-primary/20 border-primary"
+                    : "bg-surface-elevated border-border hover:border-border-light"
+                }`}
+              >
+                <div
+                  className="flex-1 cursor-pointer"
+                  onClick={() => onUnitClick(unit.id)}
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  <h3 className={`font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
+                    {unit.unit_name}
+                  </h3>
+                  {unit.parent_id && (
+                    <p className="text-sm text-foreground-muted">
+                      Parent: {getParentName(unit.parent_id)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(unit);
+                    }}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDelete(unit.id)}
-                  className="text-error hover:bg-error/10"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(unit.id);
+                    }}
+                    className="text-error hover:bg-error/10"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </Button>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>
