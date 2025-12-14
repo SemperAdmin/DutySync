@@ -21,6 +21,7 @@ import {
   type RucEntry,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
+import { isValidEdipi } from "@/lib/utils";
 
 // User data structure for displaying admins
 interface UserWithRoles {
@@ -34,11 +35,6 @@ interface UserWithRoles {
     role_name: RoleName;
     scope_unit_id: string | null;
   }>;
-}
-
-// Helper to check if EDIPI looks valid (10 digits)
-function isValidEdipi(edipi: string): boolean {
-  return /^\d{10}$/.test(edipi);
 }
 
 export default function UnitsPage() {
