@@ -1128,14 +1128,13 @@ export function importManpowerData(
     errors: [] as string[],
   };
 
-  // Get existing units (keep them) and clear personnel
-  const units = getFromStorage<UnitSection>(KEYS.units);
+  // Clear all existing units and personnel for fresh import
+  const units: UnitSection[] = [];
   const newPersonnel: Personnel[] = [];
   const newNonAvailList: NonAvailability[] = [];
 
   // Track units by name for lookup and creation
   const unitMap = new Map<string, string>(); // name -> id
-  units.forEach(u => unitMap.set(u.unit_name, u.id));
 
   // Track hierarchy: unit -> company -> section -> workSection
   const topUnitSet = new Set<string>();
