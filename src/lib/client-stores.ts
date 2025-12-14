@@ -81,17 +81,36 @@ interface RucsData {
   rucs: RucEntry[];
 }
 
+// In-memory cache for RUCs (avoids repeated localStorage reads)
+let rucsCache: RucEntry[] = [];
+let rucsByCodeCache = new Map<string, RucEntry>();
+
+function populateRucCache(data: RucEntry[]) {
+  rucsCache = data;
+  rucsByCodeCache.clear();
+  for (const ruc of rucsCache) {
+    rucsByCodeCache.set(ruc.ruc, ruc);
+  }
+}
+
 // Load RUCs from the reference file
 export async function loadRucs(): Promise<RucEntry[]> {
   if (typeof window === "undefined") return [];
+
+  // If already loaded in memory, return it
+  if (rucsCache.length > 0) {
+    return rucsCache;
+  }
 
   // Check if already in localStorage
   const cached = localStorage.getItem(KEYS.rucs);
   if (cached) {
     try {
-      return JSON.parse(cached);
+      const parsedRucs = JSON.parse(cached);
+      populateRucCache(parsedRucs);
+      return rucsCache;
     } catch {
-      // Continue to fetch from file
+      // Continue to fetch from file if localStorage is corrupt
     }
   }
 
@@ -101,7 +120,8 @@ export async function loadRucs(): Promise<RucEntry[]> {
       const data: RucsData = await response.json();
       if (data.rucs && Array.isArray(data.rucs)) {
         localStorage.setItem(KEYS.rucs, JSON.stringify(data.rucs));
-        return data.rucs;
+        populateRucCache(data.rucs);
+        return rucsCache;
       }
     }
   } catch (error) {
@@ -110,31 +130,26 @@ export async function loadRucs(): Promise<RucEntry[]> {
   return [];
 }
 
-// Get all RUCs from localStorage (call loadRucs first to populate)
+// Get all RUCs from the in-memory cache (call loadRucs first to populate)
 export function getAllRucs(): RucEntry[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const data = localStorage.getItem(KEYS.rucs);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+  return rucsCache;
 }
 
-// Get a single RUC by code
+// Get a single RUC by code (O(1) lookup using Map)
 export function getRucByCode(rucCode: string): RucEntry | undefined {
-  return getAllRucs().find(r => r.ruc === rucCode);
+  return rucsByCodeCache.get(rucCode);
 }
 
 // Update the name of a RUC (unit admin function)
 export function updateRucName(rucCode: string, name: string | null): boolean {
   if (typeof window === "undefined") return false;
   try {
-    const rucs = getAllRucs();
-    const idx = rucs.findIndex(r => r.ruc === rucCode);
-    if (idx === -1) return false;
-    rucs[idx].name = name;
-    localStorage.setItem(KEYS.rucs, JSON.stringify(rucs));
+    const ruc = rucsByCodeCache.get(rucCode);
+    if (!ruc) return false;
+
+    ruc.name = name;
+    // The rucsCache array is updated by reference, so we just need to save it
+    localStorage.setItem(KEYS.rucs, JSON.stringify(rucsCache));
     return true;
   } catch (error) {
     console.error("Failed to update RUC name:", error);
