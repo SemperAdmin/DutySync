@@ -14,7 +14,6 @@ import {
   getAllPersonnel,
   getUnitSections,
   createPersonnel,
-  importPersonnel,
   parseManpowerTsv,
   importManpowerData,
 } from "@/lib/client-stores";
@@ -361,9 +360,7 @@ function ImportModal({
     nonAvailability?: { created: number };
     errors: string[];
   } | null>(null);
-  const [selectedUnit, setSelectedUnit] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [importFormat, setImportFormat] = useState<"standard" | "manpower">("manpower");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -373,38 +370,6 @@ function ImportModal({
       setError(null);
       setResult(null);
     }
-  };
-
-  // Parse a CSV line handling quoted fields with commas
-  const parseCsvLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          // Escaped quote inside quoted field
-          current += '"';
-          i++; // Skip next quote
-        } else {
-          // Toggle quote state
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        // Field separator
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    // Push last field
-    result.push(current.trim());
-    return result;
   };
 
   const handleSubmit = async () => {
@@ -419,73 +384,26 @@ function ImportModal({
     try {
       const text = await selectedFile.text();
 
-      if (importFormat === "manpower") {
-        // Parse manpower TSV format
-        const records = parseManpowerTsv(text);
+      // Parse Morning Report format (supports both CSV and TSV)
+      const records = parseManpowerTsv(text);
 
-        if (records.length === 0) {
-          throw new Error("No valid records found in file. Make sure it contains Rank, Name, EDIPI columns.");
-        }
+      if (records.length === 0) {
+        throw new Error("No valid records found in file. Make sure it contains Rank, Name, EDIPI columns.");
+      }
 
-        const data = importManpowerData(records);
+      const data = importManpowerData(records);
 
-        setResult({
-          personnel: data.personnel,
-          units: data.units,
-          nonAvailability: data.nonAvailability,
-          errors: data.errors || [],
-        });
+      setResult({
+        personnel: data.personnel,
+        units: data.units,
+        nonAvailability: data.nonAvailability,
+        errors: data.errors || [],
+      });
 
-        if (data.personnel.created > 0 || data.personnel.updated > 0) {
-          setTimeout(() => {
-            onSuccess();
-          }, 2000);
-        }
-      } else {
-        // Standard CSV format
-        const lines = text.split("\n").filter((l) => l.trim());
-
-        if (lines.length < 2) {
-          throw new Error("CSV file must have a header row and at least one data row");
-        }
-
-        const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
-        const serviceIdIdx = header.indexOf("service_id");
-        const firstNameIdx = header.indexOf("first_name");
-        const lastNameIdx = header.indexOf("last_name");
-        const rankIdx = header.indexOf("rank");
-        const unitNameIdx = header.indexOf("unit_name");
-
-        if (serviceIdIdx === -1 || firstNameIdx === -1 || lastNameIdx === -1 || rankIdx === -1) {
-          throw new Error("CSV must have columns: service_id, first_name, last_name, rank");
-        }
-
-        const records = [];
-        for (let i = 1; i < lines.length; i++) {
-          const values = parseCsvLine(lines[i]);
-          if (values.length > rankIdx) {
-            records.push({
-              service_id: values[serviceIdIdx],
-              first_name: values[firstNameIdx],
-              last_name: values[lastNameIdx],
-              rank: values[rankIdx],
-              unit_name: unitNameIdx >= 0 ? values[unitNameIdx] : undefined,
-            });
-          }
-        }
-
-        const data = importPersonnel(records, selectedUnit || undefined);
-
-        setResult({
-          personnel: { created: data.created, updated: data.updated },
-          errors: data.errors || [],
-        });
-
-        if (data.created > 0 || data.updated > 0) {
-          setTimeout(() => {
-            onSuccess();
-          }, 2000);
-        }
+      if (data.personnel.created > 0 || data.personnel.updated > 0) {
+        setTimeout(() => {
+          onSuccess();
+        }, 2000);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -498,10 +416,9 @@ function ImportModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card variant="elevated" className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <CardHeader>
-          <CardTitle>Import Personnel from CSV</CardTitle>
+          <CardTitle>Import Morning Report</CardTitle>
           <CardDescription>
-            Upload a CSV file with personnel data. Required columns: service_id,
-            first_name, last_name, rank
+            Upload a Morning Report file with personnel data. Required columns: Rank, Name, EDIPI
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -546,41 +463,10 @@ function ImportModal({
             </div>
           )}
 
-          {/* Import Format Selection */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Import Format
-            </label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="format"
-                  value="manpower"
-                  checked={importFormat === "manpower"}
-                  onChange={() => setImportFormat("manpower")}
-                  className="w-4 h-4 text-primary"
-                />
-                <span className="text-sm text-foreground">Manpower Report (TSV)</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="format"
-                  value="standard"
-                  checked={importFormat === "standard"}
-                  onChange={() => setImportFormat("standard")}
-                  className="w-4 h-4 text-primary"
-                />
-                <span className="text-sm text-foreground">Standard CSV</span>
-              </label>
-            </div>
-          </div>
-
           {/* File Upload */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              {importFormat === "manpower" ? "Manpower Report File" : "CSV File"}
+              Morning Report File
             </label>
             <div
               className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
@@ -643,58 +529,18 @@ function ImportModal({
             </div>
           </div>
 
-          {/* Default Unit - only for standard CSV format */}
-          {importFormat === "standard" && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
-                Default Unit (optional)
-              </label>
-              <select
-                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                value={selectedUnit}
-                onChange={(e) => setSelectedUnit(e.target.value)}
-                disabled={isSubmitting}
-              >
-                <option value="">-- Select if CSV lacks unit column --</option>
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.unit_name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-foreground-muted mt-1">
-                Used when CSV doesn&apos;t include unit_name or unit_section_id column
-              </p>
-            </div>
-          )}
-
           {/* Format Help */}
           <div className="p-3 rounded-lg bg-surface-elevated border border-border">
-            {importFormat === "manpower" ? (
-              <>
-                <p className="text-sm font-medium text-foreground mb-2">
-                  Manpower Report Format:
-                </p>
-                <ul className="text-xs text-foreground-muted space-y-1">
-                  <li>• Tab-separated file from Manpower system</li>
-                  <li>• Auto-detects header row with Rank, Name, EDIPI</li>
-                  <li>• Auto-creates units from Unit column (RUC-Section)</li>
-                  <li>• Creates Leave/TAD non-availability records</li>
-                  <li>• Uses EDIPI as unique identifier</li>
-                </ul>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-medium text-foreground mb-2">
-                  Expected CSV Format:
-                </p>
-                <pre className="text-xs text-foreground-muted font-mono overflow-x-auto">
-{`service_id,first_name,last_name,rank,unit_name
-123456789,John,Doe,SGT,Alpha Company
-234567890,Jane,Smith,CPL,Alpha Company`}
-                </pre>
-              </>
-            )}
+            <p className="text-sm font-medium text-foreground mb-2">
+              Morning Report Format:
+            </p>
+            <ul className="text-xs text-foreground-muted space-y-1">
+              <li>• CSV or tab-separated file</li>
+              <li>• Auto-detects header row with Rank, Name, EDIPI</li>
+              <li>• Auto-creates units from Unit column (RUC-Section)</li>
+              <li>• Creates Leave/TAD non-availability records</li>
+              <li>• Uses EDIPI as unique identifier</li>
+            </ul>
           </div>
 
           <div className="flex gap-3 pt-4">

@@ -953,17 +953,85 @@ function parseManpowerDate(dateStr: string): Date | null {
   return null;
 }
 
-// Parse the manpower TSV format
+// Parse a line handling quoted fields with commas
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote inside quoted field
+        current += '"';
+        i++; // Skip next quote
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // Field separator
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  // Push last field
+  result.push(current.trim());
+  return result;
+}
+
+// Detect delimiter (tab or comma) from content
+function detectDelimiter(content: string): "tab" | "comma" {
+  const lines = content.split("\n").slice(0, 5);
+  let tabCount = 0;
+  let commaCount = 0;
+
+  for (const line of lines) {
+    tabCount += (line.match(/\t/g) || []).length;
+    commaCount += (line.match(/,/g) || []).length;
+  }
+
+  return tabCount > commaCount ? "tab" : "comma";
+}
+
+// Parse the Morning Report format (supports both CSV and TSV)
 export function parseManpowerTsv(content: string): ManpowerRecord[] {
   const lines = content.split("\n");
   const records: ManpowerRecord[] = [];
+  const delimiter = detectDelimiter(content);
 
   // Find the header row (contains "Rank" and "EDIPI")
   let headerIdx = -1;
+  const headerColumns: { [key: string]: number } = {};
+
   for (let i = 0; i < Math.min(10, lines.length); i++) {
     const line = lines[i].toLowerCase();
     if (line.includes("rank") && line.includes("edipi") && line.includes("name")) {
       headerIdx = i;
+
+      // Parse header to get column indices
+      const headerValues = delimiter === "tab"
+        ? lines[i].split("\t").map(v => cleanTsvValue(v).toLowerCase())
+        : parseCsvLine(lines[i]).map(v => cleanTsvValue(v).toLowerCase());
+
+      headerValues.forEach((col, idx) => {
+        if (col.includes("rank")) headerColumns["rank"] = idx;
+        if (col.includes("name") && !col.includes("unit")) headerColumns["name"] = idx;
+        if (col.includes("edipi")) headerColumns["edipi"] = idx;
+        if (col.includes("sex") || col.includes("gender")) headerColumns["sex"] = idx;
+        if (col.includes("edd") || col.includes("ets") || col.includes("end date of service")) headerColumns["edd"] = idx;
+        if (col.includes("unit") || col.includes("ruc")) headerColumns["unit"] = idx;
+        if (col.includes("category") || col.includes("cat")) headerColumns["category"] = idx;
+        if (col.includes("status") || col.includes("duty status")) headerColumns["dutyStatus"] = idx;
+        if (col.includes("location") || col.includes("loc")) headerColumns["location"] = idx;
+        if (col.includes("start") && col.includes("date")) headerColumns["startDate"] = idx;
+        if (col.includes("end") && col.includes("date")) headerColumns["endDate"] = idx;
+      });
       break;
     }
   }
@@ -977,28 +1045,35 @@ export function parseManpowerTsv(content: string): ManpowerRecord[] {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // Split by tab
-    const values = line.split("\t").map(v => cleanTsvValue(v));
+    // Split by detected delimiter
+    const values = delimiter === "tab"
+      ? line.split("\t").map(v => cleanTsvValue(v))
+      : parseCsvLine(line).map(v => cleanTsvValue(v));
 
-    // Need at least rank, name, edipi, sex, edd, unit, category, status, location, start, end
-    if (values.length < 6) continue;
+    // Need at least rank, name, edipi
+    if (values.length < 3) continue;
+
+    // Get values by column index if available, otherwise use positional
+    const rank = headerColumns["rank"] !== undefined ? values[headerColumns["rank"]] : values[0];
+    const name = headerColumns["name"] !== undefined ? values[headerColumns["name"]] : values[1];
+    const edipiRaw = headerColumns["edipi"] !== undefined ? values[headerColumns["edipi"]] : values[2];
 
     // Validate EDIPI is 10 digits
-    const edipi = values[2]?.replace(/\D/g, "");
+    const edipi = edipiRaw?.replace(/\D/g, "");
     if (!edipi || edipi.length !== 10) continue;
 
     records.push({
-      rank: values[0] || "",
-      name: values[1] || "",
+      rank: rank || "",
+      name: name || "",
       edipi: edipi,
-      sex: values[3] || "",
-      edd: values[4] || "",
-      unit: values[5] || "",
-      category: values[6] || "",
-      dutyStatus: values[7] || "",
-      location: values[8] || "",
-      startDate: values[9] || "",
-      endDate: values[10] || "",
+      sex: headerColumns["sex"] !== undefined ? values[headerColumns["sex"]] || "" : values[3] || "",
+      edd: headerColumns["edd"] !== undefined ? values[headerColumns["edd"]] || "" : values[4] || "",
+      unit: headerColumns["unit"] !== undefined ? values[headerColumns["unit"]] || "" : values[5] || "",
+      category: headerColumns["category"] !== undefined ? values[headerColumns["category"]] || "" : values[6] || "",
+      dutyStatus: headerColumns["dutyStatus"] !== undefined ? values[headerColumns["dutyStatus"]] || "" : values[7] || "",
+      location: headerColumns["location"] !== undefined ? values[headerColumns["location"]] || "" : values[8] || "",
+      startDate: headerColumns["startDate"] !== undefined ? values[headerColumns["startDate"]] || "" : values[9] || "",
+      endDate: headerColumns["endDate"] !== undefined ? values[headerColumns["endDate"]] || "" : values[10] || "",
     });
   }
 
