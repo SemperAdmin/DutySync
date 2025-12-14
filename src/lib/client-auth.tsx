@@ -59,7 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         setUser(JSON.parse(stored));
-      } catch {
+      } catch (error) {
+        console.error("Failed to parse user session from localStorage:", error);
         localStorage.removeItem("dutysync_user");
       }
     }
@@ -67,57 +68,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    // Check for registered users in localStorage
-    const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
-    const found = users.find(
-      (u: { username: string; password: string }) =>
-        u.username === username && u.password === password
-    );
+    try {
+      // Check for registered users in localStorage
+      const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
+      const found = users.find(
+        (u: { username: string; password: string }) =>
+          u.username === username && u.password === password
+      );
 
-    if (found) {
-      // Determine roles based on EDIPI match
-      const roles: UserRole[] = [];
+      if (found) {
+        // Determine roles based on EDIPI match
+        const roles: UserRole[] = [];
 
-      // Check if user's service ID matches App Admin EDIPI
-      if (isAppAdmin(found.serviceId)) {
-        roles.push(createAppAdminRole(found.id));
+        // Check if user's service ID matches App Admin EDIPI
+        if (isAppAdmin(found.serviceId)) {
+          roles.push(createAppAdminRole(found.id));
+        }
+
+        // Also check for any stored roles (like Unit Admin assignments)
+        if (found.roles && Array.isArray(found.roles)) {
+          found.roles.forEach((role: { role_name: RoleName; scope_unit_id?: string | null }) => {
+            // Don't duplicate if already App Admin
+            if (role.role_name !== "App Admin" || !isAppAdmin(found.serviceId)) {
+              roles.push({
+                id: `role-${found.id}-${role.role_name}`,
+                user_id: found.id,
+                role_name: role.role_name,
+                scope_unit_id: role.scope_unit_id || null,
+                created_at: new Date(),
+              });
+            }
+          });
+        }
+
+        // If no roles assigned, give Standard User
+        if (roles.length === 0) {
+          roles.push(createStandardUserRole(found.id));
+        }
+
+        const sessionUser: SessionUser = {
+          id: found.id,
+          username: found.username,
+          email: found.email,
+          personnel_id: found.personnel_id || null,
+          serviceId: found.serviceId || null,
+          roles,
+        };
+        setUser(sessionUser);
+        localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
+        return true;
       }
 
-      // Also check for any stored roles (like Unit Admin assignments)
-      if (found.roles && Array.isArray(found.roles)) {
-        found.roles.forEach((role: { role_name: RoleName; scope_unit_id?: string | null }) => {
-          // Don't duplicate if already App Admin
-          if (role.role_name !== "App Admin" || !isAppAdmin(found.serviceId)) {
-            roles.push({
-              id: `role-${found.id}-${role.role_name}`,
-              user_id: found.id,
-              role_name: role.role_name,
-              scope_unit_id: role.scope_unit_id || null,
-              created_at: new Date(),
-            });
-          }
-        });
-      }
-
-      // If no roles assigned, give Standard User
-      if (roles.length === 0) {
-        roles.push(createStandardUserRole(found.id));
-      }
-
-      const sessionUser: SessionUser = {
-        id: found.id,
-        username: found.username,
-        email: found.email,
-        personnel_id: found.personnel_id || null,
-        serviceId: found.serviceId || null,
-        roles,
-      };
-      setUser(sessionUser);
-      localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
-      return true;
+      return false;
+    } catch (error) {
+      console.error("Login failed:", error);
+      return false;
     }
-
-    return false;
   };
 
   const signup = async (
@@ -126,31 +132,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     serviceId?: string
   ): Promise<SignupResult> => {
-    const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
+    try {
+      const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
 
-    // Check if user exists
-    if (users.some((u: { username: string }) => u.username === username)) {
-      return { success: false, error: "Username already exists" };
+      // Check if user exists
+      if (users.some((u: { username: string }) => u.username === username)) {
+        return { success: false, error: "Username already exists" };
+      }
+
+      if (users.some((u: { email: string }) => u.email === email)) {
+        return { success: false, error: "Email already registered" };
+      }
+
+      const newUser = {
+        id: `user-${Date.now()}`,
+        username,
+        email,
+        password,
+        serviceId: serviceId || null,
+        roles: [{ role_name: "Standard User", scope_unit_id: null }],
+        created_at: new Date().toISOString(),
+      };
+
+      users.push(newUser);
+      localStorage.setItem("dutysync_users", JSON.stringify(users));
+
+      return { success: true };
+    } catch (error) {
+      console.error("Signup failed:", error);
+      return { success: false, error: "An unexpected error occurred" };
     }
-
-    if (users.some((u: { email: string }) => u.email === email)) {
-      return { success: false, error: "Email already registered" };
-    }
-
-    const newUser = {
-      id: `user-${Date.now()}`,
-      username,
-      email,
-      password,
-      serviceId: serviceId || null,
-      roles: [{ role_name: "Standard User", scope_unit_id: null }],
-      created_at: new Date().toISOString(),
-    };
-
-    users.push(newUser);
-    localStorage.setItem("dutysync_users", JSON.stringify(users));
-
-    return { success: true };
   };
 
   const logout = () => {
