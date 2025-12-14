@@ -148,8 +148,8 @@ export async function loadSeedDataIfNeeded(): Promise<{
     // Fetch all data in parallel for each RUC
     const fetchPromises = availableRucs.map(async (rucInfo) => {
       const ruc = rucInfo.ruc;
-      const unitResponse = await fetch(`/data/${ruc}/unit-structure.json`);
-      const personnelResponse = await fetch(`/data/${ruc}/unit-members.json`);
+      const unitResponse = await fetch(`/data/unit/${ruc}/unit-structure.json`);
+      const personnelResponse = await fetch(`/data/unit/${ruc}/unit-members.json`);
 
       // Both fetches must succeed for this RUC
       if (!unitResponse.ok) {
@@ -220,7 +220,7 @@ export async function loadRucData(ruc: string): Promise<{
 
   try {
     // Load unit structure from RUC folder
-    const unitResponse = await fetch(`/data/${ruc}/unit-structure.json`);
+    const unitResponse = await fetch(`/data/unit/${ruc}/unit-structure.json`);
     if (unitResponse.ok) {
       const unitData = await unitResponse.json();
       if (unitData.units && Array.isArray(unitData.units)) {
@@ -235,7 +235,7 @@ export async function loadRucData(ruc: string): Promise<{
     }
 
     // Load personnel from RUC folder
-    const personnelResponse = await fetch(`/data/${ruc}/unit-members.json`);
+    const personnelResponse = await fetch(`/data/unit/${ruc}/unit-members.json`);
     if (personnelResponse.ok) {
       const personnelData = await personnelResponse.json();
       if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
