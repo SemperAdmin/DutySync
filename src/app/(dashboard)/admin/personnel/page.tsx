@@ -9,7 +9,8 @@ import Card, {
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import type { Personnel, UnitSection } from "@/types";
+import type { Personnel, UnitSection, RoleName } from "@/types";
+import { useAuth } from "@/lib/client-auth";
 import {
   getAllPersonnel,
   getUnitSections,
@@ -18,6 +19,7 @@ import {
   importManpowerData,
   exportUnitStructure,
   exportUnitMembers,
+  getPersonnelByEdipi,
 } from "@/lib/client-stores";
 import {
   isGitHubConfigured,
@@ -28,7 +30,19 @@ import {
   type GitHubSettings,
 } from "@/lib/github-api";
 
+// Manager role names - defines who can see personnel within their scope
+const MANAGER_ROLES: RoleName[] = [
+  "Unit Manager",
+  "Company Manager",
+  "Platoon Manager",
+  "Section Manager",
+];
+
+// Admin roles that can see all personnel
+const ADMIN_ROLES: RoleName[] = ["App Admin", "Unit Admin"];
+
 export default function PersonnelPage() {
+  const { user } = useAuth();
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +51,7 @@ export default function PersonnelPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<"self" | "scope">("self");
 
   const fetchData = useCallback(() => {
     try {
@@ -58,6 +73,75 @@ export default function PersonnelPage() {
 
   // Create a Map of units for O(1) lookups
   const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
+
+  // Create a Map of parent_id to child unit IDs for O(1) children lookup
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    units.forEach(u => {
+      if (u.parent_id) {
+        const children = map.get(u.parent_id) || [];
+        children.push(u.id);
+        map.set(u.parent_id, children);
+      }
+    });
+    return map;
+  }, [units]);
+
+  // Get the current user's personnel record
+  const currentUserPersonnel = useMemo(() => {
+    if (!user?.edipi) return null;
+    return getPersonnelByEdipi(user.edipi) || null;
+  }, [user?.edipi]);
+
+  // Check if user is an admin (can see all personnel)
+  const isAdmin = useMemo(() => {
+    if (!user?.roles) return false;
+    return user.roles.some(r => ADMIN_ROLES.includes(r.role_name as RoleName));
+  }, [user?.roles]);
+
+  // Get the manager's scope unit ID from their role
+  const managerScopeUnitId = useMemo(() => {
+    if (!user?.roles) return null;
+    const managerRole = user.roles.find(r =>
+      MANAGER_ROLES.includes(r.role_name as RoleName) && r.scope_unit_id
+    );
+    return managerRole?.scope_unit_id || null;
+  }, [user?.roles]);
+
+  // Determine if user has elevated access (admin or manager)
+  const hasElevatedAccess = isAdmin || !!managerScopeUnitId;
+
+  // Get all descendant unit IDs for the manager's scope
+  const scopeUnitIds = useMemo(() => {
+    if (isAdmin) {
+      // Admins can see all units
+      return new Set(units.map(u => u.id));
+    }
+    if (!managerScopeUnitId) return new Set<string>();
+
+    const ids = new Set<string>([managerScopeUnitId]);
+    const queue = [managerScopeUnitId];
+
+    for (let i = 0; i < queue.length; i++) {
+      const currentId = queue[i];
+      const children = childrenMap.get(currentId) || [];
+      for (const childId of children) {
+        if (!ids.has(childId)) {
+          ids.add(childId);
+          queue.push(childId);
+        }
+      }
+    }
+
+    return ids;
+  }, [isAdmin, managerScopeUnitId, childrenMap, units]);
+
+  // Get units within the user's scope for the filter dropdown
+  const unitsInScope = useMemo(() => {
+    if (isAdmin) return units;
+    if (scopeUnitIds.size === 0) return [];
+    return units.filter(u => scopeUnitIds.has(u.id));
+  }, [isAdmin, units, scopeUnitIds]);
 
   const getUnitName = (unitId: string) => {
     const unit = unitMap.get(unitId);
@@ -117,17 +201,32 @@ export default function PersonnelPage() {
     return false;
   };
 
-  // Filter and search personnel
-  const filteredPersonnel = personnel.filter((p) => {
-    const matchesUnit = isUnitInFilterPath(p.unit_section_id);
-    const matchesSearch =
-      !searchTerm ||
-      p.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.service_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.rank.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesUnit && matchesSearch;
-  });
+  // Filter and search personnel based on view mode and scope
+  const filteredPersonnel = useMemo(() => {
+    return personnel.filter((p) => {
+      // In "self" mode, only show the current user's record
+      if (viewMode === "self") {
+        if (!currentUserPersonnel) return false;
+        return p.id === currentUserPersonnel.id;
+      }
+
+      // In "scope" mode, filter by scope and unit filter
+      // First check if personnel is within the user's scope
+      if (!isAdmin && !scopeUnitIds.has(p.unit_section_id)) {
+        return false;
+      }
+
+      // Then apply the unit filter
+      const matchesUnit = isUnitInFilterPath(p.unit_section_id);
+      const matchesSearch =
+        !searchTerm ||
+        p.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.service_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.rank.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesUnit && matchesSearch;
+    });
+  }, [personnel, viewMode, currentUserPersonnel, isAdmin, scopeUnitIds, filterUnit, searchTerm, isUnitInFilterPath]);
 
   if (isLoading) {
     return (
@@ -144,43 +243,50 @@ export default function PersonnelPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Personnel</h1>
           <p className="text-foreground-muted mt-1">
-            Manage service members and import roster data
+            {isAdmin
+              ? "Manage service members and import roster data"
+              : hasElevatedAccess
+              ? "View personnel within your scope"
+              : "View your personnel record"}
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="secondary" onClick={() => setShowImportModal(true)}>
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-              />
-            </svg>
-            Import CSV
-          </Button>
-          <Button variant="accent" onClick={() => setShowAddModal(true)}>
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              />
-            </svg>
-            Add Personnel
-          </Button>
-        </div>
+        {/* Only show admin buttons for admins */}
+        {isAdmin && (
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setShowImportModal(true)}>
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                />
+              </svg>
+              Import CSV
+            </Button>
+            <Button variant="accent" onClick={() => setShowAddModal(true)}>
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              Add Personnel
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Error Alert */}
@@ -223,28 +329,62 @@ export default function PersonnelPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Search by name, service ID, or rank..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="w-full md:w-64">
-              <select
-                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                value={filterUnit}
-                onChange={(e) => setFilterUnit(e.target.value)}
-              >
-                <option value="">All Sections</option>
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.unit_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex flex-col gap-4">
+            {/* View Mode Toggle - only show if user has elevated access */}
+            {hasElevatedAccess && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-foreground-muted">View:</span>
+                <div className="flex rounded-lg border border-border overflow-hidden">
+                  <button
+                    onClick={() => setViewMode("self")}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      viewMode === "self"
+                        ? "bg-primary text-white"
+                        : "bg-surface text-foreground-muted hover:bg-surface-elevated"
+                    }`}
+                  >
+                    My Record
+                  </button>
+                  <button
+                    onClick={() => setViewMode("scope")}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      viewMode === "scope"
+                        ? "bg-primary text-white"
+                        : "bg-surface text-foreground-muted hover:bg-surface-elevated"
+                    }`}
+                  >
+                    {isAdmin ? "All Personnel" : "My Scope"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Search and Unit Filter - only show in scope mode */}
+            {viewMode === "scope" && hasElevatedAccess && (
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search by name, service ID, or rank..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div className="w-full md:w-64">
+                  <select
+                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={filterUnit}
+                    onChange={(e) => setFilterUnit(e.target.value)}
+                  >
+                    <option value="">{isAdmin ? "All Sections" : "All in My Scope"}</option>
+                    {unitsInScope.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.unit_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

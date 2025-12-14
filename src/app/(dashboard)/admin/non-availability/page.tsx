@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Button from "@/components/ui/Button";
 import type { NonAvailability, Personnel, RoleName } from "@/types";
 import {
@@ -12,8 +12,20 @@ import {
   type EnrichedNonAvailability,
   getUnitSectionById,
   getUnitSections,
+  getPersonnelByEdipi,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
+
+// Manager role names
+const MANAGER_ROLES: RoleName[] = [
+  "Unit Manager",
+  "Company Manager",
+  "Platoon Manager",
+  "Section Manager",
+];
+
+// Admin roles that can see all
+const ADMIN_ROLES: RoleName[] = ["App Admin", "Unit Admin"];
 
 export default function NonAvailabilityAdminPage() {
   const { user } = useAuth();
@@ -22,13 +34,22 @@ export default function NonAvailabilityAdminPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"self" | "scope">("self");
+
+  // Get the current user's personnel record
+  const currentUserPersonnel = useMemo(() => {
+    if (!user?.edipi) return null;
+    return getPersonnelByEdipi(user.edipi) || null;
+  }, [user?.edipi]);
 
   // Determine user's approval capabilities
   const isAdmin = user?.roles?.some((r) => r.role_name === "App Admin");
   const isUnitAdmin = user?.roles?.some((r) => r.role_name === "Unit Admin");
-  const isManagerWithApproval = user?.can_approve_non_availability && user?.roles?.some((r) =>
-    ["Unit Manager", "Company Manager", "Platoon Manager", "Section Manager"].includes(r.role_name)
-  );
+  const isManager = user?.roles?.some((r) => MANAGER_ROLES.includes(r.role_name as RoleName));
+  const isManagerWithApproval = user?.can_approve_non_availability && isManager;
+
+  // User has elevated access if admin, unit admin, or manager
+  const hasElevatedAccess = isAdmin || isUnitAdmin || isManager;
 
   // User can approve if admin, unit admin, or manager with approval permission
   const canApprove = isAdmin || isUnitAdmin || isManagerWithApproval;
@@ -182,6 +203,24 @@ export default function NonAvailabilityAdminPage() {
     }
   }
 
+  // Filter requests based on view mode and scope
+  const filteredRequests = useMemo(() => {
+    return requests.filter((r) => {
+      // In "self" mode, only show the current user's requests
+      if (viewMode === "self") {
+        if (!currentUserPersonnel) return false;
+        return r.personnel_id === currentUserPersonnel.id;
+      }
+
+      // In "scope" mode, admins see all, managers see their scope
+      if (isAdmin || isUnitAdmin) return true;
+
+      // For managers, only show requests within their scope
+      if (!r.personnel) return false;
+      return isInUserScope(r.personnel.unit_section_id);
+    });
+  }, [requests, viewMode, currentUserPersonnel, isAdmin, isUnitAdmin, isInUserScope]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -197,63 +236,101 @@ export default function NonAvailabilityAdminPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Non-Availability Requests</h1>
           <p className="text-foreground-muted mt-1">
-            Manage duty exemption requests from personnel
+            {isAdmin || isUnitAdmin
+              ? "Manage duty exemption requests from personnel"
+              : hasElevatedAccess
+              ? "View and manage requests within your scope"
+              : "View your duty exemption requests"}
           </p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)}>+ Add Request</Button>
+        {/* Only show Add Request for admins/managers */}
+        {hasElevatedAccess && (
+          <Button onClick={() => setIsAddModalOpen(true)}>+ Add Request</Button>
+        )}
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 items-center">
-        <label className="text-sm text-foreground-muted">Filter by status:</label>
-        <div className="flex gap-2">
-          {["pending", "approved", "rejected", ""].map((status) => (
+      {/* View Mode Toggle - only show if user has elevated access */}
+      {hasElevatedAccess && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-foreground-muted">View:</span>
+          <div className="flex rounded-lg border border-border overflow-hidden">
             <button
-              key={status || "all"}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                statusFilter === status
+              onClick={() => setViewMode("self")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === "self"
                   ? "bg-primary text-white"
-                  : "bg-surface border border-border text-foreground-muted hover:text-foreground"
+                  : "bg-surface text-foreground-muted hover:bg-surface-elevated"
               }`}
             >
-              {status || "All"}
+              My Requests
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode("scope")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === "scope"
+                  ? "bg-primary text-white"
+                  : "bg-surface text-foreground-muted hover:bg-surface-elevated"
+              }`}
+            >
+              {isAdmin || isUnitAdmin ? "All Requests" : "My Scope"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Status Filters - only show in scope mode for managers/admins */}
+      {(viewMode === "scope" || !hasElevatedAccess) && (
+        <div className="flex gap-4 items-center">
+          <label className="text-sm text-foreground-muted">Filter by status:</label>
+          <div className="flex gap-2">
+            {["pending", "approved", "rejected", ""].map((status) => (
+              <button
+                key={status || "all"}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  statusFilter === status
+                    ? "bg-primary text-white"
+                    : "bg-surface border border-border text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                {status || "All"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <div className="bg-surface rounded-lg border border-border p-4">
           <div className="text-2xl font-bold text-yellow-400">
-            {requests.filter((r) => r.status === "pending").length}
+            {filteredRequests.filter((r) => r.status === "pending").length}
           </div>
           <div className="text-sm text-foreground-muted">Pending</div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
           <div className="text-2xl font-bold text-green-400">
-            {requests.filter((r) => r.status === "approved").length}
+            {filteredRequests.filter((r) => r.status === "approved").length}
           </div>
           <div className="text-sm text-foreground-muted">Approved</div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
           <div className="text-2xl font-bold text-red-400">
-            {requests.filter((r) => r.status === "rejected").length}
+            {filteredRequests.filter((r) => r.status === "rejected").length}
           </div>
           <div className="text-sm text-foreground-muted">Rejected</div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
-          <div className="text-2xl font-bold text-foreground">{requests.length}</div>
+          <div className="text-2xl font-bold text-foreground">{filteredRequests.length}</div>
           <div className="text-sm text-foreground-muted">Total Shown</div>
         </div>
       </div>
 
       {/* Requests Table */}
-      {requests.length === 0 ? (
+      {filteredRequests.length === 0 ? (
         <div className="text-center py-12 bg-surface rounded-lg border border-border">
           <p className="text-foreground-muted">
-            No {statusFilter || ""} requests found.
+            {viewMode === "self" ? "You have no requests" : `No ${statusFilter || ""} requests found`}
           </p>
         </div>
       ) : (
@@ -283,7 +360,7 @@ export default function NonAvailabilityAdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {requests.map((request) => (
+                {filteredRequests.map((request) => (
                   <tr key={request.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-3">
                       {request.personnel ? (
