@@ -1346,7 +1346,11 @@ interface StoredUser {
 
 export function getAllUsers(): StoredUser[] {
   // Return users from the seed data cache (loaded from public/data/user/)
-  return getAllSeedUsers();
+  // Ensure EDIPI is decrypted (in case cache has encrypted values)
+  return getAllSeedUsers().map(u => ({
+    ...u,
+    edipi: isEncryptedEdipi(u.edipi) ? decryptEdipi(u.edipi) : u.edipi,
+  }));
 }
 
 export function getUserById(id: string): StoredUser | undefined {
