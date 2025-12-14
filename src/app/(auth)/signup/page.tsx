@@ -19,7 +19,7 @@ export default function SignupPage() {
   const { signup } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [successMode, setSuccessMode] = useState<"workflow" | "download" | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,17 +54,81 @@ export default function SignupPage() {
         return;
       }
 
-      setSuccess(true);
+      // Show appropriate success message based on how account was created
+      setSuccessMode(result.workflowTriggered ? "workflow" : "download");
+
+      // Redirect to login after delay (longer for workflow since it needs time to process)
       setTimeout(() => {
         router.push("/login");
-      }, 2000);
+      }, result.workflowTriggered ? 5000 : 2000);
     } catch {
       setFormError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
   };
 
-  if (success) {
+  // Success state: workflow triggered automatically
+  if (successMode === "workflow") {
+    return (
+      <Card variant="elevated" className="w-full max-w-md">
+        <CardContent className="py-8">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-success"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-foreground mb-2">
+              Account Created!
+            </h2>
+            <p className="text-foreground-muted">
+              Your account is being set up automatically.
+            </p>
+          </div>
+
+          <div className="space-y-4 text-sm">
+            <div className="p-4 rounded-lg bg-surface-elevated border border-border">
+              <h3 className="font-medium text-foreground mb-2">What happens next:</h3>
+              <ol className="list-decimal list-inside space-y-2 text-foreground-muted">
+                <li>Your account is being created in the system</li>
+                <li>This usually takes 1-2 minutes</li>
+                <li>You&apos;ll be redirected to the login page shortly</li>
+                <li>If login fails, please wait a moment and try again</li>
+              </ol>
+            </div>
+
+            <div className="p-4 rounded-lg bg-highlight/10 border border-highlight/20">
+              <p className="text-foreground-muted text-center">
+                Redirecting to login in a few seconds...
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 text-center">
+            <Link
+              href="/login"
+              className="text-highlight hover:text-highlight-muted transition-colors font-medium"
+            >
+              Go to Login Now
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Success state: files downloaded (fallback mode)
+  if (successMode === "download") {
     return (
       <Card variant="elevated" className="w-full max-w-md">
         <CardContent className="py-8">
