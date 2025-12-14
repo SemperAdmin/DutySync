@@ -9,26 +9,53 @@ import Card, {
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import type { UnitSection, HierarchyLevel } from "@/types";
+import type { UnitSection, HierarchyLevel, RoleName } from "@/types";
 import {
   getUnitSections,
   createUnitSection,
   updateUnitSection,
   deleteUnitSection,
+  getAllUsers,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
 
+// User data structure for displaying admins
+interface UserWithRoles {
+  id: string;
+  edipi: string;
+  email: string;
+  roles: Array<{
+    role_name: RoleName;
+    scope_unit_id: string | null;
+  }>;
+}
+
 export default function UnitsPage() {
   const [units, setUnits] = useState<UnitSection[]>([]);
+  const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState<UnitSection | null>(null);
 
-  const fetchUnits = useCallback(() => {
+  const fetchData = useCallback(() => {
     try {
-      const data = getUnitSections();
-      setUnits(data);
+      const unitsData = getUnitSections();
+      setUnits(unitsData);
+
+      // Fetch users to display Unit Admins
+      const usersData = getAllUsers();
+      setUsers(
+        usersData.map((u) => ({
+          id: u.id,
+          edipi: u.edipi,
+          email: u.email,
+          roles: (u.roles || []).map((r) => ({
+            role_name: r.role_name as RoleName,
+            scope_unit_id: r.scope_unit_id,
+          })),
+        }))
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -37,15 +64,27 @@ export default function UnitsPage() {
   }, []);
 
   useEffect(() => {
-    fetchUnits();
-  }, [fetchUnits]);
+    fetchData();
+  }, [fetchData]);
+
+  // Get users who are Unit Admins (have Unit Admin role with a scope)
+  const unitAdmins = users.filter((u) =>
+    u.roles.some((r) => r.role_name === "Unit Admin" && r.scope_unit_id)
+  );
+
+  // Get unit name by ID
+  const getUnitName = (unitId: string | null) => {
+    if (!unitId) return "Global";
+    const unit = units.find((u) => u.id === unitId);
+    return unit?.unit_name || "Unknown";
+  };
 
   const handleDelete = (id: string) => {
     if (!confirm("Are you sure you want to delete this unit?")) return;
 
     try {
       deleteUnitSection(id);
-      fetchUnits();
+      fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     }
@@ -118,10 +157,63 @@ export default function UnitsPage() {
           onSuccess={() => {
             setShowAddForm(false);
             setEditingUnit(null);
-            fetchUnits();
+            fetchData();
           }}
         />
       )}
+
+      {/* Unit Admins Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span className="px-2 py-0.5 text-xs font-medium rounded border bg-primary/20 text-blue-400 border-primary/30">
+              ADMINS
+            </span>
+            Unit Administrators
+            <span className="text-foreground-muted text-sm font-normal">
+              ({unitAdmins.length})
+            </span>
+          </CardTitle>
+          <CardDescription>
+            Users with administrative access to specific units
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {unitAdmins.length === 0 ? (
+            <p className="text-foreground-muted text-center py-4">
+              No Unit Admins assigned. Assign Unit Admin roles from User Management.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {unitAdmins.map((admin) => (
+                <div
+                  key={admin.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-surface-elevated border border-border"
+                >
+                  <div>
+                    <p className="font-medium text-foreground font-mono">
+                      {admin.edipi}
+                    </p>
+                    <p className="text-sm text-foreground-muted">{admin.email}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {admin.roles
+                      .filter((r) => r.role_name === "Unit Admin" && r.scope_unit_id)
+                      .map((role, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 text-xs font-medium rounded bg-primary/20 text-blue-400"
+                        >
+                          {getUnitName(role.scope_unit_id)}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Empty State */}
       {units.length === 0 && (
