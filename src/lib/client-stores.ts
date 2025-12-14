@@ -21,7 +21,96 @@ const KEYS = {
   dutySlots: "dutysync_duty_slots",
   nonAvailability: "dutysync_non_availability",
   qualifications: "dutysync_qualifications",
+  seedDataLoaded: "dutysync_seed_loaded",
 };
+
+// ============ Seed Data Loading ============
+
+// Load seed data from JSON files if localStorage is empty
+export async function loadSeedDataIfNeeded(): Promise<{
+  unitsLoaded: number;
+  personnelLoaded: number;
+  alreadyLoaded: boolean;
+}> {
+  if (typeof window === "undefined") {
+    return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: false };
+  }
+
+  // Check if seed data was already loaded
+  const seedLoaded = localStorage.getItem(KEYS.seedDataLoaded);
+  if (seedLoaded === "true") {
+    return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: true };
+  }
+
+  // Check if there's existing data
+  const existingUnits = getFromStorage<UnitSection>(KEYS.units);
+  const existingPersonnel = getFromStorage<Personnel>(KEYS.personnel);
+
+  if (existingUnits.length > 0 || existingPersonnel.length > 0) {
+    // Mark as loaded since data exists
+    localStorage.setItem(KEYS.seedDataLoaded, "true");
+    return { unitsLoaded: 0, personnelLoaded: 0, alreadyLoaded: true };
+  }
+
+  let unitsLoaded = 0;
+  let personnelLoaded = 0;
+
+  try {
+    // Load unit structure
+    const unitResponse = await fetch("/data/unit-structure.json");
+    if (unitResponse.ok) {
+      const unitData = await unitResponse.json();
+      if (unitData.units && Array.isArray(unitData.units)) {
+        saveToStorage(KEYS.units, unitData.units);
+        unitsLoaded = unitData.units.length;
+      }
+    }
+
+    // Load personnel
+    const personnelResponse = await fetch("/data/unit-members.json");
+    if (personnelResponse.ok) {
+      const personnelData = await personnelResponse.json();
+      if (personnelData.personnel && Array.isArray(personnelData.personnel)) {
+        // Add timestamps to personnel records
+        const personnelWithDates = personnelData.personnel.map((p: Personnel) => ({
+          ...p,
+          created_at: p.created_at || new Date(),
+          updated_at: p.updated_at || new Date(),
+        }));
+        saveToStorage(KEYS.personnel, personnelWithDates);
+        personnelLoaded = personnelWithDates.length;
+      }
+    }
+
+    // Mark seed data as loaded
+    localStorage.setItem(KEYS.seedDataLoaded, "true");
+
+    console.log(`Seed data loaded: ${unitsLoaded} units, ${personnelLoaded} personnel`);
+  } catch (error) {
+    console.error("Failed to load seed data:", error);
+  }
+
+  return { unitsLoaded, personnelLoaded, alreadyLoaded: false };
+}
+
+// Force reload seed data (clears existing and reloads from JSON)
+export async function reloadSeedData(): Promise<{
+  unitsLoaded: number;
+  personnelLoaded: number;
+}> {
+  if (typeof window === "undefined") {
+    return { unitsLoaded: 0, personnelLoaded: 0 };
+  }
+
+  // Clear existing data
+  localStorage.removeItem(KEYS.units);
+  localStorage.removeItem(KEYS.personnel);
+  localStorage.removeItem(KEYS.seedDataLoaded);
+
+  // Reload
+  const result = await loadSeedDataIfNeeded();
+  return { unitsLoaded: result.unitsLoaded, personnelLoaded: result.personnelLoaded };
+}
 
 // Helper to safely get from localStorage
 function getFromStorage<T>(key: string): T[] {
@@ -856,4 +945,102 @@ export function assignUserRole(
     console.error("Failed to assign user role:", error);
     return false;
   }
+}
+
+// ============ Data Export Functions ============
+
+export interface ExportData {
+  units: UnitSection[];
+  personnel: Personnel[];
+  dutyTypes: DutyType[];
+  dutySlots: DutySlot[];
+  nonAvailability: NonAvailability[];
+  exportedAt: string;
+  version: string;
+}
+
+// Export all data as a downloadable JSON file
+export function exportAllData(): ExportData {
+  return {
+    units: getFromStorage<UnitSection>(KEYS.units),
+    personnel: getFromStorage<Personnel>(KEYS.personnel),
+    dutyTypes: getFromStorage<DutyType>(KEYS.dutyTypes),
+    dutySlots: getFromStorage<DutySlot>(KEYS.dutySlots),
+    nonAvailability: getFromStorage<NonAvailability>(KEYS.nonAvailability),
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+  };
+}
+
+// Export units only
+export function exportUnits(): { units: UnitSection[]; exportedAt: string; version: string } {
+  return {
+    units: getFromStorage<UnitSection>(KEYS.units),
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+  };
+}
+
+// Export personnel only
+export function exportPersonnel(): { personnel: Personnel[]; exportedAt: string; version: string } {
+  return {
+    personnel: getFromStorage<Personnel>(KEYS.personnel),
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+  };
+}
+
+// Helper to download data as JSON file
+export function downloadAsJson(data: object, filename: string): void {
+  if (typeof window === "undefined") return;
+
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Import data from exported JSON
+export function importExportedData(data: ExportData): {
+  units: number;
+  personnel: number;
+  dutyTypes: number;
+  dutySlots: number;
+  nonAvailability: number;
+} {
+  const result = { units: 0, personnel: 0, dutyTypes: 0, dutySlots: 0, nonAvailability: 0 };
+
+  if (data.units && Array.isArray(data.units)) {
+    saveToStorage(KEYS.units, data.units);
+    result.units = data.units.length;
+  }
+
+  if (data.personnel && Array.isArray(data.personnel)) {
+    saveToStorage(KEYS.personnel, data.personnel);
+    result.personnel = data.personnel.length;
+  }
+
+  if (data.dutyTypes && Array.isArray(data.dutyTypes)) {
+    saveToStorage(KEYS.dutyTypes, data.dutyTypes);
+    result.dutyTypes = data.dutyTypes.length;
+  }
+
+  if (data.dutySlots && Array.isArray(data.dutySlots)) {
+    saveToStorage(KEYS.dutySlots, data.dutySlots);
+    result.dutySlots = data.dutySlots.length;
+  }
+
+  if (data.nonAvailability && Array.isArray(data.nonAvailability)) {
+    saveToStorage(KEYS.nonAvailability, data.nonAvailability);
+    result.nonAvailability = data.nonAvailability.length;
+  }
+
+  return result;
 }

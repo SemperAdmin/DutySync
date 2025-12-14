@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import type { SessionUser, UserRole, RoleName } from "@/types";
-import { getPersonnelByEdipi, getUnitSectionById } from "@/lib/client-stores";
+import { getPersonnelByEdipi, getUnitSectionById, loadSeedDataIfNeeded } from "@/lib/client-stores";
 
 interface SignupResult {
   success: boolean;
@@ -65,17 +65,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session in localStorage
-    const stored = localStorage.getItem("dutysync_user");
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch (error) {
-        console.error("Failed to parse user session from localStorage:", error);
-        localStorage.removeItem("dutysync_user");
+    const initializeApp = async () => {
+      // Load seed data from JSON files if this is a fresh install
+      await loadSeedDataIfNeeded();
+
+      // Check for existing session in localStorage
+      const stored = localStorage.getItem("dutysync_user");
+      if (stored) {
+        try {
+          setUser(JSON.parse(stored));
+        } catch (error) {
+          console.error("Failed to parse user session from localStorage:", error);
+          localStorage.removeItem("dutysync_user");
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initializeApp();
   }, []);
 
   const login = async (edipi: string, password: string): Promise<boolean> => {
