@@ -201,6 +201,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const sessionUser: SessionUser = JSON.parse(stored);
 
+          // Force reload seed users to pick up any role changes since last login
+          await loadSeedUsers(true);
+
           // Refresh roles from seed data to pick up any changes
           const seedUser = getSeedUserByEdipi(sessionUser.edipi);
           if (seedUser) {
