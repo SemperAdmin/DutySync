@@ -8,7 +8,15 @@ export type UUID = string;
 export type HierarchyLevel = 'ruc' | 'company' | 'section' | 'work_section' | 'battalion' | 'platoon';
 
 // User roles for RBAC
-export type RoleName = 'App Admin' | 'Unit Admin' | 'Standard User';
+// Manager roles are scoped - they can only see personnel within their assigned unit scope
+export type RoleName =
+  | 'App Admin'
+  | 'Unit Admin'
+  | 'Unit Manager'
+  | 'Company Manager'
+  | 'Platoon Manager'
+  | 'Section Manager'
+  | 'Standard User';
 
 // Unit Section (military hierarchy)
 export interface UnitSection {

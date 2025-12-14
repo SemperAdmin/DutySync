@@ -6,19 +6,53 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/client-auth";
 import Logo from "@/components/ui/Logo";
 import Button from "@/components/ui/Button";
-import type { SessionUser } from "@/types";
+import type { SessionUser, RoleName } from "@/types";
 
 interface DashboardLayoutProps {
   children: ReactNode;
   user: SessionUser | null;
 }
 
+// Define which roles can access each navigation item
+// All users can access items with empty allowedRoles array
 interface NavItem {
   href: string;
   label: string;
   icon: ReactNode;
-  adminOnly?: boolean;
+  allowedRoles?: RoleName[]; // If undefined/empty, all roles can access
 }
+
+// Helper to check if user has any of the specified roles
+function hasAnyRole(user: SessionUser | null, roles: RoleName[]): boolean {
+  if (!user?.roles) return false;
+  return user.roles.some((userRole) =>
+    roles.includes(userRole.role_name as RoleName)
+  );
+}
+
+// Helper to check if user is any type of manager
+function isManager(user: SessionUser | null): boolean {
+  return hasAnyRole(user, [
+    "Unit Manager",
+    "Company Manager",
+    "Platoon Manager",
+    "Section Manager",
+  ]);
+}
+
+// Admin roles that have full access
+const ADMIN_ROLES: RoleName[] = ["App Admin", "Unit Admin"];
+
+// All manager roles
+const MANAGER_ROLES: RoleName[] = [
+  "Unit Manager",
+  "Company Manager",
+  "Platoon Manager",
+  "Section Manager",
+];
+
+// Roles that can access personnel/non-availability (admins + all managers)
+const PERSONNEL_ACCESS_ROLES: RoleName[] = [...ADMIN_ROLES, ...MANAGER_ROLES];
 
 export default function DashboardLayout({
   children,
@@ -34,15 +68,14 @@ export default function DashboardLayout({
     router.push("/login");
   };
 
-  const isAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
-  const isUnitAdmin = user?.roles?.some(
-    (role) => role.role_name === "Unit Admin"
-  );
+  const isAdmin = hasAnyRole(user, ["App Admin"]);
+  const isUnitAdmin = hasAnyRole(user, ["Unit Admin"]);
 
   const navItems: NavItem[] = [
     {
       href: "/admin",
       label: "Dashboard",
+      // All roles can access dashboard
       icon: (
         <svg
           className="w-5 h-5"
@@ -62,7 +95,7 @@ export default function DashboardLayout({
     {
       href: "/admin/units",
       label: "Unit Sections",
-      adminOnly: true,
+      allowedRoles: ADMIN_ROLES,
       icon: (
         <svg
           className="w-5 h-5"
@@ -82,7 +115,7 @@ export default function DashboardLayout({
     {
       href: "/admin/users",
       label: "User Management",
-      adminOnly: true,
+      allowedRoles: ADMIN_ROLES,
       icon: (
         <svg
           className="w-5 h-5"
@@ -102,7 +135,7 @@ export default function DashboardLayout({
     {
       href: "/admin/personnel",
       label: "Personnel",
-      adminOnly: true,
+      allowedRoles: PERSONNEL_ACCESS_ROLES,
       icon: (
         <svg
           className="w-5 h-5"
@@ -122,7 +155,7 @@ export default function DashboardLayout({
     {
       href: "/admin/duty-types",
       label: "Duty Types",
-      adminOnly: true,
+      allowedRoles: ADMIN_ROLES,
       icon: (
         <svg
           className="w-5 h-5"
@@ -142,7 +175,7 @@ export default function DashboardLayout({
     {
       href: "/admin/scheduler",
       label: "Scheduler",
-      adminOnly: true,
+      allowedRoles: ADMIN_ROLES,
       icon: (
         <svg
           className="w-5 h-5"
@@ -162,7 +195,7 @@ export default function DashboardLayout({
     {
       href: "/admin/non-availability",
       label: "Non-Availability",
-      adminOnly: true,
+      allowedRoles: PERSONNEL_ACCESS_ROLES,
       icon: (
         <svg
           className="w-5 h-5"
@@ -182,6 +215,7 @@ export default function DashboardLayout({
     {
       href: "/roster",
       label: "Duty Roster",
+      // All roles can access duty roster
       icon: (
         <svg
           className="w-5 h-5"
@@ -201,6 +235,7 @@ export default function DashboardLayout({
     {
       href: "/profile",
       label: "My Profile",
+      // All roles can access profile
       icon: (
         <svg
           className="w-5 h-5"
@@ -219,9 +254,15 @@ export default function DashboardLayout({
     },
   ];
 
-  const filteredNavItems = navItems.filter(
-    (item) => !item.adminOnly || isAdmin || isUnitAdmin
-  );
+  // Filter nav items based on user roles
+  const filteredNavItems = navItems.filter((item) => {
+    // If no allowedRoles specified, all users can access
+    if (!item.allowedRoles || item.allowedRoles.length === 0) {
+      return true;
+    }
+    // Check if user has any of the allowed roles
+    return hasAnyRole(user, item.allowedRoles);
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -329,11 +370,21 @@ export default function DashboardLayout({
               </svg>
             </button>
 
-            {/* Right side actions */}
+            {/* Right side actions - show role badge */}
             <div className="flex items-center gap-4 ml-auto">
               {isAdmin && (
                 <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-highlight/20 text-highlight">
                   App Admin
+                </span>
+              )}
+              {!isAdmin && isUnitAdmin && (
+                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-primary/20 text-blue-400">
+                  Unit Admin
+                </span>
+              )}
+              {!isAdmin && !isUnitAdmin && isManager(user) && (
+                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-success/20 text-success">
+                  Manager
                 </span>
               )}
             </div>

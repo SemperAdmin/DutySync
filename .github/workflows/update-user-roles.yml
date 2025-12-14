@@ -1,0 +1,85 @@
+name: Update User Roles
+
+on:
+  workflow_dispatch:
+    inputs:
+      user_id:
+        description: 'User ID (UUID from user file)'
+        required: true
+        type: string
+      roles_json:
+        description: 'JSON array of roles [{role_name, scope_unit_id}]'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update-roles:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ inputs.user_id }}" ]; then
+            echo "Error: user_id is required"
+            exit 1
+          fi
+          if [ -z "${{ inputs.roles_json }}" ]; then
+            echo "Error: roles_json is required"
+            exit 1
+          fi
+
+      - name: Check user file exists
+        id: user-check
+        run: |
+          USER_FILE="public/data/user/${{ inputs.user_id }}.json"
+          if [ -f "$USER_FILE" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "User file found: $USER_FILE"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Error: User file not found: $USER_FILE"
+            exit 1
+          fi
+
+      - name: Update user roles
+        if: steps.user-check.outputs.exists == 'true'
+        run: |
+          USER_FILE="public/data/user/${{ inputs.user_id }}.json"
+          ROLES_JSON='${{ inputs.roles_json }}'
+          UPDATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+          # Parse roles JSON and add IDs and timestamps
+          PROCESSED_ROLES=$(echo "$ROLES_JSON" | jq --arg user_id "${{ inputs.user_id }}" --arg updated_at "$UPDATED_AT" '
+            [.[] | {
+              id: ("role-" + $user_id + "-" + (.role_name | gsub(" "; "-") | ascii_downcase)),
+              role_name: .role_name,
+              scope_unit_id: .scope_unit_id,
+              created_at: $updated_at
+            }]
+          ')
+
+          # Update the user file with new roles
+          jq --argjson roles "$PROCESSED_ROLES" '.roles = $roles' "$USER_FILE" > "${USER_FILE}.tmp" && mv "${USER_FILE}.tmp" "$USER_FILE"
+
+          echo "Updated user roles in $USER_FILE"
+          cat "$USER_FILE"
+
+      - name: Commit and push changes
+        if: steps.user-check.outputs.exists == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add "public/data/user/${{ inputs.user_id }}.json"
+          git diff --cached --quiet || git commit -m "feat: Update user roles (${{ inputs.user_id }})"
+          git push
+
+      - name: Output result
+        run: |
+          echo "::notice::User roles updated successfully for ID: ${{ inputs.user_id }}"

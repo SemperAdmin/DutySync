@@ -10,6 +10,7 @@ import Card, {
 import Button from "@/components/ui/Button";
 import type { UnitSection, RoleName } from "@/types";
 import { getAllUsers, getUnitSections, assignUserRole } from "@/lib/client-stores";
+import { triggerUpdateRolesWorkflow } from "@/lib/client-auth";
 
 interface UserData {
   id: string;
@@ -236,19 +237,59 @@ function RoleAssignmentModal({
 
   const isAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
-  const handleAssignRole = () => {
+  // Check if role requires a unit scope
+  const roleRequiresScope = (role: string) => {
+    return [
+      "Unit Admin",
+      "Unit Manager",
+      "Company Manager",
+      "Platoon Manager",
+      "Section Manager",
+    ].includes(role);
+  };
+
+  const handleAssignRole = async () => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const success = assignUserRole(
-        user.id,
-        selectedRole,
-        selectedRole === "Unit Admin" ? selectedUnit : null
-      );
+      // Determine scope based on role type
+      const scopeUnitId = roleRequiresScope(selectedRole) ? selectedUnit : null;
+
+      // Update in-memory cache first
+      const success = assignUserRole(user.id, selectedRole, scopeUnitId);
 
       if (!success) {
         throw new Error("Failed to assign role");
+      }
+
+      // Build the complete roles array for the user
+      const newRole = {
+        role_name: selectedRole,
+        scope_unit_id: scopeUnitId,
+      };
+
+      // Get existing roles and add new one (avoid duplicates)
+      const existingRoles = user.roles.map((r) => ({
+        role_name: r.role_name,
+        scope_unit_id: r.scope_unit_id,
+      }));
+
+      const roleExists = existingRoles.some(
+        (r) =>
+          r.role_name === newRole.role_name &&
+          r.scope_unit_id === newRole.scope_unit_id
+      );
+
+      const allRoles = roleExists ? existingRoles : [...existingRoles, newRole];
+
+      // Trigger GitHub workflow to persist changes
+      const workflowResult = await triggerUpdateRolesWorkflow(user.id, allRoles);
+
+      if (!workflowResult.success) {
+        console.warn("Failed to persist role to GitHub:", workflowResult.error);
+        // Still show success since in-memory cache was updated
+        // The workflow failure means it won't persist across deploys
       }
 
       onSuccess();
@@ -310,12 +351,16 @@ function RoleAssignmentModal({
                   disabled={isSubmitting}
                 >
                   <option value="Standard User">Standard User</option>
+                  <option value="Unit Manager">Unit Manager</option>
+                  <option value="Company Manager">Company Manager</option>
+                  <option value="Platoon Manager">Platoon Manager</option>
+                  <option value="Section Manager">Section Manager</option>
                   <option value="Unit Admin">Unit Admin</option>
                   <option value="App Admin">App Admin</option>
                 </select>
               </div>
 
-              {selectedRole === "Unit Admin" && (
+              {roleRequiresScope(selectedRole) && (
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">
                     Unit Scope
@@ -342,7 +387,7 @@ function RoleAssignmentModal({
                 isLoading={isSubmitting}
                 disabled={
                   isSubmitting ||
-                  (selectedRole === "Unit Admin" && !selectedUnit)
+                  (roleRequiresScope(selectedRole) && !selectedUnit)
                 }
                 className="w-full"
               >

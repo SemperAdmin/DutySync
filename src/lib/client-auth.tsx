@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import type { SessionUser, UserRole, RoleName } from "@/types";
 import {
   getPersonnelByEdipi,
+  getPersonnelById,
   getUnitSectionById,
   loadSeedDataIfNeeded,
   loadSeedUsers,
@@ -41,6 +42,54 @@ const APP_ADMIN_EDIPI = process.env.NEXT_PUBLIC_APP_ADMIN || "";
 const GITHUB_OWNER = process.env.NEXT_PUBLIC_GITHUB_OWNER || "";
 const GITHUB_REPO = process.env.NEXT_PUBLIC_GITHUB_REPO || "";
 const GITHUB_TOKEN = process.env.NEXT_PUBLIC_GITHUB_TOKEN || "";
+
+// Trigger GitHub workflow to update user roles
+export async function triggerUpdateRolesWorkflow(
+  userId: string,
+  roles: Array<{ role_name: string; scope_unit_id: string | null }>
+): Promise<{ success: boolean; error?: string }> {
+  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+    return { success: false, error: "GitHub API not configured" };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/update-user-roles.yml/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({
+          ref: "main",
+          inputs: {
+            user_id: userId,
+            roles_json: JSON.stringify(roles),
+          },
+        }),
+      }
+    );
+
+    if (response.status === 204) {
+      return { success: true };
+    }
+
+    const errorText = await response.text();
+    console.error("GitHub API error:", response.status, errorText);
+    return {
+      success: false,
+      error: `GitHub API error: ${response.status}`,
+    };
+  } catch (error) {
+    console.error("Failed to trigger workflow:", error);
+    return {
+      success: false,
+      error: "Failed to connect to GitHub API",
+    };
+  }
+}
 
 // Trigger GitHub workflow to create user
 async function triggerCreateUserWorkflow(
@@ -213,7 +262,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Look up personnel record by EDIPI for display info
-      const personnel = getPersonnelByEdipi(found.edipi);
+      // Fall back to personnel_id if EDIPI lookup fails
+      let personnel = getPersonnelByEdipi(found.edipi);
+      if (!personnel && found.personnel_id) {
+        personnel = getPersonnelById(found.personnel_id);
+      }
+
       let displayName: string | undefined;
       let rank: string | undefined;
       let firstName: string | undefined;
