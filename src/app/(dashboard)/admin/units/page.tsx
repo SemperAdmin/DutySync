@@ -91,6 +91,7 @@ export default function UnitsPage() {
   };
 
   // Group units by hierarchy level
+  const topUnits = units.filter((u) => u.hierarchy_level === "unit");
   const companies = units.filter((u) => u.hierarchy_level === "company");
   const sections = units.filter((u) => u.hierarchy_level === "section");
   const workSections = units.filter((u) => u.hierarchy_level === "work_section");
@@ -250,6 +251,18 @@ export default function UnitsPage() {
       {/* Units Hierarchy Display */}
       {units.length > 0 && (
         <div className="space-y-6">
+          {/* Top-level Units */}
+          {topUnits.length > 0 && (
+            <HierarchySection
+              title="Units"
+              level="unit"
+              units={topUnits}
+              allUnits={units}
+              onEdit={setEditingUnit}
+              onDelete={handleDelete}
+            />
+          )}
+
           {/* Companies */}
           {companies.length > 0 && (
             <HierarchySection
@@ -406,7 +419,7 @@ function UnitForm({
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     unit_name: unit?.unit_name || "",
-    hierarchy_level: unit?.hierarchy_level || "company",
+    hierarchy_level: unit?.hierarchy_level || "unit",
     parent_id: unit?.parent_id || "",
   });
 
@@ -415,6 +428,8 @@ function UnitForm({
   // Get possible parents based on hierarchy level
   const getPossibleParents = () => {
     switch (formData.hierarchy_level) {
+      case "company":
+        return units.filter((u) => u.hierarchy_level === "unit");
       case "section":
         return units.filter((u) => u.hierarchy_level === "company");
       case "work_section":
@@ -504,13 +519,14 @@ function UnitForm({
                 }
                 disabled={isSubmitting || isEditing}
               >
+                <option value="unit">Unit</option>
                 <option value="company">Company</option>
                 <option value="section">Section</option>
                 <option value="work_section">Work Section</option>
               </select>
             </div>
 
-            {formData.hierarchy_level !== "company" && (
+            {formData.hierarchy_level !== "unit" && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   Parent Unit
@@ -534,7 +550,9 @@ function UnitForm({
                 {possibleParents.length === 0 && (
                   <p className="mt-1.5 text-sm text-warning">
                     No valid parent units available. Create a{" "}
-                    {formData.hierarchy_level === "section"
+                    {formData.hierarchy_level === "company"
+                      ? "unit"
+                      : formData.hierarchy_level === "section"
                       ? "company"
                       : "section"}{" "}
                     first.
@@ -559,7 +577,7 @@ function UnitForm({
                 isLoading={isSubmitting}
                 disabled={
                   isSubmitting ||
-                  (formData.hierarchy_level !== "company" &&
+                  (formData.hierarchy_level !== "unit" &&
                     possibleParents.length === 0)
                 }
                 className="flex-1"

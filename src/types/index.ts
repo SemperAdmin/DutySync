@@ -4,8 +4,8 @@
 export type UUID = string;
 
 // Hierarchy levels for unit_sections
-// RUC > Company > Section > Work Section
-export type HierarchyLevel = 'ruc' | 'company' | 'section' | 'work_section' | 'battalion' | 'platoon';
+// Unit > Company > Section > Work Section
+export type HierarchyLevel = 'unit' | 'company' | 'section' | 'work_section' | 'ruc' | 'battalion' | 'platoon';
 
 // User roles for RBAC
 // Manager roles are scoped - they can only see personnel within their assigned unit scope
