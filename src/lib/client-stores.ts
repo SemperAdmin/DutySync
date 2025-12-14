@@ -1725,7 +1725,7 @@ export function exportUnitMembers(): { personnel: Array<{
   rank: string;
   unit_section_id: string;
   current_duty_score: number;
-}>; exportedAt: string; version: string } {
+}>; exportedAt: string; version: string; encrypted: boolean; encryptedAt: string } {
   const personnel = getFromStorage<Personnel>(KEYS.personnel);
   // Format personnel for seed file (keep service_id encrypted, remove timestamps)
   const formattedPersonnel = personnel.map(p => ({
