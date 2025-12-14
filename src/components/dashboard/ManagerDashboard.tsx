@@ -73,6 +73,19 @@ export default function ManagerDashboard() {
   // Create a Map of units for O(1) lookups
   const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
 
+  // Create a Map of parent_id to child unit IDs for O(1) children lookup
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    units.forEach(u => {
+      if (u.parent_id) {
+        const children = map.get(u.parent_id) || [];
+        children.push(u.id);
+        map.set(u.parent_id, children);
+      }
+    });
+    return map;
+  }, [units]);
+
   // Get the manager's scope unit ID from their role
   const managerScopeUnitId = useMemo(() => {
     if (!user?.roles) return null;
@@ -82,7 +95,7 @@ export default function ManagerDashboard() {
     return managerRole?.scope_unit_id || null;
   }, [user?.roles]);
 
-  // Get all descendant unit IDs for the manager's scope
+  // Get all descendant unit IDs for the manager's scope - O(1) per level using childrenMap
   const scopeUnitIds = useMemo(() => {
     if (!managerScopeUnitId) return new Set<string>();
 
@@ -91,16 +104,17 @@ export default function ManagerDashboard() {
 
     while (queue.length > 0) {
       const currentId = queue.shift()!;
-      units.forEach(u => {
-        if (u.parent_id === currentId && !ids.has(u.id)) {
-          ids.add(u.id);
-          queue.push(u.id);
+      const children = childrenMap.get(currentId) || [];
+      children.forEach(childId => {
+        if (!ids.has(childId)) {
+          ids.add(childId);
+          queue.push(childId);
         }
       });
     }
 
     return ids;
-  }, [managerScopeUnitId, units]);
+  }, [managerScopeUnitId, childrenMap]);
 
   // Get personnel within the manager's scope
   const scopedPersonnel = useMemo(() => {
@@ -108,33 +122,35 @@ export default function ManagerDashboard() {
     return allPersonnel.filter(p => scopeUnitIds.has(p.unit_section_id));
   }, [allPersonnel, scopeUnitIds]);
 
+  // Create a Set of scoped personnel IDs for O(1) lookups (shared by multiple filters)
+  const scopedPersonnelIds = useMemo(() => new Set(scopedPersonnel.map(p => p.id)), [scopedPersonnel]);
+
   // Get duty slots for personnel within scope
   const scopedDutySlots = useMemo(() => {
-    const personnelIds = new Set(scopedPersonnel.map(p => p.id));
-    return dutySlots.filter(slot => personnelIds.has(slot.personnel_id));
-  }, [dutySlots, scopedPersonnel]);
+    return dutySlots.filter(slot => scopedPersonnelIds.has(slot.personnel_id));
+  }, [dutySlots, scopedPersonnelIds]);
 
   // Get non-availability for personnel within scope
   const scopedNonAvailability = useMemo(() => {
-    const personnelIds = new Set(scopedPersonnel.map(p => p.id));
-    return nonAvailability.filter(na => personnelIds.has(na.personnel_id));
-  }, [nonAvailability, scopedPersonnel]);
+    return nonAvailability.filter(na => scopedPersonnelIds.has(na.personnel_id));
+  }, [nonAvailability, scopedPersonnelIds]);
 
   // Create Maps for O(1) lookups in calculations
   const personnelMap = useMemo(() => new Map(scopedPersonnel.map(p => [p.id, p])), [scopedPersonnel]);
   const dutyTypeMap = useMemo(() => new Map(dutyTypes.map(dt => [dt.id, dt])), [dutyTypes]);
 
   // Categorize non-availability reason
+  // Note: Medical is checked before leave to handle "medical leave" correctly
   const categorizeNA = (reason: string): NACategory => {
     const lowerReason = reason.toLowerCase();
+    if (lowerReason.includes("medical") || lowerReason.includes("sick") || lowerReason.includes("appointment")) {
+      return "medical";
+    }
     if (lowerReason.includes("leave") || lowerReason.includes("pto") || lowerReason.includes("vacation")) {
       return "leave";
     }
     if (lowerReason.includes("tad") || lowerReason.includes("tdy") || lowerReason.includes("training")) {
       return "tad";
-    }
-    if (lowerReason.includes("medical") || lowerReason.includes("sick") || lowerReason.includes("appointment")) {
-      return "medical";
     }
     return "other";
   };
@@ -158,10 +174,19 @@ export default function ManagerDashboard() {
 
       if (today >= start && today <= end) {
         const category = categorizeNA(na.reason);
-        if (category === "leave") onLeave++;
-        else if (category === "tad") onTAD++;
-        else if (category === "medical") medical++;
-        else onLeave++; // Default to leave for "other"
+        switch (category) {
+          case "leave":
+            onLeave++;
+            break;
+          case "tad":
+            onTAD++;
+            break;
+          case "medical":
+            medical++;
+            break;
+          default:
+            onLeave++; // Default to leave for "other"
+        }
       }
     });
 
@@ -256,18 +281,23 @@ export default function ManagerDashboard() {
 
   // Handle approve/deny non-availability
   const handleApproveRequest = (naId: string, approved: boolean) => {
-    updateNonAvailability(naId, {
-      status: approved ? "approved" : "rejected",
-      approved_by: user?.id || null,
-    });
-    // Update state directly for efficiency
-    setNonAvailability(prev =>
-      prev.map(na =>
-        na.id === naId
-          ? { ...na, status: approved ? "approved" : "rejected", approved_by: user?.id || null }
-          : na
-      )
-    );
+    try {
+      updateNonAvailability(naId, {
+        status: approved ? "approved" : "rejected",
+        approved_by: user?.id || null,
+      });
+      // Update state directly for efficiency
+      setNonAvailability(prev =>
+        prev.map(na =>
+          na.id === naId
+            ? { ...na, status: approved ? "approved" : "rejected", approved_by: user?.id || null }
+            : na
+        )
+      );
+    } catch (err) {
+      console.error("Error updating non-availability:", err);
+      setError(`Failed to ${approved ? "approve" : "deny"} request. Please try again.`);
+    }
   };
 
   // Get unit name by ID
