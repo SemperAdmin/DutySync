@@ -1697,7 +1697,7 @@ export function exportUnitStructure(): { units: Array<{
   updated_at: string;
 }>; exportedAt: string; version: string } {
   const units = getFromStorage<UnitSection>(KEYS.units);
-  // Format units for seed file (remove created_at/updated_at timestamps, add ISO strings)
+  // Format units for seed file, preserving original timestamps
   const formattedUnits = units.map(u => ({
     id: u.id,
     parent_id: u.parent_id,
@@ -1705,8 +1705,8 @@ export function exportUnitStructure(): { units: Array<{
     unit_code: u.unit_code || u.unit_name,
     hierarchy_level: u.hierarchy_level,
     description: u.description || u.unit_name,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: new Date(u.created_at).toISOString(),
+    updated_at: new Date(u.updated_at).toISOString(),
   }));
 
   return {
@@ -1738,10 +1738,13 @@ export function exportUnitMembers(): { personnel: Array<{
     current_duty_score: p.current_duty_score,
   }));
 
+  const now = new Date().toISOString();
   return {
     personnel: formattedPersonnel,
-    exportedAt: new Date().toISOString(),
+    exportedAt: now,
     version: "1.1",
+    encrypted: true,
+    encryptedAt: now,
   };
 }
 

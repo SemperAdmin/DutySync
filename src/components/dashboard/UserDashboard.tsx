@@ -17,6 +17,7 @@ import {
   getUnitSections,
   getAllDutyTypes,
 } from "@/lib/client-stores";
+import { MAX_DUTY_SCORE } from "@/lib/constants";
 
 interface DutyHistoryEntry {
   id: string;
@@ -36,9 +37,11 @@ export default function UserDashboard() {
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(() => {
     try {
+      setError(null);
       // Get current user's personnel record
       const myPersonnel = user?.edipi ? getPersonnelByEdipi(user.edipi) : null;
       setPersonnel(myPersonnel || null);
@@ -79,6 +82,7 @@ export default function UserDashboard() {
       }
     } catch (err) {
       console.error("Error loading dashboard data:", err);
+      setError("Failed to load dashboard data. Please refresh the page.");
     } finally {
       setIsLoading(false);
     }
@@ -113,15 +117,17 @@ export default function UserDashboard() {
   // Build unit hierarchy path
   const unitPath = useMemo(() => {
     if (!personnel) return "";
+
+    const unitMap = new Map(units.map(u => [u.id, u]));
     const path: string[] = [];
-    let currentUnit = units.find((u) => u.id === personnel.unit_section_id);
+    let currentUnit = unitMap.get(personnel.unit_section_id);
 
     while (currentUnit) {
       if (currentUnit.hierarchy_level !== "ruc") {
         path.unshift(currentUnit.unit_name);
       }
       currentUnit = currentUnit.parent_id
-        ? units.find((u) => u.id === currentUnit?.parent_id)
+        ? unitMap.get(currentUnit.parent_id)
         : undefined;
     }
 
@@ -145,9 +151,11 @@ export default function UserDashboard() {
       )
     : null;
 
+  // Get current and upcoming non-availability with efficient Date handling
+  const now = new Date();
+
   // Get current non-availability status
   const currentNA = nonAvailability.find((na) => {
-    const now = new Date();
     const start = new Date(na.start_date);
     const end = new Date(na.end_date);
     return now >= start && now <= end && na.status === "approved";
@@ -155,7 +163,6 @@ export default function UserDashboard() {
 
   // Get upcoming approved non-availability
   const upcomingNA = nonAvailability.filter((na) => {
-    const now = new Date();
     const start = new Date(na.start_date);
     return start > now && na.status === "approved";
   });
@@ -182,6 +189,19 @@ export default function UserDashboard() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-error p-8">
+        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-error/20 flex items-center justify-center">
+          <svg className="w-6 h-6 text-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <p className="text-lg font-medium">{error}</p>
       </div>
     );
   }
@@ -217,7 +237,7 @@ export default function UserDashboard() {
                     <div className="h-3 bg-surface-elevated rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-primary to-highlight rounded-full transition-all"
-                        style={{ width: `${Math.min(100, (personnel.current_duty_score / 15) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (personnel.current_duty_score / MAX_DUTY_SCORE) * 100)}%` }}
                       />
                     </div>
                   </div>
@@ -394,7 +414,7 @@ export default function UserDashboard() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-lg bg-surface-elevated text-center">
                     <p className="text-2xl font-bold text-highlight">
-                      {allPersonnel.filter((p) => p.unit_section_id === personnel.unit_section_id).length}
+                      {unitStats.total}
                     </p>
                     <p className="text-xs text-foreground-muted">In Section</p>
                   </div>

@@ -20,10 +20,8 @@ import {
   type RucEntry,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
+import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 import UserDashboard from "@/components/dashboard/UserDashboard";
-
-// Key must match DashboardLayout
-const VIEW_MODE_KEY = "dutysync_admin_view_mode";
 
 type PageSize = 10 | 25 | 50 | 100;
 const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
@@ -62,15 +60,15 @@ export default function AdminDashboard() {
     // Check on mount
     checkViewMode();
 
-    // Listen for storage changes (when toggled in header)
+    // Listen for storage changes (cross-tab updates)
     window.addEventListener("storage", checkViewMode);
 
-    // Also check periodically for same-tab changes
-    const interval = setInterval(checkViewMode, 500);
+    // Listen for custom viewModeChange event (same-tab updates)
+    window.addEventListener(VIEW_MODE_CHANGE_EVENT, checkViewMode);
 
     return () => {
       window.removeEventListener("storage", checkViewMode);
-      clearInterval(interval);
+      window.removeEventListener(VIEW_MODE_CHANGE_EVENT, checkViewMode);
     };
   }, []);
 
