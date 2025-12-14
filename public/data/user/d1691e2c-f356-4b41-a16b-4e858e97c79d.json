@@ -1,0 +1,16 @@
+{
+  "id": "d1691e2c-f356-4b41-a16b-4e858e97c79d",
+  "edipi_encrypted": "ZmQFewVUfl1Hew==",
+  "email": "BARBCARDRW@AOL.COM",
+  "personnel_id": null,
+  "password_hash": "VFRycmVld3dxcTExISEx",
+  "roles": [
+    {
+      "id": "role-d1691e2c-f356-4b41-a16b-4e858e97c79d-standard",
+      "role_name": "Standard User",
+      "scope_unit_id": null,
+      "created_at": "2025-12-14T06:17:20.000Z"
+    }
+  ],
+  "created_at": "2025-12-14T06:17:20.000Z"
+}
