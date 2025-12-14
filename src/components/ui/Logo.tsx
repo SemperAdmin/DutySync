@@ -63,7 +63,7 @@ export default function Logo({
           <span className="text-xs text-foreground-muted uppercase tracking-wider">
             Roster Management
           </span>
-          <span className="text-[10px] text-foreground-muted mt-0.5">
+          <span className="text-xs text-foreground-muted mt-0.5">
             by <span className="font-semibold text-highlight">Semper Admin</span>
           </span>
         </div>
