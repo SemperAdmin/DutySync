@@ -227,6 +227,107 @@ export async function pushSeedFilesToGitHub(
   };
 }
 
+// Push all unit seed files (duty types, roster, non-availability, qualifications)
+export async function pushAllUnitSeedFiles(
+  ruc: string,
+  dutyTypes: object,
+  dutyRoster: object,
+  nonAvailability: object,
+  qualifications: object
+): Promise<{
+  success: boolean;
+  results: {
+    dutyTypes: GitHubUpdateResult;
+    dutyRoster: GitHubUpdateResult;
+    nonAvailability: GitHubUpdateResult;
+    qualifications: GitHubUpdateResult;
+  };
+}> {
+  const settings = getGitHubSettings();
+
+  if (!settings) {
+    const notConfigured = { success: false, message: "GitHub not configured" };
+    return {
+      success: false,
+      results: {
+        dutyTypes: notConfigured,
+        dutyRoster: notConfigured,
+        nonAvailability: notConfigured,
+        qualifications: notConfigured,
+      },
+    };
+  }
+
+  const unitPath = `public/data/unit/${ruc}`;
+  const timestamp = new Date().toISOString().split("T")[0];
+
+  // Push all files in parallel
+  const [dutyTypesResult, dutyRosterResult, nonAvailabilityResult, qualificationsResult] =
+    await Promise.all([
+      updateGitHubFile(
+        settings,
+        `${unitPath}/duty-types.json`,
+        dutyTypes,
+        `chore: Update duty types (${timestamp})`
+      ),
+      updateGitHubFile(
+        settings,
+        `${unitPath}/duty-roster.json`,
+        dutyRoster,
+        `chore: Update duty roster (${timestamp})`
+      ),
+      updateGitHubFile(
+        settings,
+        `${unitPath}/non-availability.json`,
+        nonAvailability,
+        `chore: Update non-availability (${timestamp})`
+      ),
+      updateGitHubFile(
+        settings,
+        `${unitPath}/qualifications.json`,
+        qualifications,
+        `chore: Update qualifications (${timestamp})`
+      ),
+    ]);
+
+  return {
+    success:
+      dutyTypesResult.success &&
+      dutyRosterResult.success &&
+      nonAvailabilityResult.success &&
+      qualificationsResult.success,
+    results: {
+      dutyTypes: dutyTypesResult,
+      dutyRoster: dutyRosterResult,
+      nonAvailability: nonAvailabilityResult,
+      qualifications: qualificationsResult,
+    },
+  };
+}
+
+// Push a single unit seed file
+export async function pushUnitSeedFile(
+  ruc: string,
+  fileType: "duty-types" | "duty-roster" | "non-availability" | "qualifications",
+  data: object
+): Promise<GitHubUpdateResult> {
+  const settings = getGitHubSettings();
+
+  if (!settings) {
+    return { success: false, message: "GitHub not configured" };
+  }
+
+  const unitPath = `public/data/unit/${ruc}`;
+  const timestamp = new Date().toISOString().split("T")[0];
+
+  return updateGitHubFile(
+    settings,
+    `${unitPath}/${fileType}.json`,
+    data,
+    `chore: Update ${fileType} (${timestamp})`
+  );
+}
+
 // Test GitHub connection
 export async function testGitHubConnection(
   settings: GitHubSettings
