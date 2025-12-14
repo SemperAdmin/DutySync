@@ -289,7 +289,7 @@ export default function DutyTypesPage() {
           onChange={(e) => setSelectedUnitFilter(e.target.value)}
           className="px-3 py-2 bg-surface border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         >
-          <option value="">All Units</option>
+          <option value="">All Sections</option>
           {units.map((unit) => (
             <option key={unit.id} value={unit.id}>
               {unit.unit_name} ({unit.hierarchy_level})
