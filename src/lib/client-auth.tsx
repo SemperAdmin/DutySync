@@ -10,13 +10,11 @@ import {
   getSeedUserByEdipi,
   seedUserExists,
   encryptEdipi,
-  downloadAsJson,
 } from "@/lib/client-stores";
 
 interface SignupResult {
   success: boolean;
   error?: string;
-  downloadedFiles?: string[]; // List of files that were downloaded
 }
 
 interface AuthContextType {
@@ -38,6 +36,64 @@ const ROLE_NAMES = {
 
 // App Admin EDIPI from environment variable (set in GitHub Secrets)
 const APP_ADMIN_EDIPI = process.env.NEXT_PUBLIC_APP_ADMIN || "";
+
+// GitHub API configuration for workflow trigger
+const GITHUB_OWNER = process.env.NEXT_PUBLIC_GITHUB_OWNER || "";
+const GITHUB_REPO = process.env.NEXT_PUBLIC_GITHUB_REPO || "";
+const GITHUB_TOKEN = process.env.NEXT_PUBLIC_GITHUB_TOKEN || "";
+
+// Trigger GitHub workflow to create user
+async function triggerCreateUserWorkflow(
+  edipiEncrypted: string,
+  email: string,
+  passwordHash: string,
+  personnelId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+    return { success: false, error: "GitHub API not configured" };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/create-user.yml/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({
+          ref: "main",
+          inputs: {
+            edipi_encrypted: edipiEncrypted,
+            email: email,
+            password_hash: passwordHash,
+            personnel_id: personnelId || "",
+          },
+        }),
+      }
+    );
+
+    if (response.status === 204) {
+      return { success: true };
+    }
+
+    // Try to get error message from response
+    const errorText = await response.text();
+    console.error("GitHub API error:", response.status, errorText);
+    return {
+      success: false,
+      error: `GitHub API error: ${response.status}`,
+    };
+  } catch (error) {
+    console.error("Failed to trigger workflow:", error);
+    return {
+      success: false,
+      error: "Failed to connect to GitHub API",
+    };
+  }
+}
 
 // Check if a user's service ID matches the App Admin EDIPI
 function isAppAdmin(serviceId: string | null | undefined): boolean {
@@ -218,43 +274,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const edipiEncrypted = encryptEdipi(edipi);
       const passwordHash = btoa(password); // Simple base64 encoding for MVP
 
-      // Create user data for download
-      const userId = `user-${Date.now()}`;
-      const createdAt = new Date().toISOString();
-
-      const userSeedData = {
-        id: userId,
-        edipi_encrypted: edipiEncrypted,
+      // Trigger GitHub workflow to create user
+      const workflowResult = await triggerCreateUserWorkflow(
+        edipiEncrypted,
         email,
-        personnel_id: personnel?.id || null,
-        password_hash: passwordHash,
-        roles: [
-          {
-            id: `role-${userId}-standard`,
-            role_name: ROLE_NAMES.STANDARD_USER,
-            scope_unit_id: null,
-            created_at: createdAt,
-          },
-        ],
-        created_at: createdAt,
-      };
+        passwordHash,
+        personnel?.id || null
+      );
 
-      // Download the user file
-      downloadAsJson(userSeedData, `${edipiEncrypted}.json`);
+      if (workflowResult.success) {
+        return { success: true };
+      }
 
-      // Create users-index entry for reference
-      const indexEntry = {
-        note: "Add this entry to users array in public/data/users-index.json",
-        entry: {
-          edipi_encrypted: edipiEncrypted,
-          email,
-        },
-      };
-      downloadAsJson(indexEntry, `${edipiEncrypted}-index-entry.json`);
-
+      // Return error if workflow failed
       return {
-        success: true,
-        downloadedFiles: [`${edipiEncrypted}.json`, `${edipiEncrypted}-index-entry.json`],
+        success: false,
+        error: workflowResult.error || "Failed to create account",
       };
     } catch (error) {
       console.error("Signup failed:", error);

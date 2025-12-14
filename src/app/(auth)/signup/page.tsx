@@ -55,15 +55,18 @@ export default function SignupPage() {
       }
 
       setSuccess(true);
+
+      // Redirect to login after delay (workflow needs time to process)
       setTimeout(() => {
         router.push("/login");
-      }, 2000);
+      }, 5000);
     } catch {
       setFormError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
   };
 
+  // Success state: account created via workflow
   if (success) {
     return (
       <Card variant="elevated" className="w-full max-w-md">
@@ -85,28 +88,28 @@ export default function SignupPage() {
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              Account Files Generated!
+              Account Created!
             </h2>
+            <p className="text-foreground-muted">
+              Your account is being set up automatically.
+            </p>
           </div>
 
           <div className="space-y-4 text-sm">
             <div className="p-4 rounded-lg bg-surface-elevated border border-border">
-              <h3 className="font-medium text-foreground mb-2">Next Steps:</h3>
+              <h3 className="font-medium text-foreground mb-2">What happens next:</h3>
               <ol className="list-decimal list-inside space-y-2 text-foreground-muted">
-                <li>Two JSON files have been downloaded</li>
-                <li>Send these files to an administrator</li>
-                <li>Admin will add your account to the system</li>
-                <li>You&apos;ll receive confirmation when ready to log in</li>
+                <li>Your account is being created in the system</li>
+                <li>This usually takes 1-2 minutes</li>
+                <li>You&apos;ll be redirected to the login page shortly</li>
+                <li>If login fails, please wait a moment and try again</li>
               </ol>
             </div>
 
             <div className="p-4 rounded-lg bg-highlight/10 border border-highlight/20">
-              <h3 className="font-medium text-highlight mb-2">For Administrators:</h3>
-              <ol className="list-decimal list-inside space-y-1 text-foreground-muted text-xs">
-                <li>Place the user JSON file in <code className="bg-surface px-1 rounded">public/data/user/</code></li>
-                <li>Update <code className="bg-surface px-1 rounded">public/data/users-index.json</code> with the index entry</li>
-                <li>Commit and push to trigger deployment</li>
-              </ol>
+              <p className="text-foreground-muted text-center">
+                Redirecting to login in a few seconds...
+              </p>
             </div>
           </div>
 
@@ -115,7 +118,7 @@ export default function SignupPage() {
               href="/login"
               className="text-highlight hover:text-highlight-muted transition-colors font-medium"
             >
-              Return to Login
+              Go to Login Now
             </Link>
           </div>
         </CardContent>
