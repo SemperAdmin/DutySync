@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import type { SessionUser, UserRole } from "@/types";
+import type { SessionUser, UserRole, RoleName } from "@/types";
 
 interface SignupResult {
   success: boolean;
@@ -18,22 +18,36 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Demo users stored in localStorage
-const DEMO_ADMIN: SessionUser = {
-  id: "admin-001",
-  username: "admin",
-  email: "admin@dutysync.mil",
-  personnel_id: null,
-  roles: [
-    {
-      id: "role-001",
-      user_id: "admin-001",
-      role_name: "App Admin",
-      scope_unit_id: null,
-      created_at: new Date(),
-    },
-  ],
-};
+// App Admin EDIPI from environment variable (set in GitHub Secrets)
+const APP_ADMIN_EDIPI = process.env.NEXT_PUBLIC_APP_ADMIN || "";
+
+// Check if a user's service ID matches the App Admin EDIPI
+function isAppAdmin(serviceId: string | null | undefined): boolean {
+  if (!serviceId || !APP_ADMIN_EDIPI) return false;
+  return serviceId === APP_ADMIN_EDIPI;
+}
+
+// Create App Admin role
+function createAppAdminRole(userId: string): UserRole {
+  return {
+    id: `role-admin-${userId}`,
+    user_id: userId,
+    role_name: "App Admin",
+    scope_unit_id: null,
+    created_at: new Date(),
+  };
+}
+
+// Create Standard User role
+function createStandardUserRole(userId: string): UserRole {
+  return {
+    id: `role-${userId}`,
+    user_id: userId,
+    role_name: "Standard User",
+    scope_unit_id: null,
+    created_at: new Date(),
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -53,13 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    // Demo login - accept admin/admin123 or any registered user
-    if (username === "admin" && password === "admin123") {
-      setUser(DEMO_ADMIN);
-      localStorage.setItem("dutysync_user", JSON.stringify(DEMO_ADMIN));
-      return true;
-    }
-
     // Check for registered users in localStorage
     const users = JSON.parse(localStorage.getItem("dutysync_users") || "[]");
     const found = users.find(
@@ -68,20 +75,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     if (found) {
+      // Determine roles based on EDIPI match
+      const roles: UserRole[] = [];
+
+      // Check if user's service ID matches App Admin EDIPI
+      if (isAppAdmin(found.serviceId)) {
+        roles.push(createAppAdminRole(found.id));
+      }
+
+      // Also check for any stored roles (like Unit Admin assignments)
+      if (found.roles && Array.isArray(found.roles)) {
+        found.roles.forEach((role: { role_name: RoleName; scope_unit_id?: string | null }) => {
+          // Don't duplicate if already App Admin
+          if (role.role_name !== "App Admin" || !isAppAdmin(found.serviceId)) {
+            roles.push({
+              id: `role-${found.id}-${role.role_name}`,
+              user_id: found.id,
+              role_name: role.role_name,
+              scope_unit_id: role.scope_unit_id || null,
+              created_at: new Date(),
+            });
+          }
+        });
+      }
+
+      // If no roles assigned, give Standard User
+      if (roles.length === 0) {
+        roles.push(createStandardUserRole(found.id));
+      }
+
       const sessionUser: SessionUser = {
         id: found.id,
         username: found.username,
         email: found.email,
-        personnel_id: null,
-        roles: [
-          {
-            id: `role-${found.id}`,
-            user_id: found.id,
-            role_name: "Standard User",
-            scope_unit_id: null,
-            created_at: new Date(),
-          },
-        ],
+        personnel_id: found.personnel_id || null,
+        serviceId: found.serviceId || null,
+        roles,
       };
       setUser(sessionUser);
       localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
