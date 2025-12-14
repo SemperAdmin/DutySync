@@ -1235,6 +1235,7 @@ export function assignUserRole(
 // Users index structure for seed data
 interface UsersIndex {
   users: Array<{
+    id: string;
     edipi_encrypted: string;
     email: string;
   }>;
@@ -1324,11 +1325,11 @@ export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
 
     const loadedUsers: SeedUserWithPassword[] = [];
 
-    // Fetch each user file in parallel
+    // Fetch each user file in parallel (files are named by user ID)
     const fetchPromises = availableSeedUsers.map(async (userInfo) => {
-      const response = await fetch(`${getBasePath()}/data/user/${userInfo.edipi_encrypted}.json`);
+      const response = await fetch(`${getBasePath()}/data/user/${userInfo.id}.json`);
       if (!response.ok) {
-        console.warn(`Failed to fetch user ${userInfo.edipi_encrypted}: ${response.status}`);
+        console.warn(`Failed to fetch user ${userInfo.id}: ${response.status}`);
         return null;
       }
       const userData: SeedUserRecord & { password_hash?: string } = await response.json();
@@ -1369,7 +1370,7 @@ export async function loadSeedUsers(): Promise<{ usersLoaded: number }> {
 
 // Export a single user to JSON format (for saving to /data/user/)
 export function exportUserToSeedFormat(userId: string): {
-  indexEntry: { edipi_encrypted: string; email: string };
+  indexEntry: { id: string; edipi_encrypted: string; email: string };
   userData: SeedUserRecord;
 } | null {
   const user = getUserById(userId);
@@ -1379,6 +1380,7 @@ export function exportUserToSeedFormat(userId: string): {
 
   return {
     indexEntry: {
+      id: user.id,
       edipi_encrypted: encryptedEdipi,
       email: user.email,
     },
