@@ -282,7 +282,7 @@ export default function ManagerDashboard() {
 
   // Handle approve/deny non-availability
   const handleApproveRequest = (naId: string, approved: boolean) => {
-    const updatePayload = {
+    const updatePayload: { status: "approved" | "rejected"; approved_by: string | null } = {
       status: approved ? "approved" : "rejected",
       approved_by: user?.id || null,
     };
