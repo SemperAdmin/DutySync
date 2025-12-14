@@ -183,6 +183,41 @@ function createRole(
   };
 }
 
+// Seed user type from getSeedUserByEdipi
+type SeedUser = NonNullable<ReturnType<typeof getSeedUserByEdipi>>;
+
+// Build user roles from seed user data - reusable helper to avoid duplication
+function buildUserRoles(seedUser: SeedUser): UserRole[] {
+  const roles: UserRole[] = [];
+  const userIsAppAdminByEdipi = isAppAdmin(seedUser.edipi);
+
+  if (userIsAppAdminByEdipi) {
+    roles.push(createRole(seedUser.id, ROLE_NAMES.APP_ADMIN));
+  }
+
+  if (seedUser.roles && Array.isArray(seedUser.roles)) {
+    seedUser.roles.forEach((role) => {
+      const isStoredAppAdminRole = role.role_name === ROLE_NAMES.APP_ADMIN;
+      if (isStoredAppAdminRole && userIsAppAdminByEdipi) {
+        return; // Skip duplicate
+      }
+      roles.push(createRole(
+        seedUser.id,
+        role.role_name as RoleName,
+        role.scope_unit_id || null,
+        role.id,
+        role.created_at
+      ));
+    });
+  }
+
+  if (roles.length === 0) {
+    roles.push(createRole(seedUser.id, ROLE_NAMES.STANDARD_USER));
+  }
+
+  return roles;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -207,38 +242,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Refresh roles from seed data to pick up any changes
           const seedUser = getSeedUserByEdipi(sessionUser.edipi);
           if (seedUser) {
-            const refreshedRoles: UserRole[] = [];
-            const userIsAppAdminByEdipi = isAppAdmin(seedUser.edipi);
-
-            // Check if user's service ID matches App Admin EDIPI
-            if (userIsAppAdminByEdipi) {
-              refreshedRoles.push(createRole(seedUser.id, ROLE_NAMES.APP_ADMIN));
-            }
-
-            // Add stored roles from seed data
-            if (seedUser.roles && Array.isArray(seedUser.roles)) {
-              seedUser.roles.forEach((role) => {
-                const isStoredAppAdminRole = role.role_name === ROLE_NAMES.APP_ADMIN;
-                if (isStoredAppAdminRole && userIsAppAdminByEdipi) {
-                  return; // Skip duplicate
-                }
-                refreshedRoles.push(createRole(
-                  seedUser.id,
-                  role.role_name as RoleName,
-                  role.scope_unit_id || null,
-                  role.id,
-                  role.created_at
-                ));
-              });
-            }
-
-            // If no roles, give Standard User
-            if (refreshedRoles.length === 0) {
-              refreshedRoles.push(createRole(seedUser.id, ROLE_NAMES.STANDARD_USER));
-            }
-
-            // Update session with refreshed roles
-            sessionUser.roles = refreshedRoles;
+            // Update session with refreshed roles using shared helper
+            sessionUser.roles = buildUserRoles(seedUser);
             sessionUser.can_approve_non_availability = seedUser.can_approve_non_availability || false;
 
             // Save refreshed session back to localStorage
@@ -281,39 +286,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // If no password_hash in seed data, allow login (demo mode)
 
-      // Determine roles based on EDIPI match
-      const roles: UserRole[] = [];
-      const userIsAppAdminByEdipi = isAppAdmin(found.edipi);
-
-      // Check if user's service ID matches App Admin EDIPI
-      if (userIsAppAdminByEdipi) {
-        roles.push(createRole(found.id, ROLE_NAMES.APP_ADMIN));
-      }
-
-      // Also check for any stored roles (like Unit Admin assignments)
-      if (found.roles && Array.isArray(found.roles)) {
-        found.roles.forEach((role) => {
-          // Skip App Admin role if user already has it via EDIPI match
-          const isStoredAppAdminRole = role.role_name === ROLE_NAMES.APP_ADMIN;
-          if (isStoredAppAdminRole && userIsAppAdminByEdipi) {
-            return; // Skip to avoid duplicate
-          }
-
-          // Preserve existing role with its original ID and created_at
-          roles.push(createRole(
-            found.id,
-            role.role_name as RoleName,
-            role.scope_unit_id || null,
-            role.id,
-            role.created_at
-          ));
-        });
-      }
-
-      // If no roles assigned, give Standard User
-      if (roles.length === 0) {
-        roles.push(createRole(found.id, ROLE_NAMES.STANDARD_USER));
-      }
+      // Build user roles using shared helper
+      const roles = buildUserRoles(found);
 
       // Look up personnel record by EDIPI for display info
       // Fall back to personnel_id if EDIPI lookup fails

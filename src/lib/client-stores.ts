@@ -1549,7 +1549,7 @@ export async function loadSeedUsers(forceReload = false): Promise<{ usersLoaded:
         email: userData.email,
         personnel_id: userData.personnel_id || null,
         roles: userData.roles,
-        can_approve_non_availability: (userData as Record<string, unknown>).can_approve_non_availability as boolean | undefined,
+        can_approve_non_availability: (userData as unknown as { can_approve_non_availability?: boolean }).can_approve_non_availability,
         created_at: userData.created_at,
         password_hash: userData.password_hash,
       };
