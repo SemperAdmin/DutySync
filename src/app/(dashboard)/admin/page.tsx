@@ -20,13 +20,12 @@ import {
   getAllRucs,
   updateRucName,
   getSeedUserByEdipi,
-  encryptEdipi,
   type RucEntry,
 } from "@/lib/client-stores";
 import {
   isGitHubConfigured,
-  pushUserFileToGitHub,
-  deleteUserFileFromGitHub,
+  triggerUpdateUserRolesWorkflow,
+  triggerDeleteUserWorkflow,
 } from "@/lib/github-api";
 
 // Manager role names - a user can only have one of these at a time
@@ -1007,7 +1006,7 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     });
 
     try {
-      // Process removals first
+      // Process removals first (local cache update)
       for (const remove of pendingRemoves) {
         console.log("[RoleAssignment] Removing role:", remove);
         const success = removeUserRole(user.id, remove.role_name, remove.scope_unit_id);
@@ -1015,7 +1014,7 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
         if (!success) throw new Error(`Failed to remove role: ${remove.role_name}`);
       }
 
-      // Then process adds
+      // Then process adds (local cache update)
       for (const add of pendingAdds) {
         console.log("[RoleAssignment] Adding role:", add);
         const success = assignUserRole(user.id, add.role_name, add.scope_unit_id);
@@ -1023,7 +1022,7 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
         if (!success) throw new Error(`Failed to assign role: ${add.role_name}`);
       }
 
-      // Push updated user data to GitHub if configured
+      // Trigger GitHub workflow to persist changes if configured
       const gitHubConfigured = isGitHubConfigured();
       console.log("[RoleAssignment] GitHub configured:", gitHubConfigured);
 
@@ -1031,29 +1030,24 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
         const updatedUser = getSeedUserByEdipi(user.edipi);
         console.log("[RoleAssignment] Updated user from cache:", updatedUser?.id, "roles:", updatedUser?.roles?.length);
 
-        if (updatedUser) {
-          // Build the user file data structure (encrypt edipi for storage)
-          const userFileData = {
-            id: updatedUser.id,
-            edipi_encrypted: encryptEdipi(updatedUser.edipi),
-            email: updatedUser.email,
-            personnel_id: updatedUser.personnel_id || null,
-            password_hash: updatedUser.password_hash,
-            roles: updatedUser.roles?.map(r => ({
-              id: r.id || `role-${updatedUser.id}-${r.role_name.toLowerCase().replace(/\s+/g, '-')}`,
-              role_name: r.role_name,
-              scope_unit_id: r.scope_unit_id,
-              created_at: r.created_at instanceof Date ? r.created_at.toISOString() : (r.created_at || new Date().toISOString()),
-            })) || [],
-            created_at: updatedUser.created_at || new Date().toISOString(),
-            can_approve_non_availability: updatedUser.can_approve_non_availability || false,
-          };
-          console.log("[RoleAssignment] Pushing to GitHub:", userFileData);
-          const pushResult = await pushUserFileToGitHub(user.id, userFileData);
-          console.log("[RoleAssignment] GitHub push result:", pushResult);
-          if (!pushResult.success) {
-            // Show error to user instead of just warning
-            throw new Error(`GitHub sync failed: ${pushResult.message}`);
+        if (updatedUser && updatedUser.roles) {
+          // Build roles array for workflow (just role_name and scope_unit_id)
+          const rolesForWorkflow = updatedUser.roles.map(r => ({
+            role_name: r.role_name,
+            scope_unit_id: r.scope_unit_id,
+          }));
+
+          console.log("[RoleAssignment] Triggering workflow with roles:", rolesForWorkflow);
+          const workflowResult = await triggerUpdateUserRolesWorkflow(
+            user.id,
+            rolesForWorkflow,
+            updatedUser.can_approve_non_availability
+          );
+          console.log("[RoleAssignment] Workflow trigger result:", workflowResult);
+
+          if (!workflowResult.success) {
+            // Show error to user
+            throw new Error(`GitHub sync failed: ${workflowResult.message}`);
           }
         } else {
           console.warn("[RoleAssignment] Could not find updated user in cache");
@@ -1074,19 +1068,24 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     setError(null);
 
     try {
+      // Delete from local cache
       const success = deleteUser(user.id);
       if (!success) throw new Error("Failed to delete user");
 
-      // Delete user file from GitHub if configured
+      // Trigger GitHub workflow to delete user file if configured
       if (isGitHubConfigured()) {
-        const deleteResult = await deleteUserFileFromGitHub(user.id);
+        console.log("[RoleAssignment] Triggering delete workflow for user:", user.id);
+        const deleteResult = await triggerDeleteUserWorkflow(user.id);
+        console.log("[RoleAssignment] Delete workflow result:", deleteResult);
         if (!deleteResult.success) {
-          console.warn("Failed to delete user file from GitHub:", deleteResult.message);
+          // Show error to user
+          throw new Error(`GitHub sync failed: ${deleteResult.message}`);
         }
       }
 
       onSuccess();
     } catch (err) {
+      console.error("[RoleAssignment] Delete error:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsSubmitting(false);

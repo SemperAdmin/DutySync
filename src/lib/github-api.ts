@@ -327,3 +327,135 @@ export async function deleteUserFileFromGitHub(
     };
   }
 }
+
+// ============================================================================
+// GitHub Actions Workflow Triggers
+// These functions trigger workflows instead of directly modifying files,
+// which is more secure as the workflow uses GITHUB_TOKEN
+// ============================================================================
+
+export interface WorkflowTriggerResult {
+  success: boolean;
+  message: string;
+}
+
+// Trigger the update-user-roles workflow
+export async function triggerUpdateUserRolesWorkflow(
+  userId: string,
+  roles: Array<{ role_name: string; scope_unit_id: string | null }>,
+  canApproveNonAvailability?: boolean
+): Promise<WorkflowTriggerResult> {
+  const settings = getGitHubSettings();
+
+  if (!settings) {
+    return { success: false, message: "GitHub not configured" };
+  }
+
+  try {
+    console.log("[triggerUpdateUserRolesWorkflow] Triggering workflow for user:", userId);
+    console.log("[triggerUpdateUserRolesWorkflow] Roles:", roles);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${settings.owner}/${settings.repo}/actions/workflows/update-user-roles.yml/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${settings.token}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ref: settings.branch,
+          inputs: {
+            user_id: userId,
+            roles_json: JSON.stringify(roles),
+            can_approve_non_availability: canApproveNonAvailability !== undefined
+              ? String(canApproveNonAvailability)
+              : "",
+          },
+        }),
+      }
+    );
+
+    console.log("[triggerUpdateUserRolesWorkflow] Response status:", response.status);
+
+    // 204 No Content means success for workflow dispatch
+    if (response.status === 204) {
+      return {
+        success: true,
+        message: "Workflow triggered successfully. Changes will be applied shortly.",
+      };
+    }
+
+    // Handle errors
+    const errorData = await response.json().catch(() => ({}));
+    console.error("[triggerUpdateUserRolesWorkflow] Error:", errorData);
+
+    throw new Error(
+      errorData.message || `GitHub API error: ${response.status} ${response.statusText}`
+    );
+  } catch (error) {
+    console.error("[triggerUpdateUserRolesWorkflow] Exception:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
+// Trigger the delete-user workflow
+export async function triggerDeleteUserWorkflow(
+  userId: string
+): Promise<WorkflowTriggerResult> {
+  const settings = getGitHubSettings();
+
+  if (!settings) {
+    return { success: false, message: "GitHub not configured" };
+  }
+
+  try {
+    console.log("[triggerDeleteUserWorkflow] Triggering workflow for user:", userId);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${settings.owner}/${settings.repo}/actions/workflows/delete-user.yml/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${settings.token}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ref: settings.branch,
+          inputs: {
+            user_id: userId,
+          },
+        }),
+      }
+    );
+
+    console.log("[triggerDeleteUserWorkflow] Response status:", response.status);
+
+    // 204 No Content means success for workflow dispatch
+    if (response.status === 204) {
+      return {
+        success: true,
+        message: "Delete workflow triggered successfully. User will be removed shortly.",
+      };
+    }
+
+    // Handle errors
+    const errorData = await response.json().catch(() => ({}));
+    console.error("[triggerDeleteUserWorkflow] Error:", errorData);
+
+    throw new Error(
+      errorData.message || `GitHub API error: ${response.status} ${response.statusText}`
+    );
+  } catch (error) {
+    console.error("[triggerDeleteUserWorkflow] Exception:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
