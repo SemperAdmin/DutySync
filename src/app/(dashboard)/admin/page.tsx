@@ -14,6 +14,9 @@ import {
   getAllUsers,
   assignUserRole,
   deleteUser,
+  loadRucs,
+  getAllRucs,
+  type RucEntry,
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
 
@@ -412,14 +415,19 @@ function UnitForm({ unit, units, onClose, onSuccess }: { unit: UnitSection | nul
 function UsersTab() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
+  const [rucs, setRucs] = useState<RucEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback(async () => {
     try {
       const usersData = getAllUsers();
       const unitsData = getUnitSections();
+
+      // Load RUCs from the reference file
+      const rucsData = await loadRucs();
+      setRucs(rucsData);
 
       setUsers(usersData.map(u => ({
         id: u.id,
@@ -452,17 +460,17 @@ function UsersTab() {
     }
   };
 
-  // Memoize unit name lookups for better performance
-  const unitNameMap = useMemo(() => {
-    return units.reduce((acc, unit) => {
-      acc[unit.id] = unit.unit_name;
+  // Memoize RUC name lookups for better performance
+  const rucNameMap = useMemo(() => {
+    return rucs.reduce((acc, ruc) => {
+      acc[ruc.ruc] = ruc.name ? `${ruc.ruc} - ${ruc.name}` : ruc.ruc;
       return acc;
     }, {} as Record<string, string>);
-  }, [units]);
+  }, [rucs]);
 
-  const getUnitName = (unitId: string | null) => {
-    if (!unitId) return null;
-    return unitNameMap[unitId] || "Unknown";
+  const getRucDisplayName = (rucCode: string | null) => {
+    if (!rucCode) return null;
+    return rucNameMap[rucCode] || rucCode;
   };
 
   if (isLoading) {
@@ -492,6 +500,7 @@ function UsersTab() {
         <RoleAssignmentModal
           user={editingUser}
           units={units}
+          rucs={rucs}
           onClose={() => setEditingUser(null)}
           onSuccess={() => { setEditingUser(null); fetchData(); }}
         />
@@ -530,7 +539,7 @@ function UsersTab() {
                           {user.roles.map((role, idx) => (
                             <span key={role.id ?? `${idx}-${role.role_name}`} className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(role.role_name)}`}>
                               {role.role_name}
-                              {role.scope_unit_id && <span className="ml-1 opacity-75">({getUnitName(role.scope_unit_id)})</span>}
+                              {role.scope_unit_id && <span className="ml-1 opacity-75">({getRucDisplayName(role.scope_unit_id)})</span>}
                             </span>
                           ))}
                         </div>
@@ -555,11 +564,11 @@ function UsersTab() {
   );
 }
 
-function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserData; units: UnitSection[]; onClose: () => void; onSuccess: () => void; }) {
+function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: UserData; units: UnitSection[]; rucs: RucEntry[]; onClose: () => void; onSuccess: () => void; }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
-  const [selectedUnit, setSelectedUnit] = useState<string>("");
+  const [selectedRuc, setSelectedRuc] = useState<string>("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isUserAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
@@ -569,7 +578,7 @@ function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserDa
     setError(null);
 
     try {
-      const success = assignUserRole(user.id, selectedRole, selectedRole === "Unit Admin" ? selectedUnit : null);
+      const success = assignUserRole(user.id, selectedRole, selectedRole === "Unit Admin" ? selectedRuc : null);
       if (!success) throw new Error("Failed to assign role");
       onSuccess();
     } catch (err) {
@@ -631,15 +640,15 @@ function RoleAssignmentModal({ user, units, onClose, onSuccess }: { user: UserDa
 
               {selectedRole === "Unit Admin" && (
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Unit Scope</label>
-                  <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)} disabled={isSubmitting}>
-                    <option value="">Select a unit...</option>
-                    {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.unit_name} ({unit.hierarchy_level})</option>)}
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Unit Scope (RUC)</label>
+                  <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedRuc} onChange={(e) => setSelectedRuc(e.target.value)} disabled={isSubmitting}>
+                    <option value="">Select a RUC...</option>
+                    {rucs.map((ruc) => <option key={ruc.ruc} value={ruc.ruc}>{ruc.ruc}{ruc.name ? ` - ${ruc.name}` : ""}</option>)}
                   </select>
                 </div>
               )}
 
-              <Button variant="accent" onClick={handleAssignRole} isLoading={isSubmitting} disabled={isSubmitting || (selectedRole === "Unit Admin" && !selectedUnit)} className="w-full">
+              <Button variant="accent" onClick={handleAssignRole} isLoading={isSubmitting} disabled={isSubmitting || (selectedRole === "Unit Admin" && !selectedRuc)} className="w-full">
                 Assign Role
               </Button>
             </div>
