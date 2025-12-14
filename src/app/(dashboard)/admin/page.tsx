@@ -21,6 +21,15 @@ import {
 } from "@/lib/client-stores";
 import { levelColors } from "@/lib/unit-constants";
 import UserDashboard from "@/components/dashboard/UserDashboard";
+import ManagerDashboard from "@/components/dashboard/ManagerDashboard";
+
+// Manager role names that should see ManagerDashboard
+const MANAGER_ROLES: RoleName[] = [
+  "Unit Manager",
+  "Company Manager",
+  "Platoon Manager",
+  "Section Manager",
+];
 
 // Key must match DashboardLayout
 const VIEW_MODE_KEY = "dutysync_admin_view_mode";
@@ -49,6 +58,7 @@ interface UserData {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const isAppAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
+  const hasManagerRole = user?.roles?.some((role) => MANAGER_ROLES.includes(role.role_name as RoleName));
   const [activeTab, setActiveTab] = useState<"units" | "users">("units");
   const [isAdminView, setIsAdminView] = useState(true);
 
@@ -74,8 +84,14 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // Show UserDashboard for non-admins OR when admin is in "user view" mode
+  // If App Admin in admin view mode, show App Admin Dashboard
+  // Otherwise, check for manager role or show user dashboard
   if (!isAppAdmin || !isAdminView) {
+    // Show ManagerDashboard for users with manager roles
+    if (hasManagerRole) {
+      return <ManagerDashboard />;
+    }
+    // Show UserDashboard for standard users
     return <UserDashboard />;
   }
 
