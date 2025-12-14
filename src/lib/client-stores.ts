@@ -1128,6 +1128,12 @@ export function importManpowerData(
     errors: [] as string[],
   };
 
+  // Guard: prevent accidental data wipe from empty file
+  if (records.length === 0) {
+    result.errors.push("Import file is empty or contains no valid records. No data was changed.");
+    return result;
+  }
+
   // Clear all existing units and personnel for fresh import
   const units: UnitSection[] = [];
   const newPersonnel: Personnel[] = [];
