@@ -24,6 +24,13 @@ import {
 import { levelColors } from "@/lib/unit-constants";
 
 type PageSize = 10 | 25 | 50 | 100;
+const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
+
+interface RucEditModalProps {
+  ruc: RucEntry;
+  onClose: () => void;
+  onSave: (rucCode: string, name: string | null) => void;
+}
 
 interface UserData {
   id: string;
@@ -149,12 +156,12 @@ function UnitsTab() {
     fetchRucs();
   }, [fetchRucs]);
 
-  // Filter RUCs based on search
+  // Filter RUCs based on search (case-insensitive)
   const filteredRucs = useMemo(() => {
     if (!searchQuery.trim()) return rucs;
     const q = searchQuery.toLowerCase();
     return rucs.filter(r =>
-      r.ruc.includes(q) ||
+      r.ruc.toLowerCase().includes(q) ||
       (r.name && r.name.toLowerCase().includes(q))
     );
   }, [rucs, searchQuery]);
@@ -172,7 +179,7 @@ function UnitsTab() {
 
   const handleGoToPage = () => {
     const page = parseInt(goToPage, 10);
-    if (page >= 1 && page <= totalPages) {
+    if (!isNaN(page) && page >= 1 && page <= totalPages) {
       setCurrentPage(page);
       setGoToPage("");
     }
@@ -181,8 +188,8 @@ function UnitsTab() {
   const handleSaveRucName = (rucCode: string, name: string | null) => {
     const success = updateRucName(rucCode, name);
     if (success) {
-      // Refresh from cache
-      setRucs(getAllRucs());
+      // Refresh from cache (spread to create new array reference for React)
+      setRucs([...getAllRucs()]);
       setEditingRuc(null);
     } else {
       setError("Failed to update RUC name");
@@ -237,9 +244,9 @@ function UnitsTab() {
             <div>
               <CardTitle>Unit Codes</CardTitle>
               <CardDescription>
-                {filteredRucs.length === rucs.length
-                  ? `Showing ${startIndex + 1}-${Math.min(endIndex, filteredRucs.length)} of ${filteredRucs.length}`
-                  : `${filteredRucs.length} results found`}
+                {searchQuery.trim()
+                  ? `${filteredRucs.length} results found`
+                  : `Showing ${filteredRucs.length > 0 ? startIndex + 1 : 0}-${Math.min(endIndex, filteredRucs.length)} of ${filteredRucs.length}`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -249,10 +256,9 @@ function UnitsTab() {
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
               >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
+                {PAGE_SIZES.map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -368,7 +374,7 @@ function UnitsTab() {
 }
 
 // RUC Name Edit Modal
-function RucEditModal({ ruc, onClose, onSave }: { ruc: RucEntry; onClose: () => void; onSave: (rucCode: string, name: string | null) => void; }) {
+function RucEditModal({ ruc, onClose, onSave }: RucEditModalProps) {
   const [name, setName] = useState(ruc.name || "");
 
   const handleSubmit = (e: React.FormEvent) => {
