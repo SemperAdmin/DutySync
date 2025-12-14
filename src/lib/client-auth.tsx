@@ -149,6 +149,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           unitId = personnel.unit_section_id;
           const unit = getUnitSectionById(unitId);
           unitName = unit?.unit_name;
+
+          // Update stored user with personnel_id if not already linked
+          if (!found.personnel_id) {
+            const userIndex = users.findIndex((u: { id: string }) => u.id === found.id);
+            if (userIndex !== -1) {
+              users[userIndex].personnel_id = personnel.id;
+              localStorage.setItem("dutysync_users", JSON.stringify(users));
+            }
+          }
         }
 
         const sessionUser: SessionUser = {
