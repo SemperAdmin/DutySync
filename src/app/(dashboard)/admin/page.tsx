@@ -843,11 +843,11 @@ function UsersTab() {
                         </td>
                         <td className="py-3 px-4">
                           {person ? (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
+                            <span className="font-medium text-foreground">
                               {person.rank}
                             </span>
                           ) : (
-                            <span className="text-foreground-muted text-sm">-</span>
+                            <span className="text-foreground-muted">-</span>
                           )}
                         </td>
                         <td className="py-3 px-4">
