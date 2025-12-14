@@ -1137,7 +1137,8 @@ export function importManpowerData(
   const unitMap = new Map<string, string>(); // name -> id
   units.forEach(u => unitMap.set(u.unit_name, u.id));
 
-  // Track hierarchy: company -> section -> workSection
+  // Track hierarchy: unit -> company -> section -> workSection
+  const topUnitSet = new Set<string>();
   const companySet = new Set<string>();
   const sectionSet = new Set<string>();
   const workSectionSet = new Set<string>();
@@ -1147,26 +1148,49 @@ export function importManpowerData(
     if (!record.unit) continue;
     const parsed = parseUnitCode(record.unit);
 
-    if (parsed.company) {
-      const companyName = `${parsed.company} Company`;
-      companySet.add(companyName);
+    if (parsed.base) {
+      topUnitSet.add(parsed.base);
 
-      if (parsed.section) {
-        sectionSet.add(`${companyName}|${parsed.section}`);
+      if (parsed.company) {
+        const companyName = `${parsed.company} Company`;
+        companySet.add(`${parsed.base}|${companyName}`);
 
-        if (parsed.workSection) {
-          workSectionSet.add(`${companyName}|${parsed.section}|${parsed.workSection}`);
+        if (parsed.section) {
+          sectionSet.add(`${parsed.base}|${companyName}|${parsed.section}`);
+
+          if (parsed.workSection) {
+            workSectionSet.add(`${parsed.base}|${companyName}|${parsed.section}|${parsed.workSection}`);
+          }
         }
       }
     }
   }
 
-  // Create Company units
-  for (const companyName of companySet) {
-    if (!unitMap.has(companyName)) {
+  // Create top-level Unit
+  for (const unitName of topUnitSet) {
+    if (!unitMap.has(unitName)) {
       const newUnit: UnitSection = {
         id: crypto.randomUUID(),
         parent_id: null,
+        unit_name: unitName,
+        hierarchy_level: "unit",
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      units.push(newUnit);
+      unitMap.set(unitName, newUnit.id);
+      result.units.created++;
+    }
+  }
+
+  // Create Company units under their Unit
+  for (const combo of companySet) {
+    const [topUnit, companyName] = combo.split("|");
+    if (!unitMap.has(companyName)) {
+      const parentId = unitMap.get(topUnit);
+      const newUnit: UnitSection = {
+        id: crypto.randomUUID(),
+        parent_id: parentId || null,
         unit_name: companyName,
         hierarchy_level: "company",
         created_at: new Date(),
@@ -1180,7 +1204,7 @@ export function importManpowerData(
 
   // Create Section units under their Company
   for (const combo of sectionSet) {
-    const [companyName, sectionCode] = combo.split("|");
+    const [, companyName, sectionCode] = combo.split("|");
     if (!unitMap.has(sectionCode)) {
       const parentId = unitMap.get(companyName);
       const newUnit: UnitSection = {
@@ -1199,7 +1223,7 @@ export function importManpowerData(
 
   // Create Work Section units under their Section
   for (const combo of workSectionSet) {
-    const [, sectionCode, workSectionCode] = combo.split("|");
+    const [, , sectionCode, workSectionCode] = combo.split("|");
     if (!unitMap.has(workSectionCode)) {
       const parentId = unitMap.get(sectionCode);
       const newUnit: UnitSection = {
