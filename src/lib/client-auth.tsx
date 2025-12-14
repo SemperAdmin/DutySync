@@ -10,14 +10,11 @@ import {
   getSeedUserByEdipi,
   seedUserExists,
   encryptEdipi,
-  downloadAsJson,
 } from "@/lib/client-stores";
 
 interface SignupResult {
   success: boolean;
   error?: string;
-  workflowTriggered?: boolean; // True if GitHub workflow was triggered
-  downloadedFiles?: string[]; // List of files that were downloaded (fallback mode)
 }
 
 interface AuthContextType {
@@ -277,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const edipiEncrypted = encryptEdipi(edipi);
       const passwordHash = btoa(password); // Simple base64 encoding for MVP
 
-      // Try to trigger GitHub workflow first
+      // Trigger GitHub workflow to create user
       const workflowResult = await triggerCreateUserWorkflow(
         edipiEncrypted,
         email,
@@ -286,52 +283,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
 
       if (workflowResult.success) {
-        return {
-          success: true,
-          workflowTriggered: true,
-        };
+        return { success: true };
       }
 
-      // Fallback: If GitHub API is not configured, download files for manual upload
-      console.log("GitHub workflow not available, falling back to file download");
-
-      const userId = `user-${Date.now()}`;
-      const createdAt = new Date().toISOString();
-
-      const userSeedData = {
-        id: userId,
-        edipi_encrypted: edipiEncrypted,
-        email,
-        personnel_id: personnel?.id || null,
-        password_hash: passwordHash,
-        roles: [
-          {
-            id: `role-${userId}-standard`,
-            role_name: ROLE_NAMES.STANDARD_USER,
-            scope_unit_id: null,
-            created_at: createdAt,
-          },
-        ],
-        created_at: createdAt,
-      };
-
-      // Download the user file
-      downloadAsJson(userSeedData, `${edipiEncrypted}.json`);
-
-      // Create users-index entry for reference
-      const indexEntry = {
-        note: "Add this entry to users array in public/data/users-index.json",
-        entry: {
-          edipi_encrypted: edipiEncrypted,
-          email,
-        },
-      };
-      downloadAsJson(indexEntry, `${edipiEncrypted}-index-entry.json`);
-
+      // Return error if workflow failed
       return {
-        success: true,
-        workflowTriggered: false,
-        downloadedFiles: [`${edipiEncrypted}.json`, `${edipiEncrypted}-index-entry.json`],
+        success: false,
+        error: workflowResult.error || "Failed to create account",
       };
     } catch (error) {
       console.error("Signup failed:", error);

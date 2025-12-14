@@ -19,7 +19,7 @@ export default function SignupPage() {
   const { signup } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMode, setSuccessMode] = useState<"workflow" | "download" | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,21 +54,20 @@ export default function SignupPage() {
         return;
       }
 
-      // Show appropriate success message based on how account was created
-      setSuccessMode(result.workflowTriggered ? "workflow" : "download");
+      setSuccess(true);
 
-      // Redirect to login after delay (longer for workflow since it needs time to process)
+      // Redirect to login after delay (workflow needs time to process)
       setTimeout(() => {
         router.push("/login");
-      }, result.workflowTriggered ? 5000 : 2000);
+      }, 5000);
     } catch {
       setFormError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
   };
 
-  // Success state: workflow triggered automatically
-  if (successMode === "workflow") {
+  // Success state: account created via workflow
+  if (success) {
     return (
       <Card variant="elevated" className="w-full max-w-md">
         <CardContent className="py-8">
@@ -120,66 +119,6 @@ export default function SignupPage() {
               className="text-highlight hover:text-highlight-muted transition-colors font-medium"
             >
               Go to Login Now
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Success state: files downloaded (fallback mode)
-  if (successMode === "download") {
-    return (
-      <Card variant="elevated" className="w-full max-w-md">
-        <CardContent className="py-8">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-success"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2">
-              Account Files Generated!
-            </h2>
-          </div>
-
-          <div className="space-y-4 text-sm">
-            <div className="p-4 rounded-lg bg-surface-elevated border border-border">
-              <h3 className="font-medium text-foreground mb-2">Next Steps:</h3>
-              <ol className="list-decimal list-inside space-y-2 text-foreground-muted">
-                <li>Two JSON files have been downloaded</li>
-                <li>Send these files to an administrator</li>
-                <li>Admin will add your account to the system</li>
-                <li>You&apos;ll receive confirmation when ready to log in</li>
-              </ol>
-            </div>
-
-            <div className="p-4 rounded-lg bg-highlight/10 border border-highlight/20">
-              <h3 className="font-medium text-highlight mb-2">For Administrators:</h3>
-              <ol className="list-decimal list-inside space-y-1 text-foreground-muted text-xs">
-                <li>Place the user JSON file in <code className="bg-surface px-1 rounded">public/data/user/</code></li>
-                <li>Update <code className="bg-surface px-1 rounded">public/data/users-index.json</code> with the index entry</li>
-                <li>Commit and push to trigger deployment</li>
-              </ol>
-            </div>
-          </div>
-
-          <div className="mt-6 text-center">
-            <Link
-              href="/login"
-              className="text-highlight hover:text-highlight-muted transition-colors font-medium"
-            >
-              Return to Login
             </Link>
           </div>
         </CardContent>
