@@ -48,25 +48,28 @@ jobs:
             exit 1
           fi
 
-      - name: Check if user already exists
-        id: check-user
+      - name: Generate user ID and check if user exists
+        id: user-check
         run: |
-          USER_FILE="public/data/user/${{ inputs.edipi_encrypted }}.json"
-          if [ -f "$USER_FILE" ]; then
+          # Generate a unique user ID using UUID
+          USER_ID=$(cat /proc/sys/kernel/random/uuid)
+          echo "user_id=${USER_ID}" >> $GITHUB_OUTPUT
+
+          # Check if user with this EDIPI already exists in any file
+          if grep -r '"edipi_encrypted": "${{ inputs.edipi_encrypted }}"' public/data/user/ 2>/dev/null; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "User already exists: $USER_FILE"
+            echo "User with this EDIPI already exists"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Create user JSON file
-        if: steps.check-user.outputs.exists != 'true'
+        if: steps.user-check.outputs.exists != 'true'
         run: |
           # Create user directory if it doesn't exist
           mkdir -p public/data/user
 
-          # Generate user ID
-          USER_ID="user-$(date +%s)"
+          USER_ID="${{ steps.user-check.outputs.user_id }}"
           CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
 
           # Determine personnel_id value
@@ -75,8 +78,8 @@ jobs:
             PERSONNEL_ID='"${{ inputs.personnel_id }}"'
           fi
 
-          # Create user JSON file
-          cat > "public/data/user/${{ inputs.edipi_encrypted }}.json" << EOF
+          # Create user JSON file named by user ID
+          cat > "public/data/user/${USER_ID}.json" << EOF
           {
             "id": "${USER_ID}",
             "edipi_encrypted": "${{ inputs.edipi_encrypted }}",
@@ -95,25 +98,27 @@ jobs:
           }
           EOF
 
-          echo "Created user file: public/data/user/${{ inputs.edipi_encrypted }}.json"
+          echo "Created user file: public/data/user/${USER_ID}.json"
 
       - name: Update users-index.json
-        if: steps.check-user.outputs.exists != 'true'
+        if: steps.user-check.outputs.exists != 'true'
         run: |
           INDEX_FILE="public/data/users-index.json"
+          USER_ID="${{ steps.user-check.outputs.user_id }}"
 
           # Read current index or create new one
           if [ -f "$INDEX_FILE" ]; then
-            # Check if user already in index
-            if grep -q '"${{ inputs.edipi_encrypted }}"' "$INDEX_FILE"; then
+            # Check if user already in index by EDIPI
+            if grep -q '"edipi_encrypted": "${{ inputs.edipi_encrypted }}"' "$INDEX_FILE"; then
               echo "User already in index, skipping"
               exit 0
             fi
 
             # Add new user to existing index using jq
-            jq --arg edipi "${{ inputs.edipi_encrypted }}" \
+            jq --arg id "$USER_ID" \
+               --arg edipi "${{ inputs.edipi_encrypted }}" \
                --arg email "${{ inputs.email }}" \
-               '.users += [{"edipi_encrypted": $edipi, "email": $email}] | .updatedAt = (now | todate)' \
+               '.users += [{"id": $id, "edipi_encrypted": $edipi, "email": $email}] | .updatedAt = (now | todate)' \
                "$INDEX_FILE" > "${INDEX_FILE}.tmp" && mv "${INDEX_FILE}.tmp" "$INDEX_FILE"
           else
             # Create new index file
@@ -121,13 +126,14 @@ jobs:
           {
             "users": [
               {
+                "id": "${USER_ID}",
                 "edipi_encrypted": "${{ inputs.edipi_encrypted }}",
                 "email": "${{ inputs.email }}"
               }
             ],
             "version": "1.0",
             "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")",
-            "description": "Index of seed user accounts. User files are stored in /data/user/{encrypted-edipi}.json"
+            "description": "Index of seed user accounts. User files are stored in /data/user/{id}.json"
           }
           EOF
           fi
@@ -135,7 +141,7 @@ jobs:
           echo "Updated users-index.json"
 
       - name: Commit and push changes
-        if: steps.check-user.outputs.exists != 'true'
+        if: steps.user-check.outputs.exists != 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -144,7 +150,7 @@ jobs:
           git push
 
       - name: Trigger deployment
-        if: steps.check-user.outputs.exists != 'true'
+        if: steps.user-check.outputs.exists != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -158,8 +164,8 @@ jobs:
 
       - name: Output result
         run: |
-          if [ "${{ steps.check-user.outputs.exists }}" == "true" ]; then
+          if [ "${{ steps.user-check.outputs.exists }}" == "true" ]; then
             echo "::warning::User already exists"
           else
-            echo "::notice::User created successfully"
+            echo "::notice::User created successfully with ID: ${{ steps.user-check.outputs.user_id }}"
           fi
