@@ -355,6 +355,7 @@ function ImportModal({
     errors: string[];
   } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -363,6 +364,29 @@ function ImportModal({
       setSelectedFile(file);
       setError(null);
       setResult(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.name.endsWith('.csv') || file.name.endsWith('.txt'))) {
+      setSelectedFile(file);
+      setError(null);
+      setResult(null);
+    } else {
+      setError("Please drop a CSV or TXT file");
     }
   };
 
@@ -412,7 +436,7 @@ function ImportModal({
         <CardHeader>
           <CardTitle>Import Morning Report</CardTitle>
           <CardDescription>
-            Upload a Morning Report file with personnel data. Required columns: Rank, Name, EDIPI
+            Upload a Morning Report to replace the current roster. Required columns: Rank, Name, EDIPI
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -466,9 +490,14 @@ function ImportModal({
               className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
                 selectedFile
                   ? "border-success bg-success/5"
+                  : isDragging
+                  ? "border-primary bg-primary/10"
                   : "border-border hover:border-primary"
               }`}
               onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
               <input
                 ref={fileInputRef}
@@ -531,9 +560,9 @@ function ImportModal({
             <ul className="text-xs text-foreground-muted space-y-1">
               <li>• CSV or tab-separated file</li>
               <li>• Auto-detects header row with Rank, Name, EDIPI</li>
-              <li>• Auto-creates units from Unit column (RUC-Section)</li>
+              <li>• Auto-creates Company, Section, Work Section units</li>
               <li>• Creates Leave/TAD non-availability records</li>
-              <li>• Uses EDIPI as unique identifier</li>
+              <li>• <span className="text-warning">Replaces all existing personnel</span></li>
             </ul>
           </div>
 

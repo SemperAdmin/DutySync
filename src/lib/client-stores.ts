@@ -918,20 +918,52 @@ function parseName(name: string): { first_name: string; last_name: string } {
   return { first_name: firstName, last_name: lastName };
 }
 
-// Parse unit code like "02301-H-S1DV-CUST" into RUC and section
-function parseUnitCode(unitCode: string): { ruc: string; section: string | null } {
-  // Pattern: BASE-X-XXXX-SECTION or BASE-X-XXXX
+// Parse unit code like "02301-H-S1DV-CUST" into hierarchy levels
+// Pattern: BASE-COMPANY-SECTION-WORKSECTION
+function parseUnitCode(unitCode: string): {
+  base: string;
+  company: string | null;
+  section: string | null;
+  workSection: string | null;
+  ruc: string;  // Keep for backward compat
+} {
   const parts = unitCode.split("-");
+
   if (parts.length >= 4) {
-    // Has section: 02301-H-S1DV-CUST -> ruc: 02301-H-S1DV, section: CUST
-    const section = parts.slice(3).join("-");
-    const ruc = parts.slice(0, 3).join("-");
-    return { ruc, section };
+    // Full: 02301-H-S1DV-CUST
+    return {
+      base: parts[0],
+      company: parts[1],
+      section: parts[2],
+      workSection: parts.slice(3).join("-"),
+      ruc: parts.slice(0, 3).join("-"),
+    };
   } else if (parts.length === 3) {
-    // No section, just RUC: 02301-H-S1DV
-    return { ruc: unitCode, section: null };
+    // No work section: 02301-H-S1DV
+    return {
+      base: parts[0],
+      company: parts[1],
+      section: parts[2],
+      workSection: null,
+      ruc: unitCode,
+    };
+  } else if (parts.length === 2) {
+    // Just base and company: 02301-H
+    return {
+      base: parts[0],
+      company: parts[1],
+      section: null,
+      workSection: null,
+      ruc: unitCode,
+    };
   }
-  return { ruc: unitCode, section: null };
+  return {
+    base: unitCode,
+    company: null,
+    section: null,
+    workSection: null,
+    ruc: unitCode,
+  };
 }
 
 // Clean TSV value by removing weird quote patterns
@@ -1080,7 +1112,7 @@ export function parseManpowerTsv(content: string): ManpowerRecord[] {
   return records;
 }
 
-// Import manpower data, auto-creating units as needed
+// Import manpower data - REPLACES all existing personnel
 export function importManpowerData(
   records: ManpowerRecord[]
 ): {
@@ -1096,105 +1128,129 @@ export function importManpowerData(
     errors: [] as string[],
   };
 
-  const personnel = getFromStorage<Personnel>(KEYS.personnel);
+  // Get existing units (keep them) and clear personnel
   const units = getFromStorage<UnitSection>(KEYS.units);
-  const nonAvailList = getFromStorage<NonAvailability>(KEYS.nonAvailability);
+  const newPersonnel: Personnel[] = [];
+  const newNonAvailList: NonAvailability[] = [];
 
-  // Track created units to avoid duplicates
-  const unitMap = new Map<string, string>(); // code -> id
+  // Track units by name for lookup and creation
+  const unitMap = new Map<string, string>(); // name -> id
   units.forEach(u => unitMap.set(u.unit_name, u.id));
 
-  // First pass: create units from unit codes
-  const rucSet = new Set<string>();
+  // Track hierarchy: company -> section -> workSection
+  const companySet = new Set<string>();
   const sectionSet = new Set<string>();
+  const workSectionSet = new Set<string>();
 
+  // First pass: collect all unique unit levels from records
   for (const record of records) {
     if (!record.unit) continue;
-    const { ruc, section } = parseUnitCode(record.unit);
-    rucSet.add(ruc);
-    if (section) sectionSet.add(`${ruc}|${section}`);
+    const parsed = parseUnitCode(record.unit);
+
+    if (parsed.company) {
+      const companyName = `${parsed.company} Company`;
+      companySet.add(companyName);
+
+      if (parsed.section) {
+        sectionSet.add(`${companyName}|${parsed.section}`);
+
+        if (parsed.workSection) {
+          workSectionSet.add(`${companyName}|${parsed.section}|${parsed.workSection}`);
+        }
+      }
+    }
   }
 
-  // Create RUC units (battalion level)
-  for (const ruc of rucSet) {
-    if (!unitMap.has(ruc)) {
+  // Create Company units
+  for (const companyName of companySet) {
+    if (!unitMap.has(companyName)) {
       const newUnit: UnitSection = {
         id: crypto.randomUUID(),
         parent_id: null,
-        unit_name: ruc,
-        hierarchy_level: "battalion",
+        unit_name: companyName,
+        hierarchy_level: "company",
         created_at: new Date(),
         updated_at: new Date(),
       };
       units.push(newUnit);
-      unitMap.set(ruc, newUnit.id);
+      unitMap.set(companyName, newUnit.id);
       result.units.created++;
     }
   }
 
-  // Create section units under their RUC parent
+  // Create Section units under their Company
   for (const combo of sectionSet) {
-    const [ruc, section] = combo.split("|");
-    const fullName = `${ruc}-${section}`;
-    if (!unitMap.has(fullName)) {
-      const parentId = unitMap.get(ruc);
+    const [companyName, sectionCode] = combo.split("|");
+    if (!unitMap.has(sectionCode)) {
+      const parentId = unitMap.get(companyName);
       const newUnit: UnitSection = {
         id: crypto.randomUUID(),
         parent_id: parentId || null,
-        unit_name: fullName,
+        unit_name: sectionCode,
         hierarchy_level: "section",
         created_at: new Date(),
         updated_at: new Date(),
       };
       units.push(newUnit);
-      unitMap.set(fullName, newUnit.id);
+      unitMap.set(sectionCode, newUnit.id);
       result.units.created++;
     }
   }
 
-  // Second pass: create/update personnel
+  // Create Work Section units under their Section
+  for (const combo of workSectionSet) {
+    const [, sectionCode, workSectionCode] = combo.split("|");
+    if (!unitMap.has(workSectionCode)) {
+      const parentId = unitMap.get(sectionCode);
+      const newUnit: UnitSection = {
+        id: crypto.randomUUID(),
+        parent_id: parentId || null,
+        unit_name: workSectionCode,
+        hierarchy_level: "work_section",
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      units.push(newUnit);
+      unitMap.set(workSectionCode, newUnit.id);
+      result.units.created++;
+    }
+  }
+
+  // Second pass: create personnel (replace all)
   for (const record of records) {
     try {
       const { first_name, last_name } = parseName(record.name);
-      const { ruc, section } = parseUnitCode(record.unit);
-      const unitName = section ? `${ruc}-${section}` : ruc;
-      const unitId = unitMap.get(unitName);
+      const parsed = parseUnitCode(record.unit);
+
+      // Assign to lowest level unit available
+      let unitId: string | undefined;
+      if (parsed.workSection) {
+        unitId = unitMap.get(parsed.workSection);
+      } else if (parsed.section) {
+        unitId = unitMap.get(parsed.section);
+      } else if (parsed.company) {
+        unitId = unitMap.get(`${parsed.company} Company`);
+      }
 
       if (!unitId) {
         result.errors.push(`No unit for ${record.edipi}: ${record.unit}`);
         continue;
       }
 
-      // Check if personnel exists by EDIPI
-      const existingIdx = personnel.findIndex(p => p.service_id === record.edipi);
-
-      if (existingIdx !== -1) {
-        // Update existing
-        personnel[existingIdx] = {
-          ...personnel[existingIdx],
-          first_name,
-          last_name,
-          rank: record.rank,
-          unit_section_id: unitId,
-          updated_at: new Date(),
-        };
-        result.personnel.updated++;
-      } else {
-        // Create new
-        const newPerson: Personnel = {
-          id: crypto.randomUUID(),
-          service_id: record.edipi,
-          first_name,
-          last_name,
-          rank: record.rank,
-          unit_section_id: unitId,
-          current_duty_score: 0,
-          created_at: new Date(),
-          updated_at: new Date(),
-        };
-        personnel.push(newPerson);
-        result.personnel.created++;
-      }
+      // Create new personnel record
+      const newPerson: Personnel = {
+        id: crypto.randomUUID(),
+        service_id: record.edipi,
+        first_name,
+        last_name,
+        rank: record.rank,
+        unit_section_id: unitId,
+        current_duty_score: 0,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      newPersonnel.push(newPerson);
+      result.personnel.created++;
 
       // Create non-availability if on Leave or TAD
       if (record.category === "Leave" || record.category === "TAD") {
@@ -1202,30 +1258,18 @@ export function importManpowerData(
         const endDate = parseManpowerDate(record.endDate);
 
         if (startDate && endDate) {
-          const personId = personnel.find(p => p.service_id === record.edipi)?.id;
-          if (personId) {
-            // Check if this non-availability already exists
-            const exists = nonAvailList.some(na =>
-              na.personnel_id === personId &&
-              new Date(na.start_date).getTime() === startDate.getTime() &&
-              new Date(na.end_date).getTime() === endDate.getTime()
-            );
-
-            if (!exists) {
-              const newNa: NonAvailability = {
-                id: crypto.randomUUID(),
-                personnel_id: personId,
-                start_date: startDate,
-                end_date: endDate,
-                reason: `${record.category}: ${record.dutyStatus} - ${record.location}`,
-                status: "approved",
-                approved_by: null,
-                created_at: new Date(),
-              };
-              nonAvailList.push(newNa);
-              result.nonAvailability.created++;
-            }
-          }
+          const newNa: NonAvailability = {
+            id: crypto.randomUUID(),
+            personnel_id: newPerson.id,
+            start_date: startDate,
+            end_date: endDate,
+            reason: `${record.category}: ${record.dutyStatus} - ${record.location}`,
+            status: "approved",
+            approved_by: null,
+            created_at: new Date(),
+          };
+          newNonAvailList.push(newNa);
+          result.nonAvailability.created++;
         }
       }
     } catch (err) {
@@ -1233,10 +1277,10 @@ export function importManpowerData(
     }
   }
 
-  // Save all data
+  // Save all data - personnel is REPLACED, units are merged
   saveToStorage(KEYS.units, units);
-  saveToStorage(KEYS.personnel, personnel);
-  saveToStorage(KEYS.nonAvailability, nonAvailList);
+  saveToStorage(KEYS.personnel, newPersonnel);
+  saveToStorage(KEYS.nonAvailability, newNonAvailList);
 
   return result;
 }
