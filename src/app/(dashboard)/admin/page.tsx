@@ -39,7 +39,6 @@ const MANAGER_ROLES: RoleName[] = [
 import { levelColors } from "@/lib/unit-constants";
 import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 import UserDashboard from "@/components/dashboard/UserDashboard";
-import ManagerDashboard from "@/components/dashboard/ManagerDashboard";
 
 type PageSize = 10 | 25 | 50 | 100;
 const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
@@ -65,9 +64,6 @@ interface UserData {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const isAppAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
-  const isManager = user?.roles?.some((role) =>
-    MANAGER_ROLES.includes(role.role_name as RoleName) && role.scope_unit_id
-  );
   const [isAdminView, setIsAdminView] = useState(true);
   const [stats, setStats] = useState({ users: 0, personnel: 0, units: 0 });
 
@@ -108,13 +104,8 @@ export default function AdminDashboard() {
   }, [isAppAdmin, isAdminView]);
 
   // If App Admin in admin view mode, show App Admin Dashboard
-  // If user is a manager (not in admin view), show ManagerDashboard
-  // Otherwise, show UserDashboard
+  // Otherwise, show UserDashboard (Manager Dashboard is on its own route /admin/manager)
   if (!isAppAdmin || !isAdminView) {
-    // Show ManagerDashboard for managers (Work Section Manager, Section Manager, etc.)
-    if (isManager) {
-      return <ManagerDashboard />;
-    }
     return <UserDashboard />;
   }
 

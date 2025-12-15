@@ -120,6 +120,9 @@ export default function DashboardLayout({
   const isUnitAdminView = viewMode === VIEW_MODE_UNIT_ADMIN;
   const isUserView = viewMode === VIEW_MODE_USER;
 
+  // Check if user is a manager
+  const actuallyIsManager = isManager(user);
+
   // Navigation items with view mode flags
   interface ExtendedNavItem extends NavItem {
     adminOnly?: boolean; // Only show in Admin View (App Admin only)
@@ -127,6 +130,7 @@ export default function DashboardLayout({
     unitAdminViewOnly?: boolean; // Only show in Unit Admin View (NOT App Admin View)
     userOnly?: boolean; // Only show in User View (hide from Admin/Unit Admin View)
     userAndUnitAdminView?: boolean; // Show in User View AND Unit Admin View (NOT App Admin View)
+    managerOnly?: boolean; // Only show for managers in User View
   }
 
   const navItems: ExtendedNavItem[] = [
@@ -146,6 +150,26 @@ export default function DashboardLayout({
             strokeLinejoin="round"
             strokeWidth={2}
             d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+          />
+        </svg>
+      ),
+    },
+    {
+      href: "/admin/manager",
+      label: "Manager Dashboard",
+      managerOnly: true, // Only show for managers in User View
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
           />
         </svg>
       ),
@@ -354,6 +378,17 @@ export default function DashboardLayout({
       if ((actuallyIsAppAdmin && isAdminView) || (actuallyIsUnitAdmin && isUnitAdminView)) {
         return false;
       }
+    }
+
+    // If item is marked managerOnly, only show for managers in User View (not in Admin/Unit Admin views)
+    if (item.managerOnly) {
+      // Must be a manager
+      if (!actuallyIsManager) return false;
+      // Hide from Admin View and Unit Admin View
+      if ((actuallyIsAppAdmin && isAdminView) || (actuallyIsUnitAdmin && isUnitAdminView)) {
+        return false;
+      }
+      return true;
     }
 
     // If no allowedRoles specified, all users can access
