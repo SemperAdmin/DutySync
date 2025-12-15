@@ -1330,6 +1330,171 @@ export function getPendingDutyChangeRequests(): DutyChangeRequest[] {
   );
 }
 
+/**
+ * Check if a person meets all requirements for a duty type
+ */
+export function meetsAllDutyRequirements(personnelId: string, dutyTypeId: string): boolean {
+  const requirements = getDutyRequirements(dutyTypeId);
+  if (requirements.length === 0) return true; // No requirements = anyone can do it
+
+  return requirements.every(req => hasQualification(personnelId, req.required_qual_name));
+}
+
+/**
+ * Get the missing qualifications for a person to perform a duty type
+ */
+export function getMissingQualifications(personnelId: string, dutyTypeId: string): string[] {
+  const requirements = getDutyRequirements(dutyTypeId);
+  return requirements
+    .filter(req => !hasQualification(personnelId, req.required_qual_name))
+    .map(req => req.required_qual_name);
+}
+
+/**
+ * Build the list of required approvals for a duty swap
+ * Returns approvals needed: target person + both chains of command up to common level
+ */
+export function buildSwapApprovals(
+  originalPersonnelId: string,
+  targetPersonnelId: string
+): import("@/types").SwapApproval[] {
+  const approvals: import("@/types").SwapApproval[] = [];
+
+  // 1. Target person must approve (unless they initiated the request)
+  approvals.push({
+    approver_type: 'target_person',
+    for_personnel: 'target',
+    scope_unit_id: null,
+    status: 'pending',
+    approved_by: null,
+    approved_at: null,
+    rejection_reason: null,
+  });
+
+  // 2. Determine the approval chain based on unit relationships
+  const originalPerson = getPersonnelById(originalPersonnelId);
+  const targetPerson = getPersonnelById(targetPersonnelId);
+
+  if (!originalPerson || !targetPerson) {
+    // Default to company level if can't determine
+    approvals.push({
+      approver_type: 'company_manager',
+      for_personnel: 'both',
+      scope_unit_id: null,
+      status: 'pending',
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: null,
+    });
+    return approvals;
+  }
+
+  const originalUnit = getUnitSectionById(originalPerson.unit_section_id);
+  const targetUnit = getUnitSectionById(targetPerson.unit_section_id);
+
+  if (!originalUnit || !targetUnit) {
+    approvals.push({
+      approver_type: 'company_manager',
+      for_personnel: 'both',
+      scope_unit_id: null,
+      status: 'pending',
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: null,
+    });
+    return approvals;
+  }
+
+  // Same work section - only one work section manager needed
+  if (originalPerson.unit_section_id === targetPerson.unit_section_id) {
+    approvals.push({
+      approver_type: 'work_section_manager',
+      for_personnel: 'both',
+      scope_unit_id: originalPerson.unit_section_id,
+      status: 'pending',
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: null,
+    });
+    return approvals;
+  }
+
+  // Different work sections - both work section managers needed
+  approvals.push({
+    approver_type: 'work_section_manager',
+    for_personnel: 'original',
+    scope_unit_id: originalPerson.unit_section_id,
+    status: 'pending',
+    approved_by: null,
+    approved_at: null,
+    rejection_reason: null,
+  });
+  approvals.push({
+    approver_type: 'work_section_manager',
+    for_personnel: 'target',
+    scope_unit_id: targetPerson.unit_section_id,
+    status: 'pending',
+    approved_by: null,
+    approved_at: null,
+    rejection_reason: null,
+  });
+
+  // Check if same section (same parent)
+  const originalSection = originalUnit.parent_id ? getUnitSectionById(originalUnit.parent_id) : null;
+  const targetSection = targetUnit.parent_id ? getUnitSectionById(targetUnit.parent_id) : null;
+
+  if (originalSection && targetSection && originalSection.id === targetSection.id) {
+    // Same section - section manager approval needed (shared)
+    approvals.push({
+      approver_type: 'section_manager',
+      for_personnel: 'both',
+      scope_unit_id: originalSection.id,
+      status: 'pending',
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: null,
+    });
+    return approvals;
+  }
+
+  // Different sections - both section managers + company manager needed
+  if (originalSection) {
+    approvals.push({
+      approver_type: 'section_manager',
+      for_personnel: 'original',
+      scope_unit_id: originalSection.id,
+      status: 'pending',
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: null,
+    });
+  }
+  if (targetSection) {
+    approvals.push({
+      approver_type: 'section_manager',
+      for_personnel: 'target',
+      scope_unit_id: targetSection.id,
+      status: 'pending',
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: null,
+    });
+  }
+
+  // Company manager for cross-section swaps
+  approvals.push({
+    approver_type: 'company_manager',
+    for_personnel: 'both',
+    scope_unit_id: null,
+    status: 'pending',
+    approved_by: null,
+    approved_at: null,
+    rejection_reason: null,
+  });
+
+  return approvals;
+}
+
 export function createDutyChangeRequest(request: DutyChangeRequest): DutyChangeRequest {
   const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
   list.push(request);
@@ -1351,40 +1516,112 @@ export function updateDutyChangeRequest(
   return list[idx];
 }
 
+/**
+ * Approve a specific step in a duty change request
+ * For multi-level approvals, this approves the appropriate step based on the user's role/identity
+ */
 export function approveDutyChangeRequest(
   id: string,
-  approverId: string
-): { success: boolean; error?: string } {
+  approverId: string,
+  approvalIndex?: number // Optional: specify which approval step to approve
+): { success: boolean; error?: string; allApproved?: boolean } {
   const request = getDutyChangeRequestById(id);
   if (!request) return { success: false, error: 'Request not found' };
   if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
 
-  // Get the duty slots
-  const originalSlot = getDutySlotById(request.original_slot_id);
-  const targetSlot = getDutySlotById(request.target_slot_id);
+  // Handle legacy requests without approvals array
+  if (!request.approvals || request.approvals.length === 0) {
+    // Legacy single-approval flow
+    const originalSlot = getDutySlotById(request.original_slot_id);
+    const targetSlot = getDutySlotById(request.target_slot_id);
 
-  if (!originalSlot || !targetSlot) {
-    return { success: false, error: 'One or both duty slots no longer exist' };
+    if (!originalSlot || !targetSlot) {
+      return { success: false, error: 'One or both duty slots no longer exist' };
+    }
+
+    // Swap the personnel assignments
+    updateDutySlot(originalSlot.id, {
+      personnel_id: request.target_personnel_id,
+      updated_at: new Date()
+    });
+    updateDutySlot(targetSlot.id, {
+      personnel_id: request.original_personnel_id,
+      updated_at: new Date()
+    });
+
+    updateDutyChangeRequest(id, {
+      status: 'approved',
+      approved_by: approverId,
+      approved_at: new Date()
+    });
+
+    return { success: true, allApproved: true };
   }
 
-  // Swap the personnel assignments
-  updateDutySlot(originalSlot.id, {
-    personnel_id: request.target_personnel_id,
-    updated_at: new Date()
-  });
-  updateDutySlot(targetSlot.id, {
-    personnel_id: request.original_personnel_id,
-    updated_at: new Date()
-  });
+  // New multi-level approval flow
+  const updatedApprovals = [...request.approvals];
+  let approvedIdx = approvalIndex;
 
-  // Update the request status
-  updateDutyChangeRequest(id, {
+  // If no specific index provided, find the first pending approval the user can approve
+  if (approvedIdx === undefined) {
+    approvedIdx = updatedApprovals.findIndex(a => a.status === 'pending');
+    if (approvedIdx === -1) {
+      return { success: false, error: 'No pending approvals found' };
+    }
+  }
+
+  if (approvedIdx < 0 || approvedIdx >= updatedApprovals.length) {
+    return { success: false, error: 'Invalid approval index' };
+  }
+
+  if (updatedApprovals[approvedIdx].status !== 'pending') {
+    return { success: false, error: 'This approval step is not pending' };
+  }
+
+  // Mark this approval as approved
+  updatedApprovals[approvedIdx] = {
+    ...updatedApprovals[approvedIdx],
     status: 'approved',
     approved_by: approverId,
-    approved_at: new Date()
-  });
+    approved_at: new Date(),
+  };
 
-  return { success: true };
+  // Check if all approvals are now complete
+  const allApproved = updatedApprovals.every(a => a.status === 'approved');
+
+  if (allApproved) {
+    // All approvals complete - execute the swap
+    const originalSlot = getDutySlotById(request.original_slot_id);
+    const targetSlot = getDutySlotById(request.target_slot_id);
+
+    if (!originalSlot || !targetSlot) {
+      return { success: false, error: 'One or both duty slots no longer exist' };
+    }
+
+    // Swap the personnel assignments
+    updateDutySlot(originalSlot.id, {
+      personnel_id: request.target_personnel_id,
+      updated_at: new Date()
+    });
+    updateDutySlot(targetSlot.id, {
+      personnel_id: request.original_personnel_id,
+      updated_at: new Date()
+    });
+
+    updateDutyChangeRequest(id, {
+      status: 'approved',
+      approvals: updatedApprovals,
+      approved_by: approverId,
+      approved_at: new Date()
+    });
+  } else {
+    // Update just the approvals array
+    updateDutyChangeRequest(id, {
+      approvals: updatedApprovals
+    });
+  }
+
+  return { success: true, allApproved };
 }
 
 export function rejectDutyChangeRequest(

@@ -156,6 +156,17 @@ export interface BlockedDuty {
 }
 
 // Duty Change Request (swap duties between personnel after roster approval)
+// Approval tracking for each step in the swap approval workflow
+export interface SwapApproval {
+  approver_type: 'target_person' | 'work_section_manager' | 'section_manager' | 'company_manager';
+  for_personnel: 'original' | 'target' | 'both'; // Which personnel's chain this approval is for
+  scope_unit_id: string | null; // The unit scope for manager approvals
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by: string | null;
+  approved_at: Date | null;
+  rejection_reason: string | null;
+}
+
 export interface DutyChangeRequest {
   id: UUID;
   // The requester (could be duty holder or manager acting on their behalf)
@@ -178,8 +189,11 @@ export interface DutyChangeRequest {
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
 
-  // Approval tracking
-  required_approver_level: 'work_section' | 'section' | 'company'; // Determined by unit relationship
+  // Multi-level approval tracking
+  required_approver_level: 'work_section' | 'section' | 'company'; // Highest common level needed
+  approvals: SwapApproval[]; // All required approvals for this swap
+
+  // Legacy fields for backwards compatibility
   approved_by: UUID | null;
   approved_at: Date | null;
   rejection_reason: string | null;
