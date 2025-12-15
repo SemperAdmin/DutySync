@@ -286,12 +286,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Force reload seed users to pick up any role changes since last login
           await loadSeedUsers(true);
 
-          // Refresh roles from seed data to pick up any changes
+          // Refresh roles and personnel info from seed data to pick up any changes
           const seedUser = getSeedUserByEdipi(sessionUser.edipi);
           if (seedUser) {
             // Update session with refreshed roles using shared helper
             sessionUser.roles = buildUserRoles(seedUser);
             sessionUser.can_approve_non_availability = seedUser.can_approve_non_availability || false;
+
+            // Also refresh personnel info (displayName, rank, etc.) in case it was missing
+            // This handles sessions created before these fields were added
+            let personnel = getPersonnelByEdipi(seedUser.edipi);
+            if (!personnel && seedUser.personnel_id) {
+              personnel = getPersonnelById(seedUser.personnel_id);
+            }
+
+            if (personnel) {
+              sessionUser.personnel_id = personnel.id;
+              sessionUser.rank = personnel.rank;
+              sessionUser.firstName = personnel.first_name;
+              sessionUser.lastName = personnel.last_name;
+              sessionUser.displayName = `${personnel.rank} ${personnel.last_name}`;
+              sessionUser.unitId = personnel.unit_section_id;
+              const unit = getUnitSectionById(sessionUser.unitId);
+              sessionUser.unitName = unit?.unit_name;
+            }
 
             // Save refreshed session back to localStorage
             localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
@@ -448,9 +466,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roles: buildUserRoles(seedUser),
         can_approve_non_availability: seedUser.can_approve_non_availability || false,
       };
+
+      // Also refresh personnel info (displayName, rank, etc.)
+      let personnel = getPersonnelByEdipi(seedUser.edipi);
+      if (!personnel && seedUser.personnel_id) {
+        personnel = getPersonnelById(seedUser.personnel_id);
+      }
+
+      if (personnel) {
+        updatedUser.personnel_id = personnel.id;
+        updatedUser.rank = personnel.rank;
+        updatedUser.firstName = personnel.first_name;
+        updatedUser.lastName = personnel.last_name;
+        updatedUser.displayName = `${personnel.rank} ${personnel.last_name}`;
+        updatedUser.unitId = personnel.unit_section_id;
+        const unit = getUnitSectionById(updatedUser.unitId);
+        updatedUser.unitName = unit?.unit_name;
+      }
+
       setUser(updatedUser);
       localStorage.setItem("dutysync_user", JSON.stringify(updatedUser));
-      console.log("[refreshSession] Session refreshed with updated roles");
+      console.log("[refreshSession] Session refreshed with updated roles and personnel info");
     }
   };
 
