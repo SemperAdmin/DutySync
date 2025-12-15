@@ -129,22 +129,32 @@ export default function PersonnelPage() {
   // When in "User View" mode, App Admins should see things from their manager role perspective
   const effectiveIsAppAdmin = isAppAdmin && isAdminView;
 
-  // Get the user's scope unit ID from their highest scoped role (Unit Admin > Managers)
+  // Get the user's scope unit ID based on their role and view mode
+  // In User View: Manager role scope takes priority (more limited view)
+  // In Admin View: Unit Admin scope takes priority (broader access)
   const userScopeUnitId = useMemo(() => {
     if (!user?.roles) return null;
 
-    // First check for Unit Admin with scope
+    // Find both types of scoped roles
     const unitAdminRole = user.roles.find(r =>
       r.role_name === "Unit Admin" && r.scope_unit_id
     );
-    if (unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
-
-    // Then check for any manager role with scope
     const managerRole = user.roles.find(r =>
       MANAGER_ROLES.includes(r.role_name as RoleName) && r.scope_unit_id
     );
+
+    // In User View, prioritize manager role scope for user experience
+    // This allows users with both Unit Admin and Manager roles to see their manager scope
+    if (!isAdminView && managerRole?.scope_unit_id) {
+      return managerRole.scope_unit_id;
+    }
+
+    // In Admin View or when no manager role, use Unit Admin scope first
+    if (unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
+
+    // Fall back to manager role scope
     return managerRole?.scope_unit_id || null;
-  }, [user?.roles]);
+  }, [user?.roles, isAdminView]);
 
   // Determine if user has elevated access (effective app admin or has a scoped role)
   const hasElevatedAccess = effectiveIsAppAdmin || !!userScopeUnitId;
