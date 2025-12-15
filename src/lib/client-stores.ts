@@ -10,6 +10,7 @@ import type {
   NonAvailability,
   Qualification,
   BlockedDuty,
+  DutyChangeRequest,
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 
@@ -109,6 +110,7 @@ const KEYS = {
   dutyRequirements: "dutysync_duty_requirements",
   dutySlots: "dutysync_duty_slots",
   nonAvailability: "dutysync_non_availability",
+  dutyChangeRequests: "dutysync_duty_change_requests",
   qualifications: "dutysync_qualifications",
   blockedDuties: "dutysync_blocked_duties",
   users: "dutysync_users",
@@ -831,6 +833,10 @@ export function getAllDutySlots(): DutySlot[] {
   );
 }
 
+export function getDutySlotById(id: string): DutySlot | undefined {
+  return getFromStorage<DutySlot>(KEYS.dutySlots).find((s) => s.id === id);
+}
+
 export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
     const slotDate = new Date(slot.date_assigned);
@@ -1084,6 +1090,238 @@ export function deleteNonAvailability(id: string): boolean {
   saveToStorage(KEYS.nonAvailability, filtered);
   triggerAutoSave('nonAvailability');
   return true;
+}
+
+// ============ Duty Change Requests ============
+
+/**
+ * Determine the required approver level based on the two personnel's unit relationship
+ * - Same work section → work_section manager
+ * - Different work sections, same section → section manager
+ * - Different sections → company manager
+ */
+export function determineApproverLevel(
+  personnel1Id: string,
+  personnel2Id: string
+): 'work_section' | 'section' | 'company' {
+  const personnel1 = getPersonnelById(personnel1Id);
+  const personnel2 = getPersonnelById(personnel2Id);
+
+  if (!personnel1 || !personnel2) {
+    return 'company'; // Default to highest level if we can't determine
+  }
+
+  const unit1 = getUnitSectionById(personnel1.unit_section_id);
+  const unit2 = getUnitSectionById(personnel2.unit_section_id);
+
+  if (!unit1 || !unit2) {
+    return 'company';
+  }
+
+  // Same work section (same unit_section_id)
+  if (personnel1.unit_section_id === personnel2.unit_section_id) {
+    return 'work_section';
+  }
+
+  // Get parent sections
+  const section1 = unit1.parent_id ? getUnitSectionById(unit1.parent_id) : null;
+  const section2 = unit2.parent_id ? getUnitSectionById(unit2.parent_id) : null;
+
+  // Same section (same parent)
+  if (section1 && section2 && section1.id === section2.id) {
+    return 'section';
+  }
+
+  // Different sections - company manager needed
+  return 'company';
+}
+
+/**
+ * Check if a user can approve a duty change request based on their role and the required level
+ */
+export function canApproveChangeRequest(
+  userRoles: { name: string; scope_unit_id?: string | null }[],
+  requiredLevel: 'work_section' | 'section' | 'company',
+  personnel1Id: string,
+  personnel2Id: string
+): boolean {
+  const personnel1 = getPersonnelById(personnel1Id);
+  const personnel2 = getPersonnelById(personnel2Id);
+
+  if (!personnel1 || !personnel2) return false;
+
+  // Get unit IDs for both personnel
+  const unitIds = new Set([personnel1.unit_section_id, personnel2.unit_section_id]);
+
+  // Check each role
+  for (const role of userRoles) {
+    if (!role.scope_unit_id) continue;
+
+    // Get all units this role has authority over
+    const scopeUnitIds = getAllDescendantUnitIds(role.scope_unit_id);
+    const scopeSet = new Set(scopeUnitIds);
+
+    // Check if both personnel are within scope
+    const bothInScope = [...unitIds].every(id => scopeSet.has(id));
+    if (!bothInScope) continue;
+
+    // Check role level matches required level
+    switch (requiredLevel) {
+      case 'work_section':
+        if (role.name === 'Work Section Manager' || role.name === 'Section Manager' ||
+            role.name === 'Company Manager' || role.name === 'Unit Manager' ||
+            role.name === 'Unit Admin' || role.name === 'App Admin') {
+          return true;
+        }
+        break;
+      case 'section':
+        if (role.name === 'Section Manager' || role.name === 'Company Manager' ||
+            role.name === 'Unit Manager' || role.name === 'Unit Admin' || role.name === 'App Admin') {
+          return true;
+        }
+        break;
+      case 'company':
+        if (role.name === 'Company Manager' || role.name === 'Unit Manager' ||
+            role.name === 'Unit Admin' || role.name === 'App Admin') {
+          return true;
+        }
+        break;
+    }
+  }
+
+  return false;
+}
+
+export function getAllDutyChangeRequests(): DutyChangeRequest[] {
+  return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+}
+
+export function getDutyChangeRequestById(id: string): DutyChangeRequest | undefined {
+  return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).find((r) => r.id === id);
+}
+
+export function getDutyChangeRequestsByPersonnel(personnelId: string): DutyChangeRequest[] {
+  return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).filter(
+    (r) => r.original_personnel_id === personnelId || r.target_personnel_id === personnelId
+  );
+}
+
+export function getPendingDutyChangeRequests(): DutyChangeRequest[] {
+  return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).filter(
+    (r) => r.status === 'pending'
+  );
+}
+
+export function createDutyChangeRequest(request: DutyChangeRequest): DutyChangeRequest {
+  const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
+  list.push(request);
+  saveToStorage(KEYS.dutyChangeRequests, list);
+  triggerAutoSave('dutyChangeRequests');
+  return request;
+}
+
+export function updateDutyChangeRequest(
+  id: string,
+  updates: Partial<DutyChangeRequest>
+): DutyChangeRequest | null {
+  const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
+  const idx = list.findIndex((r) => r.id === id);
+  if (idx === -1) return null;
+  list[idx] = { ...list[idx], ...updates, updated_at: new Date() };
+  saveToStorage(KEYS.dutyChangeRequests, list);
+  triggerAutoSave('dutyChangeRequests');
+  return list[idx];
+}
+
+export function approveDutyChangeRequest(
+  id: string,
+  approverId: string
+): { success: boolean; error?: string } {
+  const request = getDutyChangeRequestById(id);
+  if (!request) return { success: false, error: 'Request not found' };
+  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+
+  // Get the duty slots
+  const originalSlot = getDutySlotById(request.original_slot_id);
+  const targetSlot = getDutySlotById(request.target_slot_id);
+
+  if (!originalSlot || !targetSlot) {
+    return { success: false, error: 'One or both duty slots no longer exist' };
+  }
+
+  // Swap the personnel assignments
+  updateDutySlot(originalSlot.id, {
+    personnel_id: request.target_personnel_id,
+    updated_at: new Date()
+  });
+  updateDutySlot(targetSlot.id, {
+    personnel_id: request.original_personnel_id,
+    updated_at: new Date()
+  });
+
+  // Update the request status
+  updateDutyChangeRequest(id, {
+    status: 'approved',
+    approved_by: approverId,
+    approved_at: new Date()
+  });
+
+  return { success: true };
+}
+
+export function rejectDutyChangeRequest(
+  id: string,
+  approverId: string,
+  reason: string
+): DutyChangeRequest | null {
+  return updateDutyChangeRequest(id, {
+    status: 'rejected',
+    approved_by: approverId,
+    approved_at: new Date(),
+    rejection_reason: reason
+  });
+}
+
+export function deleteDutyChangeRequest(id: string): boolean {
+  const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
+  const filtered = list.filter((r) => r.id !== id);
+  if (filtered.length === list.length) return false;
+  saveToStorage(KEYS.dutyChangeRequests, filtered);
+  triggerAutoSave('dutyChangeRequests');
+  return true;
+}
+
+// Enriched duty change request with personnel and duty type info
+export interface EnrichedDutyChangeRequest extends DutyChangeRequest {
+  originalPersonnel?: Personnel;
+  targetPersonnel?: Personnel;
+  originalDutyType?: DutyType;
+  targetDutyType?: DutyType;
+  requester?: Personnel;
+}
+
+export function getEnrichedDutyChangeRequests(status?: string): EnrichedDutyChangeRequest[] {
+  let requests = getAllDutyChangeRequests();
+  if (status) {
+    requests = requests.filter(r => r.status === status);
+  }
+
+  const personnel = getAllPersonnel();
+  const dutyTypes = getAllDutyTypes();
+
+  const personnelMap = new Map(personnel.map(p => [p.id, p]));
+  const dutyTypeMap = new Map(dutyTypes.map(dt => [dt.id, dt]));
+
+  return requests.map(r => ({
+    ...r,
+    originalPersonnel: personnelMap.get(r.original_personnel_id),
+    targetPersonnel: personnelMap.get(r.target_personnel_id),
+    originalDutyType: dutyTypeMap.get(r.original_duty_type_id),
+    targetDutyType: dutyTypeMap.get(r.target_duty_type_id),
+    requester: r.requester_personnel_id ? personnelMap.get(r.requester_personnel_id) : undefined,
+  }));
 }
 
 // Qualifications
