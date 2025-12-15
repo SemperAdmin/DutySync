@@ -19,10 +19,17 @@ import {
   type EnrichedSlot,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
+import {
+  VIEW_MODE_KEY,
+  VIEW_MODE_CHANGE_EVENT,
+  VIEW_MODE_ADMIN,
+  VIEW_MODE_UNIT_ADMIN,
+  VIEW_MODE_USER,
+  type ViewMode,
+} from "@/lib/constants";
 
-// Manager role names that can assign duties (NOT App Admin - they don't manage roster)
+// Manager role names that can assign duties within their scope
 const MANAGER_ROLES: RoleName[] = [
-  "Unit Admin",
   "Unit Manager",
   "Company Manager",
   "Section Manager",
@@ -74,23 +81,55 @@ export default function RosterPage() {
     existingSlot: EnrichedSlot | null;
   }>({ isOpen: false, date: null, dutyType: null, existingSlot: null });
   const [assigning, setAssigning] = useState(false);
+  const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
 
-  // Check if user is a manager who can assign others
-  const isManager = useMemo(() => {
+  // Sync with view mode from localStorage
+  useEffect(() => {
+    const checkViewMode = () => {
+      const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+      if (stored && [VIEW_MODE_ADMIN, VIEW_MODE_UNIT_ADMIN, VIEW_MODE_USER].includes(stored)) {
+        setCurrentViewMode(stored);
+      }
+    };
+
+    checkViewMode();
+    window.addEventListener("storage", checkViewMode);
+    window.addEventListener(VIEW_MODE_CHANGE_EVENT, checkViewMode);
+
+    return () => {
+      window.removeEventListener("storage", checkViewMode);
+      window.removeEventListener(VIEW_MODE_CHANGE_EVENT, checkViewMode);
+    };
+  }, []);
+
+  // Computed view mode booleans
+  const isUnitAdminView = currentViewMode === VIEW_MODE_UNIT_ADMIN;
+
+  // Check if user has manager role
+  const hasManagerRole = useMemo(() => {
     if (!user?.roles) return false;
     return user.roles.some(r => MANAGER_ROLES.includes(r.role_name as RoleName));
   }, [user?.roles]);
-
-  // All logged-in users can click to assign (self or others based on role)
-  const canAssignDuties = useMemo(() => {
-    return !!user; // Any logged-in user can assign duties
-  }, [user]);
 
   // Check if user is Unit Admin (can mark liberty days)
   const isUnitAdmin = useMemo(() => {
     if (!user?.roles) return false;
     return user.roles.some(r => UNIT_ADMIN_ROLES.includes(r.role_name as RoleName));
   }, [user?.roles]);
+
+  // Effective "manager" status - either a manager role OR Unit Admin in Unit Admin View
+  const isManager = useMemo(() => {
+    // User has a manager role
+    if (hasManagerRole) return true;
+    // Unit Admin in Unit Admin View can also manage assignments
+    if (isUnitAdmin && isUnitAdminView) return true;
+    return false;
+  }, [hasManagerRole, isUnitAdmin, isUnitAdminView]);
+
+  // All logged-in users can click to assign (self or others based on role)
+  const canAssignDuties = useMemo(() => {
+    return !!user; // Any logged-in user can assign duties
+  }, [user]);
 
   // Get Unit Admin's unit scope
   const unitAdminUnitId = useMemo(() => {
@@ -106,6 +145,16 @@ export default function RosterPage() {
     return managerRole?.scope_unit_id || null;
   }, [user?.roles]);
 
+  // Get effective scope based on view mode
+  const effectiveScopeUnitId = useMemo(() => {
+    // In Unit Admin View, use Unit Admin scope
+    if (isUnitAdminView && unitAdminUnitId) {
+      return unitAdminUnitId;
+    }
+    // Otherwise, use manager scope (if they have a manager role)
+    return managerScopeUnitId;
+  }, [isUnitAdminView, unitAdminUnitId, managerScopeUnitId]);
+
   // Get all unit IDs under a scope (recursive - includes the scope unit and all descendants)
   const getUnitsInScope = useCallback((scopeUnitId: string): string[] => {
     const result: string[] = [scopeUnitId];
@@ -116,11 +165,11 @@ export default function RosterPage() {
     return result;
   }, []);
 
-  // All unit IDs the manager can assign from
+  // All unit IDs the user can assign from (based on effective scope)
   const scopeUnitIds = useMemo(() => {
-    if (!managerScopeUnitId) return [];
-    return getUnitsInScope(managerScopeUnitId);
-  }, [managerScopeUnitId, getUnitsInScope]);
+    if (!effectiveScopeUnitId) return [];
+    return getUnitsInScope(effectiveScopeUnitId);
+  }, [effectiveScopeUnitId, getUnitsInScope]);
 
   // Load liberty days from localStorage
   const loadLibertyDays = useCallback(() => {
