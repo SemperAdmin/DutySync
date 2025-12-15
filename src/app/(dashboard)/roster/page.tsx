@@ -106,12 +106,15 @@ export default function RosterPage() {
     dutyType: DutyType | null;
   }>({ isOpen: false, dutyType: null });
 
-  // Export/Print filter state
+  // Export/Print modal state
   const [exportModal, setExportModal] = useState<{
     isOpen: boolean;
     mode: 'csv' | 'print';
   }>({ isOpen: false, mode: 'csv' });
-  const [selectedExportDutyTypes, setSelectedExportDutyTypes] = useState<Set<string>>(new Set());
+
+  // Duty type filter state (controls what's shown in the view AND what gets exported)
+  const [dutyTypeFilter, setDutyTypeFilter] = useState<Set<string>>(new Set()); // Empty = show all
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
 
   // Assignment modal state
   const [assignmentModal, setAssignmentModal] = useState<{
@@ -503,12 +506,44 @@ export default function RosterPage() {
   }
 
   // Filter duty types based on selected unit
-  const filteredDutyTypes = useMemo(() => {
+  // All active duty types for the selected unit (before view filter)
+  const availableDutyTypes = useMemo(() => {
     if (!selectedUnit) {
       return dutyTypes.filter(dt => dt.is_active);
     }
     return dutyTypes.filter(dt => dt.is_active && dt.unit_section_id === selectedUnit);
   }, [dutyTypes, selectedUnit]);
+
+  // Filtered duty types based on user selection (used for display and export)
+  const filteredDutyTypes = useMemo(() => {
+    if (dutyTypeFilter.size === 0) {
+      return availableDutyTypes; // Show all when no filter selected
+    }
+    return availableDutyTypes.filter(dt => dutyTypeFilter.has(dt.id));
+  }, [availableDutyTypes, dutyTypeFilter]);
+
+  // Toggle a duty type in the filter
+  function toggleDutyTypeFilter(dutyTypeId: string) {
+    setDutyTypeFilter(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(dutyTypeId)) {
+        newSet.delete(dutyTypeId);
+      } else {
+        newSet.add(dutyTypeId);
+      }
+      return newSet;
+    });
+  }
+
+  // Clear all filters (show all)
+  function clearDutyTypeFilter() {
+    setDutyTypeFilter(new Set());
+  }
+
+  // Select specific duty types
+  function selectDutyTypeFilter(ids: string[]) {
+    setDutyTypeFilter(new Set(ids));
+  }
 
   // Get the current user's personnel record
   const currentUserPersonnel = useMemo(() => {
@@ -694,39 +729,13 @@ export default function RosterPage() {
     return str;
   }
 
-  // Open export modal with all duty types selected by default
+  // Open export modal
   function openExportModal(mode: 'csv' | 'print') {
-    setSelectedExportDutyTypes(new Set(filteredDutyTypes.map(dt => dt.id)));
     setExportModal({ isOpen: true, mode });
   }
 
-  // Toggle duty type selection for export
-  function toggleExportDutyType(dutyTypeId: string) {
-    setSelectedExportDutyTypes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(dutyTypeId)) {
-        newSet.delete(dutyTypeId);
-      } else {
-        newSet.add(dutyTypeId);
-      }
-      return newSet;
-    });
-  }
-
-  // Select all duty types for export
-  function selectAllExportDutyTypes() {
-    setSelectedExportDutyTypes(new Set(filteredDutyTypes.map(dt => dt.id)));
-  }
-
-  // Deselect all duty types for export
-  function deselectAllExportDutyTypes() {
-    setSelectedExportDutyTypes(new Set());
-  }
-
-  // Get duty types selected for export
-  const exportDutyTypes = useMemo(() => {
-    return filteredDutyTypes.filter(dt => selectedExportDutyTypes.has(dt.id));
-  }, [filteredDutyTypes, selectedExportDutyTypes]);
+  // Export uses the same filtered duty types as the view
+  const exportDutyTypes = filteredDutyTypes;
 
   // Export to CSV
   function exportToCSV() {
@@ -978,21 +987,107 @@ export default function RosterPage() {
           </Button>
         </div>
 
-        {/* Unit Filter */}
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-foreground-muted">Filter by Unit:</label>
-          <select
-            value={selectedUnit}
-            onChange={(e) => setSelectedUnit(e.target.value)}
-            className="px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">All Units</option>
-            {units.map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unit.unit_name}
-              </option>
-            ))}
-          </select>
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Unit Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-foreground-muted">Unit:</label>
+            <select
+              value={selectedUnit}
+              onChange={(e) => setSelectedUnit(e.target.value)}
+              className="px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">All Units</option>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.unit_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Duty Type Filter */}
+          <div className="flex items-center gap-2 relative">
+            <label className="text-sm text-foreground-muted">Duties:</label>
+            <div className="relative">
+              <button
+                onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+                className="px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary flex items-center gap-2 min-w-[140px]"
+              >
+                <span className="truncate">
+                  {dutyTypeFilter.size === 0
+                    ? "All Duties"
+                    : dutyTypeFilter.size === 1
+                    ? availableDutyTypes.find(dt => dutyTypeFilter.has(dt.id))?.duty_name || "1 selected"
+                    : `${dutyTypeFilter.size} selected`}
+                </span>
+                <svg className={`w-4 h-4 transition-transform ${filterDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Dropdown menu */}
+              {filterDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-surface border border-border rounded-lg shadow-lg z-20 max-h-64 overflow-y-auto">
+                  <div className="p-2 border-b border-border flex justify-between items-center">
+                    <span className="text-xs text-foreground-muted">Select duty types to show</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => selectDutyTypeFilter(availableDutyTypes.map(dt => dt.id))}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        All
+                      </button>
+                      <button
+                        onClick={clearDutyTypeFilter}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-1">
+                    {availableDutyTypes.length === 0 ? (
+                      <p className="text-sm text-foreground-muted p-2">No duty types available</p>
+                    ) : (
+                      availableDutyTypes.map((dt) => (
+                        <label
+                          key={dt.id}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface-elevated cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={dutyTypeFilter.size === 0 || dutyTypeFilter.has(dt.id)}
+                            onChange={() => {
+                              if (dutyTypeFilter.size === 0) {
+                                // First selection - select only this one
+                                selectDutyTypeFilter([dt.id]);
+                              } else {
+                                toggleDutyTypeFilter(dt.id);
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary"
+                          />
+                          <span className="text-sm text-foreground truncate">{dt.duty_name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            {dutyTypeFilter.size > 0 && (
+              <button
+                onClick={clearDutyTypeFilter}
+                className="text-xs text-foreground-muted hover:text-foreground"
+                title="Clear filter"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1800,11 +1895,11 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Export/Print Modal with Duty Type Selection */}
+      {/* Export/Print Confirmation Modal */}
       {exportModal.isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-lg border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-border flex items-center justify-between sticky top-0 bg-surface">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-md">
+            <div className="p-4 border-b border-border flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">
                 {exportModal.mode === 'csv' ? 'Export to CSV' : 'Print / PDF'}
               </h2>
@@ -1818,64 +1913,35 @@ export default function RosterPage() {
               </button>
             </div>
             <div className="p-4 space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Select Duty Types to Include
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={selectAllExportDutyTypes}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Select All
-                    </button>
-                    <span className="text-foreground-muted">|</span>
-                    <button
-                      onClick={deselectAllExportDutyTypes}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Clear All
-                    </button>
-                  </div>
-                </div>
-                <div className="max-h-64 overflow-y-auto space-y-1 border border-border rounded-lg p-2">
-                  {filteredDutyTypes.length === 0 ? (
-                    <p className="text-foreground-muted text-sm text-center py-4">No duty types available</p>
-                  ) : (
-                    filteredDutyTypes.map((dt) => (
-                      <label
-                        key={dt.id}
-                        className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-surface-elevated cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedExportDutyTypes.has(dt.id)}
-                          onChange={() => toggleExportDutyType(dt.id)}
-                          className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary"
-                        />
-                        <span className="text-foreground">{dt.duty_name}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-                <p className="text-xs text-foreground-muted mt-2">
-                  {selectedExportDutyTypes.size} of {filteredDutyTypes.length} duty types selected
-                </p>
-              </div>
-
               <div className="p-3 bg-surface-elevated rounded-lg border border-border">
-                <p className="text-sm text-foreground-muted">
-                  <strong>Export Details:</strong>
+                <p className="text-sm text-foreground-muted mb-2">
+                  <strong>Export Summary:</strong>
                 </p>
-                <ul className="text-sm text-foreground-muted mt-1 space-y-0.5">
-                  <li>Month: {formatMonthYear(currentDate)}</li>
-                  <li>Days: {monthDays.length}</li>
-                  <li>Duty Types: {selectedExportDutyTypes.size}</li>
+                <ul className="text-sm text-foreground-muted space-y-1">
+                  <li>Month: <span className="text-foreground">{formatMonthYear(currentDate)}</span></li>
+                  <li>Days: <span className="text-foreground">{monthDays.length}</span></li>
+                  <li>Duty Types: <span className="text-foreground">{filteredDutyTypes.length}</span></li>
                 </ul>
+                {filteredDutyTypes.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <p className="text-xs text-foreground-muted mb-1">Included duties:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {filteredDutyTypes.map(dt => (
+                        <span key={dt.id} className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded">
+                          {dt.duty_name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+              {dutyTypeFilter.size > 0 && (
+                <p className="text-xs text-foreground-muted">
+                  Tip: Use the &quot;Duties&quot; filter in the controls above to change which duty types are included.
+                </p>
+              )}
             </div>
-            <div className="p-4 border-t border-border flex justify-end gap-2 sticky bottom-0 bg-surface">
+            <div className="p-4 border-t border-border flex justify-end gap-2">
               <Button
                 variant="ghost"
                 onClick={() => setExportModal({ isOpen: false, mode: 'csv' })}
@@ -1891,7 +1957,7 @@ export default function RosterPage() {
                   }
                   setExportModal({ isOpen: false, mode: 'csv' });
                 }}
-                disabled={selectedExportDutyTypes.size === 0}
+                disabled={filteredDutyTypes.length === 0}
               >
                 {exportModal.mode === 'csv' ? 'Export CSV' : 'Print / PDF'}
               </Button>
