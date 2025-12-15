@@ -127,6 +127,65 @@ function meetsRequirements(personnelId: string, dutyTypeId: string): boolean {
 }
 
 /**
+ * Helper function to check if a value matches a filter (include/exclude)
+ * Returns true if the person passes the filter check
+ */
+function matchesFilter(
+  mode: 'include' | 'exclude' | null | undefined,
+  values: string[] | null | undefined,
+  personValue: string
+): boolean {
+  if (!mode || !values || values.length === 0) {
+    return true; // No filter applied, so person is eligible
+  }
+  const matches = values.includes(personValue);
+  return mode === 'include' ? matches : !matches;
+}
+
+/**
+ * Check if a person is eligible for a duty type on a given date
+ * Centralized eligibility logic used by both scheduling and preview
+ */
+function isPersonnelEligibleForDuty(
+  person: Personnel,
+  dutyType: DutyType,
+  date: Date,
+  additionalAssignedIds?: Set<string>
+): boolean {
+  // Check availability (not on non-availability)
+  if (!isAvailable(person.id, date)) {
+    return false;
+  }
+
+  // Check if already assigned for this date
+  if (isAlreadyAssigned(person.id, date)) {
+    return false;
+  }
+
+  // Check additional assignments (for preview mode)
+  if (additionalAssignedIds?.has(person.id)) {
+    return false;
+  }
+
+  // Check requirements (qualifications)
+  if (!meetsRequirements(person.id, dutyType.id)) {
+    return false;
+  }
+
+  // Check rank filter criteria from duty type
+  if (!matchesFilter(dutyType.rank_filter_mode, dutyType.rank_filter_values, person.rank)) {
+    return false;
+  }
+
+  // Check section filter criteria from duty type
+  if (!matchesFilter(dutyType.section_filter_mode, dutyType.section_filter_values, person.unit_section_id)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Check if personnel is available on a given date
  */
 function isAvailable(personnelId: string, date: Date): boolean {
@@ -173,41 +232,9 @@ function getEligiblePersonnel(
   const eligible: EligiblePersonnel[] = [];
 
   for (const person of personnel) {
-    // Check availability
-    if (!isAvailable(person.id, date)) {
+    // Use centralized eligibility check
+    if (!isPersonnelEligibleForDuty(person, dutyType, date)) {
       continue;
-    }
-
-    // Check if already assigned for this date
-    if (isAlreadyAssigned(person.id, date)) {
-      continue;
-    }
-
-    // Check requirements (qualifications)
-    if (!meetsRequirements(person.id, dutyType.id)) {
-      continue;
-    }
-
-    // Check rank filter criteria from duty type
-    if (dutyType.rank_filter_mode && dutyType.rank_filter_values && dutyType.rank_filter_values.length > 0) {
-      const personRankMatches = dutyType.rank_filter_values.includes(person.rank);
-      if (dutyType.rank_filter_mode === 'include' && !personRankMatches) {
-        continue; // Rank not in the include list
-      }
-      if (dutyType.rank_filter_mode === 'exclude' && personRankMatches) {
-        continue; // Rank is in the exclude list
-      }
-    }
-
-    // Check section filter criteria from duty type
-    if (dutyType.section_filter_mode && dutyType.section_filter_values && dutyType.section_filter_values.length > 0) {
-      const personSectionMatches = dutyType.section_filter_values.includes(person.unit_section_id);
-      if (dutyType.section_filter_mode === 'include' && !personSectionMatches) {
-        continue; // Section not in the include list
-      }
-      if (dutyType.section_filter_mode === 'exclude' && personSectionMatches) {
-        continue; // Section is in the exclude list
-      }
     }
 
     eligible.push({
@@ -386,41 +413,15 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
 
       // Fill required slots
       for (let slot = 0; slot < dutyType.slots_needed; slot++) {
-        // Get eligible personnel with temp scores
+        // Get eligible personnel with temp scores using centralized eligibility check
         const eligibleList: EligiblePersonnel[] = [];
         const unitPersonnel = getPersonnelByUnitWithDescendants(dutyType.unit_section_id);
+        const previewAssignedForDate = previewAssignments.get(dateKey);
 
         for (const person of unitPersonnel) {
-          // Check availability
-          if (!isAvailable(person.id, date)) continue;
-
-          // Check if already assigned (real or preview)
-          if (isAlreadyAssigned(person.id, date)) continue;
-          if (previewAssignments.get(dateKey)?.has(person.id)) continue;
-
-          // Check requirements (qualifications)
-          if (!meetsRequirements(person.id, dutyType.id)) continue;
-
-          // Check rank filter criteria from duty type
-          if (dutyType.rank_filter_mode && dutyType.rank_filter_values && dutyType.rank_filter_values.length > 0) {
-            const personRankMatches = dutyType.rank_filter_values.includes(person.rank);
-            if (dutyType.rank_filter_mode === 'include' && !personRankMatches) {
-              continue; // Rank not in the include list
-            }
-            if (dutyType.rank_filter_mode === 'exclude' && personRankMatches) {
-              continue; // Rank is in the exclude list
-            }
-          }
-
-          // Check section filter criteria from duty type
-          if (dutyType.section_filter_mode && dutyType.section_filter_values && dutyType.section_filter_values.length > 0) {
-            const personSectionMatches = dutyType.section_filter_values.includes(person.unit_section_id);
-            if (dutyType.section_filter_mode === 'include' && !personSectionMatches) {
-              continue; // Section not in the include list
-            }
-            if (dutyType.section_filter_mode === 'exclude' && personSectionMatches) {
-              continue; // Section is in the exclude list
-            }
+          // Use centralized eligibility check with preview assignments
+          if (!isPersonnelEligibleForDuty(person, dutyType, date, previewAssignedForDate)) {
+            continue;
           }
 
           eligibleList.push({
