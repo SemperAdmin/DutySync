@@ -3,13 +3,13 @@
     {
       "id": "0b216709-dd47-4314-af15-ac8df2ea804b",
       "duty_type_id": "cc6a9a0f-fb58-493a-990c-6cbca2b9cac8",
-      "personnel_id": "c05f6c8f-f887-4de9-ab82-86740b05b4c0",
+      "personnel_id": "ae0c853d-2d97-4346-9f20-4305d95cc024",
       "date_assigned": "2025-12-01T10:00:00.000Z",
       "assigned_by": "404c4006-935f-4b7e-af4d-c21bc48ea99d",
       "duty_points_earned": 1,
       "status": "scheduled",
       "created_at": "2025-12-15T06:46:23.091Z",
-      "updated_at": "2025-12-15T15:17:48.039Z"
+      "updated_at": "2025-12-15T19:19:20.329Z"
     },
     {
       "id": "fed272b7-3bc2-443f-9a1e-5a1539949e42",
@@ -674,13 +674,13 @@
     {
       "id": "49f7e5f7-1c00-437a-bfca-08901a2dbee1",
       "duty_type_id": "cc6a9a0f-fb58-493a-990c-6cbca2b9cac8",
-      "personnel_id": "ae0c853d-2d97-4346-9f20-4305d95cc024",
+      "personnel_id": "c05f6c8f-f887-4de9-ab82-86740b05b4c0",
       "date_assigned": "2025-12-09T00:00:00.000Z",
       "assigned_by": "admin",
       "duty_points_earned": 1,
       "status": "scheduled",
       "created_at": "2025-12-15T15:42:07.791Z",
-      "updated_at": "2025-12-15T15:42:07.791Z"
+      "updated_at": "2025-12-15T19:19:20.328Z"
     },
     {
       "id": "de7637f3-4152-4f4a-8d70-3dc9c0e08580",
@@ -4258,7 +4258,7 @@
       "updated_at": "2025-12-15T17:48:54.498Z"
     }
   ],
-  "exportedAt": "2025-12-15T18:00:39.367Z",
+  "exportedAt": "2025-12-15T19:19:22.799Z",
   "version": "1.0",
   "description": "Scheduled duty assignments for this unit"
 }
