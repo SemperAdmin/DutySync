@@ -1,0 +1,242 @@
+name: Initialize RUC
+
+on:
+  workflow_dispatch:
+    inputs:
+      ruc:
+        description: 'RUC code (e.g., 02301)'
+        required: true
+        type: string
+      unit_name:
+        description: 'Unit display name'
+        required: false
+        type: string
+        default: ''
+      unit_description:
+        description: 'Unit description'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  initialize-ruc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ inputs.ruc }}" ]; then
+            echo "Error: ruc is required"
+            exit 1
+          fi
+
+          # Validate RUC format (should be 5 digits)
+          if ! [[ "${{ inputs.ruc }}" =~ ^[0-9]{5}$ ]]; then
+            echo "Warning: RUC should typically be 5 digits"
+          fi
+
+      - name: Check if RUC already exists
+        id: check_existing
+        run: |
+          if [ -d "public/data/unit/${{ inputs.ruc }}" ]; then
+            echo "RUC directory already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "RUC directory does not exist, will create"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create unit directory and seed files
+        run: |
+          RUC="${{ inputs.ruc }}"
+          UNIT_DIR="public/data/unit/${RUC}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+          # Create directory
+          mkdir -p "${UNIT_DIR}"
+
+          # Generate a root unit ID (for this RUC)
+          ROOT_UNIT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+
+          # Create unit-structure.json with root unit
+          cat > "${UNIT_DIR}/unit-structure.json" << EOF
+          {
+            "units": [
+              {
+                "id": "${ROOT_UNIT_ID}",
+                "parent_id": null,
+                "unit_name": "${RUC}",
+                "unit_code": "${RUC}",
+                "hierarchy_level": "unit",
+                "description": "${RUC}",
+                "created_at": "${TIMESTAMP}",
+                "updated_at": "${TIMESTAMP}"
+              }
+            ],
+            "exportedAt": "${TIMESTAMP}",
+            "version": "1.0"
+          }
+          EOF
+
+          # Format with jq
+          jq '.' "${UNIT_DIR}/unit-structure.json" > "${UNIT_DIR}/unit-structure.json.tmp"
+          mv "${UNIT_DIR}/unit-structure.json.tmp" "${UNIT_DIR}/unit-structure.json"
+
+          # Create unit-members.json (empty)
+          cat > "${UNIT_DIR}/unit-members.json" << EOF
+          {
+            "personnel": [],
+            "encrypted": false,
+            "exportedAt": "${TIMESTAMP}",
+            "version": "1.1"
+          }
+          EOF
+
+          # Create duty-types.json (empty)
+          cat > "${UNIT_DIR}/duty-types.json" << EOF
+          {
+            "dutyTypes": [],
+            "exportedAt": "${TIMESTAMP}",
+            "version": "1.0"
+          }
+          EOF
+
+          # Create duty-roster.json (empty)
+          cat > "${UNIT_DIR}/duty-roster.json" << EOF
+          {
+            "dutySlots": [],
+            "exportedAt": "${TIMESTAMP}",
+            "version": "1.0"
+          }
+          EOF
+
+          # Create non-availability.json (empty)
+          cat > "${UNIT_DIR}/non-availability.json" << EOF
+          {
+            "nonAvailability": [],
+            "exportedAt": "${TIMESTAMP}",
+            "version": "1.0"
+          }
+          EOF
+
+          # Create qualifications.json (empty)
+          cat > "${UNIT_DIR}/qualifications.json" << EOF
+          {
+            "qualifications": [],
+            "exportedAt": "${TIMESTAMP}",
+            "version": "1.0"
+          }
+          EOF
+
+          # Create duty-change-requests.json (empty)
+          cat > "${UNIT_DIR}/duty-change-requests.json" << EOF
+          {
+            "dutyChangeRequests": [],
+            "exportedAt": "${TIMESTAMP}",
+            "version": "1.0",
+            "description": "Duty swap/change requests for personnel in this unit"
+          }
+          EOF
+
+          echo "Created seed files for RUC: ${RUC}"
+          ls -la "${UNIT_DIR}/"
+
+      - name: Update units-index.json
+        run: |
+          RUC="${{ inputs.ruc }}"
+          UNIT_NAME="${{ inputs.unit_name }}"
+          UNIT_DESC="${{ inputs.unit_description }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+          # Default values if not provided
+          if [ -z "${UNIT_NAME}" ]; then
+            UNIT_NAME="${RUC}"
+          fi
+          if [ -z "${UNIT_DESC}" ]; then
+            UNIT_DESC="Unit ${RUC}"
+          fi
+
+          # Read existing units-index.json
+          UNITS_INDEX="public/data/units-index.json"
+
+          # Check if RUC already exists in index
+          if jq -e ".units[] | select(.ruc == \"${RUC}\")" "${UNITS_INDEX}" > /dev/null 2>&1; then
+            echo "RUC ${RUC} already exists in units-index.json, skipping update"
+          else
+            # Add new RUC to the units array
+            jq --arg ruc "${RUC}" \
+               --arg name "${UNIT_NAME}" \
+               --arg desc "${UNIT_DESC}" \
+               --arg timestamp "${TIMESTAMP}" \
+               '.units += [{"ruc": $ruc, "name": $name, "description": $desc}] | .updatedAt = $timestamp' \
+               "${UNITS_INDEX}" > "${UNITS_INDEX}.tmp"
+            mv "${UNITS_INDEX}.tmp" "${UNITS_INDEX}"
+            echo "Added RUC ${RUC} to units-index.json"
+          fi
+
+          cat "${UNITS_INDEX}"
+
+      - name: Update rucs.json
+        run: |
+          RUC="${{ inputs.ruc }}"
+          UNIT_NAME="${{ inputs.unit_name }}"
+
+          # Read existing rucs.json
+          RUCS_FILE="public/data/rucs.json"
+
+          # Check if RUC already exists
+          if jq -e ".rucs[] | select(.ruc == \"${RUC}\")" "${RUCS_FILE}" > /dev/null 2>&1; then
+            echo "RUC ${RUC} already exists in rucs.json, skipping update"
+          else
+            # Add new RUC to the array (name can be null if not provided)
+            if [ -z "${UNIT_NAME}" ]; then
+              jq --arg ruc "${RUC}" \
+                 '.rucs += [{"ruc": $ruc, "name": null}]' \
+                 "${RUCS_FILE}" > "${RUCS_FILE}.tmp"
+            else
+              jq --arg ruc "${RUC}" \
+                 --arg name "${UNIT_NAME}" \
+                 '.rucs += [{"ruc": $ruc, "name": $name}]' \
+                 "${RUCS_FILE}" > "${RUCS_FILE}.tmp"
+            fi
+            mv "${RUCS_FILE}.tmp" "${RUCS_FILE}"
+            echo "Added RUC ${RUC} to rucs.json"
+          fi
+
+      - name: Commit and push changes
+        run: |
+          RUC="${{ inputs.ruc }}"
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Add all changes
+          git add "public/data/unit/${RUC}/"
+          git add "public/data/units-index.json"
+          git add "public/data/rucs.json"
+
+          # Commit if there are changes
+          git diff --cached --quiet || git commit -m "feat: Initialize RUC ${RUC} with seed files"
+          git push
+
+      - name: Output result
+        run: |
+          echo "::notice::RUC ${{ inputs.ruc }} initialized successfully!"
+          echo "Created files:"
+          echo "  - public/data/unit/${{ inputs.ruc }}/unit-structure.json"
+          echo "  - public/data/unit/${{ inputs.ruc }}/unit-members.json"
+          echo "  - public/data/unit/${{ inputs.ruc }}/duty-types.json"
+          echo "  - public/data/unit/${{ inputs.ruc }}/duty-roster.json"
+          echo "  - public/data/unit/${{ inputs.ruc }}/non-availability.json"
+          echo "  - public/data/unit/${{ inputs.ruc }}/qualifications.json"
+          echo "  - public/data/unit/${{ inputs.ruc }}/duty-change-requests.json"
+          echo "Updated indexes:"
+          echo "  - public/data/units-index.json"
+          echo "  - public/data/rucs.json"
