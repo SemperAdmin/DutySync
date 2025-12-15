@@ -304,7 +304,8 @@ export default function DashboardLayout({
     {
       href: "/admin/duty-swaps",
       label: "Duty Swaps",
-      // All users can access to view/submit swap requests
+      // Only show in User View (not for App Admin or Unit Admin)
+      userOnly: true,
       icon: (
         <svg
           className="w-5 h-5"
