@@ -2,7 +2,7 @@
   "dutyTypes": [
     {
       "id": "758125ec-3659-4bf1-a4d8-d0322b441df2",
-      "unit_section_id": "unit-ruc-02301",
+      "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
       "duty_name": "SDO",
       "description": "Staff Duty Officer",
       "slots_needed": 1,
@@ -14,7 +14,7 @@
     },
     {
       "id": "7b84777a-b98c-4329-a87d-9f37efa145c7",
-      "unit_section_id": "unit-ruc-02301",
+      "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
       "duty_name": "Anyone",
       "description": null,
       "slots_needed": 1,
