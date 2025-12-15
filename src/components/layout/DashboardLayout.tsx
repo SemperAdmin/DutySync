@@ -6,7 +6,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/client-auth";
 import Logo from "@/components/ui/Logo";
 import Button from "@/components/ui/Button";
-import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
+import {
+  VIEW_MODE_KEY,
+  VIEW_MODE_CHANGE_EVENT,
+  VIEW_MODE_ADMIN,
+  VIEW_MODE_UNIT_ADMIN,
+  VIEW_MODE_USER,
+  type ViewMode,
+} from "@/lib/constants";
 import AutoSaveStatus from "@/components/AutoSaveStatus";
 import type { SessionUser, RoleName } from "@/types";
 
@@ -64,21 +71,41 @@ export default function DashboardLayout({
   const router = useRouter();
   const { logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isAdminView, setIsAdminView] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODE_USER);
+
+  // Check actual admin status (not affected by view mode)
+  const actuallyIsAppAdmin = hasAnyRole(user, ["App Admin"]);
+  const actuallyIsUnitAdmin = hasAnyRole(user, ["Unit Admin"]);
+  const hasAnyAdminRole = actuallyIsAppAdmin || actuallyIsUnitAdmin;
+
+  // Determine default view mode based on roles
+  const getDefaultViewMode = (): ViewMode => {
+    if (actuallyIsAppAdmin) return VIEW_MODE_ADMIN;
+    if (actuallyIsUnitAdmin) return VIEW_MODE_UNIT_ADMIN;
+    return VIEW_MODE_USER;
+  };
 
   // Load view mode preference from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem(VIEW_MODE_KEY);
-    if (stored !== null) {
-      setIsAdminView(stored === "admin");
+    const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+    if (stored && [VIEW_MODE_ADMIN, VIEW_MODE_UNIT_ADMIN, VIEW_MODE_USER].includes(stored)) {
+      // Validate that user can use this view mode
+      if (stored === VIEW_MODE_ADMIN && !actuallyIsAppAdmin) {
+        setViewMode(getDefaultViewMode());
+      } else if (stored === VIEW_MODE_UNIT_ADMIN && !actuallyIsUnitAdmin) {
+        setViewMode(getDefaultViewMode());
+      } else {
+        setViewMode(stored);
+      }
+    } else {
+      setViewMode(getDefaultViewMode());
     }
-  }, []);
+  }, [actuallyIsAppAdmin, actuallyIsUnitAdmin]);
 
-  // Save view mode preference when it changes
-  const toggleViewMode = () => {
-    const newMode = !isAdminView;
-    setIsAdminView(newMode);
-    localStorage.setItem(VIEW_MODE_KEY, newMode ? "admin" : "user");
+  // Change view mode
+  const changeViewMode = (newMode: ViewMode) => {
+    setViewMode(newMode);
+    localStorage.setItem(VIEW_MODE_KEY, newMode);
     // Dispatch custom event for same-tab communication
     window.dispatchEvent(new CustomEvent(VIEW_MODE_CHANGE_EVENT));
   };
@@ -88,17 +115,16 @@ export default function DashboardLayout({
     router.push("/login");
   };
 
-  // Check actual admin status (not affected by view mode)
-  const actuallyIsAdmin = hasAnyRole(user, ["App Admin"]);
-  const isUnitAdmin = hasAnyRole(user, ["Unit Admin"]);
-
-  // Effective admin status based on view mode (for filtering nav items)
-  const isAdmin = actuallyIsAdmin && isAdminView;
+  // Effective status based on view mode
+  const isAdminView = viewMode === VIEW_MODE_ADMIN;
+  const isUnitAdminView = viewMode === VIEW_MODE_UNIT_ADMIN;
+  const isUserView = viewMode === VIEW_MODE_USER;
 
   // Navigation items with view mode flags
   interface ExtendedNavItem extends NavItem {
-    adminOnly?: boolean; // Only show in Admin View for App Admins
-    userOnly?: boolean; // Only show in User View (hide from Admin View)
+    adminOnly?: boolean; // Only show in Admin View (App Admin only)
+    unitAdminOnly?: boolean; // Show in Admin View OR Unit Admin View
+    userOnly?: boolean; // Only show in User View (hide from Admin/Unit Admin View)
   }
 
   const navItems: ExtendedNavItem[] = [
@@ -126,7 +152,7 @@ export default function DashboardLayout({
       href: "/admin/users",
       label: "User Management",
       allowedRoles: ADMIN_ROLES,
-      adminOnly: true, // Only show in Admin View
+      unitAdminOnly: true, // Show in Admin View OR Unit Admin View
       icon: (
         <svg
           className="w-5 h-5"
@@ -147,7 +173,7 @@ export default function DashboardLayout({
       href: "/admin/units",
       label: "Unit Management",
       allowedRoles: ADMIN_ROLES,
-      adminOnly: true, // Only show in Admin View
+      unitAdminOnly: true, // Show in Admin View OR Unit Admin View
       icon: (
         <svg
           className="w-5 h-5"
@@ -294,16 +320,23 @@ export default function DashboardLayout({
   const filteredNavItems = navItems.filter((item) => {
     // If item is marked adminOnly, only show when App Admin is in Admin View
     if (item.adminOnly) {
-      if (!actuallyIsAdmin || !isAdminView) {
-        return false;
-      }
-      // App Admin in Admin View - show these items
-      return true;
+      return actuallyIsAppAdmin && isAdminView;
     }
 
-    // If item is marked userOnly, hide it when App Admin is in Admin View
-    if (item.userOnly && actuallyIsAdmin && isAdminView) {
+    // If item is marked unitAdminOnly, show in Admin View OR Unit Admin View
+    if (item.unitAdminOnly) {
+      // App Admin in Admin View
+      if (actuallyIsAppAdmin && isAdminView) return true;
+      // Unit Admin in Unit Admin View
+      if (actuallyIsUnitAdmin && isUnitAdminView) return true;
       return false;
+    }
+
+    // If item is marked userOnly, hide it when in Admin View or Unit Admin View
+    if (item.userOnly) {
+      if ((actuallyIsAppAdmin && isAdminView) || (actuallyIsUnitAdmin && isUnitAdminView)) {
+        return false;
+      }
     }
 
     // If no allowedRoles specified, all users can access
@@ -311,12 +344,16 @@ export default function DashboardLayout({
       return true;
     }
 
-    // If App Admin in user view mode, check if they have the required manager roles
-    if (actuallyIsAdmin && !isAdminView) {
+    // In User View, check if user has the required roles (including manager roles)
+    if (isUserView) {
       // For items that allow manager roles, check if user actually has those roles
       const hasManagerRole = item.allowedRoles.some(role => MANAGER_ROLES.includes(role));
-      if (hasManagerRole) {
-        return hasAnyRole(user, MANAGER_ROLES);
+      if (hasManagerRole && hasAnyRole(user, MANAGER_ROLES)) {
+        return true;
+      }
+      // Also check if user has any of the allowed admin roles (they can still access in user view)
+      if (hasAnyRole(user, item.allowedRoles.filter(r => !MANAGER_ROLES.includes(r)))) {
+        return true;
       }
       return false;
     }
@@ -434,51 +471,64 @@ export default function DashboardLayout({
             {/* Right side actions - auto-save status, role badge and view toggle */}
             <div className="flex items-center gap-3 ml-auto">
               {/* Auto-save status indicator */}
-              <AutoSaveStatus ruc="02301" showControls={actuallyIsAdmin} />
+              <AutoSaveStatus ruc="02301" showControls={actuallyIsAppAdmin} />
 
-              {/* View mode toggle for App Admins */}
-              {actuallyIsAdmin && (
-                <button
-                  onClick={toggleViewMode}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
-                    isAdminView
-                      ? "bg-highlight/20 text-highlight border-highlight/30 hover:bg-highlight/30"
-                      : "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30 hover:bg-foreground-muted/30"
-                  }`}
-                  title={isAdminView ? "Switch to User View" : "Switch to Admin View"}
-                >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              {/* View mode toggle for users with admin roles */}
+              {hasAnyAdminRole && (
+                <div className="flex items-center rounded-full border border-border overflow-hidden">
+                  {/* Admin View - only for App Admins */}
+                  {actuallyIsAppAdmin && (
+                    <button
+                      onClick={() => changeViewMode(VIEW_MODE_ADMIN)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                        isAdminView
+                          ? "bg-highlight/20 text-highlight"
+                          : "bg-surface text-foreground-muted hover:bg-surface-elevated"
+                      }`}
+                      title="App Admin View - Full access to all units"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Admin
+                    </button>
+                  )}
+                  {/* Unit Admin View - for Unit Admins */}
+                  {actuallyIsUnitAdmin && (
+                    <button
+                      onClick={() => changeViewMode(VIEW_MODE_UNIT_ADMIN)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                        isUnitAdminView
+                          ? "bg-primary/20 text-blue-400"
+                          : "bg-surface text-foreground-muted hover:bg-surface-elevated"
+                      }`}
+                      title="Unit Admin View - Access to your unit"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      Unit Admin
+                    </button>
+                  )}
+                  {/* User View - always available */}
+                  <button
+                    onClick={() => changeViewMode(VIEW_MODE_USER)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                      isUserView
+                        ? "bg-success/20 text-success"
+                        : "bg-surface text-foreground-muted hover:bg-surface-elevated"
+                    }`}
+                    title="User View - Personal scope"
                   >
-                    {isAdminView ? (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                      />
-                    ) : (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    )}
-                  </svg>
-                  {isAdminView ? "Admin View" : "User View"}
-                </button>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    User
+                  </button>
+                </div>
               )}
-              {/* Role badge for non-admins */}
-              {!actuallyIsAdmin && isUnitAdmin && (
-                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-primary/20 text-blue-400">
-                  Unit Admin
-                </span>
-              )}
-              {!actuallyIsAdmin && !isUnitAdmin && isManager(user) && (
+              {/* Role badge for users without admin roles */}
+              {!hasAnyAdminRole && isManager(user) && (
                 <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-success/20 text-success">
                   Manager
                 </span>

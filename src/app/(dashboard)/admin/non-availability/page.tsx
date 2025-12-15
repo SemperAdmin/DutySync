@@ -15,7 +15,14 @@ import {
   getPersonnelByEdipi,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
-import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
+import {
+  VIEW_MODE_KEY,
+  VIEW_MODE_CHANGE_EVENT,
+  VIEW_MODE_ADMIN,
+  VIEW_MODE_UNIT_ADMIN,
+  VIEW_MODE_USER,
+  type ViewMode,
+} from "@/lib/constants";
 
 // Manager role names
 const MANAGER_ROLES: RoleName[] = [
@@ -36,13 +43,15 @@ export default function NonAvailabilityAdminPage() {
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"self" | "scope">("self");
-  const [isAdminView, setIsAdminView] = useState(true);
+  const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
 
-  // Sync with view mode from localStorage (Admin View / User View toggle)
+  // Sync with view mode from localStorage
   useEffect(() => {
     const checkViewMode = () => {
-      const stored = localStorage.getItem(VIEW_MODE_KEY);
-      setIsAdminView(stored !== "user");
+      const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+      if (stored && [VIEW_MODE_ADMIN, VIEW_MODE_UNIT_ADMIN, VIEW_MODE_USER].includes(stored)) {
+        setCurrentViewMode(stored);
+      }
     };
 
     checkViewMode();
@@ -55,6 +64,10 @@ export default function NonAvailabilityAdminPage() {
     };
   }, []);
 
+  // Computed view mode booleans
+  const isAdminView = currentViewMode === VIEW_MODE_ADMIN;
+  const isUnitAdminView = currentViewMode === VIEW_MODE_UNIT_ADMIN;
+
   // Get the current user's personnel record
   const currentUserPersonnel = useMemo(() => {
     if (!user?.edipi) return null;
@@ -66,9 +79,12 @@ export default function NonAvailabilityAdminPage() {
   const hasUnitAdminRole = user?.roles?.some((r) => r.role_name === "Unit Admin");
   const isManager = user?.roles?.some((r) => MANAGER_ROLES.includes(r.role_name as RoleName));
 
-  // Effective admin status - respects Admin View/User View toggle
+  // Effective admin status - respects view mode toggle
+  // Admin View: App Admin sees everything
+  // Unit Admin View: Unit Admin sees their unit scope
+  // User View: Manager role scope applies
   const effectiveIsAppAdmin = isAppAdmin && isAdminView;
-  const effectiveIsUnitAdmin = hasUnitAdminRole && isAdminView;
+  const effectiveIsUnitAdmin = hasUnitAdminRole && isUnitAdminView;
 
   const isManagerWithApproval = user?.can_approve_non_availability && isManager;
 
@@ -79,8 +95,6 @@ export default function NonAvailabilityAdminPage() {
   const canApprove = effectiveIsAppAdmin || effectiveIsUnitAdmin || isManagerWithApproval;
 
   // Get user's scoped unit ID based on view mode
-  // In User View: prioritize manager role scope
-  // In Admin View: prioritize Unit Admin scope
   const userScopeUnitId = useMemo(() => {
     if (!user?.roles) return null;
 
@@ -91,17 +105,23 @@ export default function NonAvailabilityAdminPage() {
       MANAGER_ROLES.includes(r.role_name as RoleName) && r.scope_unit_id
     );
 
-    // In User View, prioritize manager role scope
-    if (!isAdminView && managerRole?.scope_unit_id) {
+    // In Admin View, App Admin sees everything (handled by effectiveIsAppAdmin)
+    // In Unit Admin View, use Unit Admin scope
+    if (isUnitAdminView && unitAdminRole?.scope_unit_id) {
+      return unitAdminRole.scope_unit_id;
+    }
+
+    // In User View, prioritize manager role scope for user experience
+    if (!isAdminView && !isUnitAdminView && managerRole?.scope_unit_id) {
       return managerRole.scope_unit_id;
     }
 
-    // In Admin View or no manager role, use Unit Admin scope first
-    if (unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
+    // Fall back: Unit Admin scope if in Admin View with Unit Admin role
+    if (isAdminView && unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
 
-    // Fall back to manager role scope
+    // Final fall back to manager role scope
     return managerRole?.scope_unit_id || null;
-  }, [user?.roles, isAdminView]);
+  }, [user?.roles, isAdminView, isUnitAdminView]);
 
   // Check if a personnel is within user's scope
   const isInUserScope = (personnelUnitId: string): boolean => {
