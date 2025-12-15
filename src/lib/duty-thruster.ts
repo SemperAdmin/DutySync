@@ -182,15 +182,31 @@ function getEligiblePersonnel(
       continue;
     }
 
-    // Check requirements
+    // Check requirements (qualifications)
     if (!meetsRequirements(person.id, dutyType.id)) {
       continue;
     }
 
-    // Check rank requirements
-    if (dutyType.required_rank_min || dutyType.required_rank_max) {
-      // Simple rank comparison (would need proper rank ordering in production)
-      // For now, we skip rank filtering in MVP
+    // Check rank filter criteria from duty type
+    if (dutyType.rank_filter_mode && dutyType.rank_filter_values && dutyType.rank_filter_values.length > 0) {
+      const personRankMatches = dutyType.rank_filter_values.includes(person.rank);
+      if (dutyType.rank_filter_mode === 'include' && !personRankMatches) {
+        continue; // Rank not in the include list
+      }
+      if (dutyType.rank_filter_mode === 'exclude' && personRankMatches) {
+        continue; // Rank is in the exclude list
+      }
+    }
+
+    // Check section filter criteria from duty type
+    if (dutyType.section_filter_mode && dutyType.section_filter_values && dutyType.section_filter_values.length > 0) {
+      const personSectionMatches = dutyType.section_filter_values.includes(person.unit_section_id);
+      if (dutyType.section_filter_mode === 'include' && !personSectionMatches) {
+        continue; // Section not in the include list
+      }
+      if (dutyType.section_filter_mode === 'exclude' && personSectionMatches) {
+        continue; // Section is in the exclude list
+      }
     }
 
     eligible.push({
@@ -381,8 +397,30 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
           if (isAlreadyAssigned(person.id, date)) continue;
           if (previewAssignments.get(dateKey)?.has(person.id)) continue;
 
-          // Check requirements
+          // Check requirements (qualifications)
           if (!meetsRequirements(person.id, dutyType.id)) continue;
+
+          // Check rank filter criteria from duty type
+          if (dutyType.rank_filter_mode && dutyType.rank_filter_values && dutyType.rank_filter_values.length > 0) {
+            const personRankMatches = dutyType.rank_filter_values.includes(person.rank);
+            if (dutyType.rank_filter_mode === 'include' && !personRankMatches) {
+              continue; // Rank not in the include list
+            }
+            if (dutyType.rank_filter_mode === 'exclude' && personRankMatches) {
+              continue; // Rank is in the exclude list
+            }
+          }
+
+          // Check section filter criteria from duty type
+          if (dutyType.section_filter_mode && dutyType.section_filter_values && dutyType.section_filter_values.length > 0) {
+            const personSectionMatches = dutyType.section_filter_values.includes(person.unit_section_id);
+            if (dutyType.section_filter_mode === 'include' && !personSectionMatches) {
+              continue; // Section not in the include list
+            }
+            if (dutyType.section_filter_mode === 'exclude' && personSectionMatches) {
+              continue; // Section is in the exclude list
+            }
+          }
 
           eligibleList.push({
             personnel: person,
