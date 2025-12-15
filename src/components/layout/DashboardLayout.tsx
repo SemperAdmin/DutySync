@@ -131,6 +131,7 @@ export default function DashboardLayout({
     userOnly?: boolean; // Only show in User View (hide from Admin/Unit Admin View)
     userAndUnitAdminView?: boolean; // Show in User View AND Unit Admin View (NOT App Admin View)
     managerOnly?: boolean; // Only show for managers in User View
+    managerOrUnitAdmin?: boolean; // Show for managers in User View OR Unit Admins in Unit Admin View
   }
 
   const navItems: ExtendedNavItem[] = [
@@ -261,7 +262,7 @@ export default function DashboardLayout({
     {
       href: "/admin/personnel",
       label: "Personnel",
-      managerOnly: true, // Only show for managers in User View (not regular users)
+      managerOrUnitAdmin: true, // Show for managers in User View OR Unit Admins in Unit Admin View
       icon: (
         <svg
           className="w-5 h-5"
@@ -388,6 +389,16 @@ export default function DashboardLayout({
         return false;
       }
       return true;
+    }
+
+    // If item is marked managerOrUnitAdmin, show for managers in User View OR Unit Admins in Unit Admin View
+    if (item.managerOrUnitAdmin) {
+      // Show for Unit Admin in Unit Admin View
+      if (actuallyIsUnitAdmin && isUnitAdminView) return true;
+      // Show for managers in User View (not in Admin/Unit Admin views)
+      if (actuallyIsManager && !isAdminView && !isUnitAdminView) return true;
+      // Hide otherwise (regular users without manager role, or App Admins)
+      return false;
     }
 
     // If no allowedRoles specified, all users can access

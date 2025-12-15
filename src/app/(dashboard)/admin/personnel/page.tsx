@@ -59,7 +59,7 @@ export default function PersonnelPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<"self" | "scope">("self");
+  const [viewMode, setViewMode] = useState<"self" | "scope">("scope"); // Default to scope for managers/admins
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
 
   const fetchData = useCallback(() => {
