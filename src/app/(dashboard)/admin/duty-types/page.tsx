@@ -18,6 +18,7 @@ import {
   getChildUnits,
   type EnrichedDutyType,
 } from "@/lib/client-stores";
+import { useAuth } from "@/lib/client-auth";
 
 // Common qualifications that can be required for duties
 const COMMON_QUALIFICATIONS = [
@@ -36,19 +37,31 @@ const COMMON_QUALIFICATIONS = [
 
 type FilterMode = 'include' | 'exclude' | null;
 
+// Extended duty type with blocks info
+interface DutyTypeWithBlocks extends EnrichedDutyType {
+  activeBlocks: BlockedDuty[];
+}
+
 export default function DutyTypesPage() {
-  const [dutyTypes, setDutyTypes] = useState<EnrichedDutyType[]>([]);
+  const { user } = useAuth();
+  const [dutyTypes, setDutyTypes] = useState<DutyTypeWithBlocks[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUnitFilter, setSelectedUnitFilter] = useState<string>("");
 
+  // Selection for blocking
+  const [selectedDutyIds, setSelectedDutyIds] = useState<Set<string>>(new Set());
+
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [isViewBlocksModalOpen, setIsViewBlocksModalOpen] = useState(false);
   const [editingDutyType, setEditingDutyType] = useState<EnrichedDutyType | null>(null);
   const [deletingDutyType, setDeletingDutyType] = useState<EnrichedDutyType | null>(null);
+  const [viewingBlocksDutyType, setViewingBlocksDutyType] = useState<DutyTypeWithBlocks | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -68,6 +81,13 @@ export default function DutyTypesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // Block form state
+  const [blockFormData, setBlockFormData] = useState({
+    startDate: "",
+    endDate: "",
+    reason: "",
+  });
+
   useEffect(() => {
     fetchData();
   }, [selectedUnitFilter]);
@@ -82,7 +102,12 @@ export default function DutyTypesPage() {
       setPersonnel(personnelData);
 
       const dutyTypesData = getEnrichedDutyTypes(selectedUnitFilter || undefined);
-      setDutyTypes(dutyTypesData);
+      // Enrich with active blocks
+      const enrichedWithBlocks: DutyTypeWithBlocks[] = dutyTypesData.map((dt) => ({
+        ...dt,
+        activeBlocks: getActiveBlocksForDutyType(dt.id),
+      }));
+      setDutyTypes(enrichedWithBlocks);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -384,6 +409,43 @@ export default function DutyTypesPage() {
         </div>
         <Button onClick={openAddModal}>+ Add Duty Type</Button>
       </div>
+
+      {/* Selection Toolbar */}
+      {dutyTypes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 p-3 bg-surface-elevated rounded-lg border border-border">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                selectedDutyIds.size === dutyTypes.length ? clearSelection() : selectAllDuties()
+              }
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-foreground-muted hover:text-foreground border border-border rounded-lg hover:bg-surface transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={selectedDutyIds.size === dutyTypes.length && dutyTypes.length > 0}
+                onChange={() => {}}
+                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+              />
+              Select All
+            </button>
+          </div>
+
+          {selectedDutyIds.size > 0 && (
+            <>
+              <span className="text-sm text-foreground-muted">
+                {selectedDutyIds.size} selected
+              </span>
+              <Button size="sm" variant="secondary" onClick={openBlockModal}>
+                Block Selected Dates
+              </Button>
+              <Button size="sm" variant="ghost" onClick={clearSelection}>
+                Clear Selection
+              </Button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4">
@@ -1105,6 +1167,159 @@ export default function DutyTypesPage() {
               </Button>
               <Button variant="primary" onClick={handleDelete} disabled={submitting}>
                 {submitting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Block Dates Modal */}
+      {isBlockModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-md">
+            <div className="p-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Block Duty Dates</h2>
+              <p className="text-sm text-foreground-muted mt-1">
+                Block {selectedDutyIds.size} selected duty type{selectedDutyIds.size > 1 ? "s" : ""} for specific dates
+              </p>
+            </div>
+            <form onSubmit={handleBlockSelectedDuties} className="p-4 space-y-4">
+              {error && (
+                <div className="p-3 bg-accent/20 text-accent rounded-lg text-sm">{error}</div>
+              )}
+
+              <div className="space-y-3">
+                <div className="p-3 bg-surface-elevated rounded-lg border border-border">
+                  <p className="text-xs text-foreground-muted mb-2">Blocking:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from(selectedDutyIds).map((id) => {
+                      const dt = dutyTypes.find((d) => d.id === id);
+                      return dt ? (
+                        <span
+                          key={id}
+                          className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full"
+                        >
+                          {dt.duty_name}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      Start Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={blockFormData.startDate}
+                      onChange={(e) =>
+                        setBlockFormData({ ...blockFormData, startDate: e.target.value })
+                      }
+                      required
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      End Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={blockFormData.endDate}
+                      onChange={(e) =>
+                        setBlockFormData({ ...blockFormData, endDate: e.target.value })
+                      }
+                      required
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Reason (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={blockFormData.reason}
+                    onChange={(e) =>
+                      setBlockFormData({ ...blockFormData, reason: e.target.value })
+                    }
+                    placeholder="e.g., Holiday, Training, Special Event"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setIsBlockModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? "Blocking..." : "Block Dates"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Blocks Modal */}
+      {isViewBlocksModalOpen && viewingBlocksDutyType && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-md">
+            <div className="p-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Blocked Dates</h2>
+              <p className="text-sm text-foreground-muted mt-1">
+                {viewingBlocksDutyType.duty_name}
+              </p>
+            </div>
+            <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+              {viewingBlocksDutyType.activeBlocks.length === 0 ? (
+                <p className="text-foreground-muted text-center py-4">
+                  No active blocks for this duty type.
+                </p>
+              ) : (
+                viewingBlocksDutyType.activeBlocks.map((block) => (
+                  <div
+                    key={block.id}
+                    className="flex items-center justify-between p-3 bg-surface-elevated rounded-lg border border-border"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {formatDate(block.start_date)} - {formatDate(block.end_date)}
+                      </p>
+                      {block.reason && (
+                        <p className="text-xs text-foreground-muted mt-0.5">{block.reason}</p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRemoveBlock(block.id)}
+                      className="text-accent hover:text-accent hover:bg-accent/10"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex justify-end gap-3 p-4 border-t border-border">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsViewBlocksModalOpen(false);
+                  setViewingBlocksDutyType(null);
+                }}
+              >
+                Close
               </Button>
             </div>
           </div>

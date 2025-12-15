@@ -139,6 +139,18 @@ export interface HistoricRoster {
   created_at: Date;
 }
 
+// Blocked Duty (Unit Admin can block specific duties on specific days)
+export interface BlockedDuty {
+  id: UUID;
+  duty_type_id: UUID;
+  unit_section_id: UUID; // The unit scope for this block
+  start_date: Date;
+  end_date: Date;
+  reason: string | null;
+  blocked_by: UUID; // User ID who created the block
+  created_at: Date;
+}
+
 // Session user for Auth.js
 export interface SessionUser {
   id: string;

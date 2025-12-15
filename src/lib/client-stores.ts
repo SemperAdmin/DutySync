@@ -9,6 +9,7 @@ import type {
   DutySlot,
   NonAvailability,
   Qualification,
+  BlockedDuty,
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 
@@ -109,6 +110,7 @@ const KEYS = {
   dutySlots: "dutysync_duty_slots",
   nonAvailability: "dutysync_non_availability",
   qualifications: "dutysync_qualifications",
+  blockedDuties: "dutysync_blocked_duties",
   users: "dutysync_users",
   rucs: "dutysync_rucs",
   seedDataLoaded: "dutysync_seed_loaded",
@@ -894,6 +896,83 @@ export function removeQualification(personnelId: string, qualName: string): bool
   saveToStorage(KEYS.qualifications, filtered);
   triggerAutoSave('qualifications');
   return true;
+}
+
+// Blocked Duties
+export function getAllBlockedDuties(): BlockedDuty[] {
+  return getFromStorage<BlockedDuty>(KEYS.blockedDuties).sort(
+    (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+  );
+}
+
+export function getBlockedDutiesByDutyType(dutyTypeId: string): BlockedDuty[] {
+  return getFromStorage<BlockedDuty>(KEYS.blockedDuties).filter(
+    (bd) => bd.duty_type_id === dutyTypeId
+  );
+}
+
+export function getBlockedDutiesByUnit(unitId: string): BlockedDuty[] {
+  return getFromStorage<BlockedDuty>(KEYS.blockedDuties).filter(
+    (bd) => bd.unit_section_id === unitId
+  );
+}
+
+export function getBlockedDutyById(id: string): BlockedDuty | undefined {
+  return getFromStorage<BlockedDuty>(KEYS.blockedDuties).find((bd) => bd.id === id);
+}
+
+// Check if a duty is blocked on a specific date
+export function isDutyBlockedOnDate(dutyTypeId: string, date: Date): BlockedDuty | undefined {
+  const dateTime = date.getTime();
+  return getFromStorage<BlockedDuty>(KEYS.blockedDuties).find((bd) => {
+    if (bd.duty_type_id !== dutyTypeId) return false;
+    const start = new Date(bd.start_date).getTime();
+    const end = new Date(bd.end_date).getTime();
+    return dateTime >= start && dateTime <= end;
+  });
+}
+
+// Get all active blocks for a duty type (blocks that overlap with today or future)
+export function getActiveBlocksForDutyType(dutyTypeId: string): BlockedDuty[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayTime = today.getTime();
+
+  return getFromStorage<BlockedDuty>(KEYS.blockedDuties).filter((bd) => {
+    if (bd.duty_type_id !== dutyTypeId) return false;
+    const end = new Date(bd.end_date).getTime();
+    return end >= todayTime; // Block end is today or in the future
+  });
+}
+
+export function createBlockedDuty(blockedDuty: BlockedDuty): BlockedDuty {
+  const list = getFromStorage<BlockedDuty>(KEYS.blockedDuties);
+  list.push(blockedDuty);
+  saveToStorage(KEYS.blockedDuties, list);
+  triggerAutoSave('blockedDuties');
+  return blockedDuty;
+}
+
+export function deleteBlockedDuty(id: string): boolean {
+  const list = getFromStorage<BlockedDuty>(KEYS.blockedDuties);
+  const filtered = list.filter((bd) => bd.id !== id);
+  if (filtered.length === list.length) return false;
+  saveToStorage(KEYS.blockedDuties, filtered);
+  triggerAutoSave('blockedDuties');
+  return true;
+}
+
+// Delete all blocks for specific duty types
+export function deleteBlocksForDutyTypes(dutyTypeIds: string[]): number {
+  const list = getFromStorage<BlockedDuty>(KEYS.blockedDuties);
+  const idsSet = new Set(dutyTypeIds);
+  const filtered = list.filter((bd) => !idsSet.has(bd.duty_type_id));
+  const deletedCount = list.length - filtered.length;
+  if (deletedCount > 0) {
+    saveToStorage(KEYS.blockedDuties, filtered);
+    triggerAutoSave('blockedDuties');
+  }
+  return deletedCount;
 }
 
 // ============ Enriched Types Helpers ============
