@@ -135,7 +135,10 @@ function mergeById<T extends { id: string }>(
   remoteData: T[],
   filterFn?: (item: T) => boolean
 ): T[] {
-  const remoteIds = new Set(remoteData.map((item) => item.id));
+  // Deduplicate remote data to prevent introducing duplicates, keeping the last one.
+  const remoteDataMap = new Map(remoteData.map(item => [item.id, item]));
+  const uniqueRemoteData = Array.from(remoteDataMap.values());
+  const remoteIds = new Set(remoteDataMap.keys());
 
   // Keep local items that:
   // 1. Don't exist in remote data (by ID)
@@ -149,7 +152,7 @@ function mergeById<T extends { id: string }>(
     return true;
   });
 
-  return [...filteredLocal, ...remoteData];
+  return [...filteredLocal, ...uniqueRemoteData];
 }
 
 /**

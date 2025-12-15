@@ -44,7 +44,85 @@ const FEDERAL_HOLIDAYS_2025 = [
   "2025-12-25", // Christmas
 ];
 
-const FEDERAL_HOLIDAYS = new Set([...FEDERAL_HOLIDAYS_2024, ...FEDERAL_HOLIDAYS_2025]);
+const FEDERAL_HOLIDAYS_2026 = [
+  "2026-01-01", // New Year's Day
+  "2026-01-19", // MLK Day (3rd Monday of January)
+  "2026-02-16", // Presidents Day (3rd Monday of February)
+  "2026-05-25", // Memorial Day (Last Monday of May)
+  "2026-06-19", // Juneteenth
+  "2026-07-03", // Independence Day (observed, July 4 is Saturday)
+  "2026-09-07", // Labor Day (1st Monday of September)
+  "2026-10-12", // Columbus Day (2nd Monday of October)
+  "2026-11-11", // Veterans Day
+  "2026-11-26", // Thanksgiving (4th Thursday of November)
+  "2026-12-25", // Christmas
+];
+
+const FEDERAL_HOLIDAYS_2027 = [
+  "2027-01-01", // New Year's Day
+  "2027-01-18", // MLK Day (3rd Monday of January)
+  "2027-02-15", // Presidents Day (3rd Monday of February)
+  "2027-05-31", // Memorial Day (Last Monday of May)
+  "2027-06-18", // Juneteenth (observed, June 19 is Saturday)
+  "2027-07-05", // Independence Day (observed, July 4 is Sunday)
+  "2027-09-06", // Labor Day (1st Monday of September)
+  "2027-10-11", // Columbus Day (2nd Monday of October)
+  "2027-11-11", // Veterans Day
+  "2027-11-25", // Thanksgiving (4th Thursday of November)
+  "2027-12-24", // Christmas (observed, Dec 25 is Saturday)
+];
+
+const FEDERAL_HOLIDAYS_2028 = [
+  "2028-01-01", // New Year's Day (observed, falls on Saturday but observed Friday Dec 31 2027)
+  "2028-01-17", // MLK Day (3rd Monday of January)
+  "2028-02-21", // Presidents Day (3rd Monday of February)
+  "2028-05-29", // Memorial Day (Last Monday of May)
+  "2028-06-19", // Juneteenth
+  "2028-07-04", // Independence Day
+  "2028-09-04", // Labor Day (1st Monday of September)
+  "2028-10-09", // Columbus Day (2nd Monday of October)
+  "2028-11-10", // Veterans Day (observed, Nov 11 is Saturday)
+  "2028-11-23", // Thanksgiving (4th Thursday of November)
+  "2028-12-25", // Christmas
+];
+
+const FEDERAL_HOLIDAYS_2029 = [
+  "2029-01-01", // New Year's Day
+  "2029-01-15", // MLK Day (3rd Monday of January)
+  "2029-02-19", // Presidents Day (3rd Monday of February)
+  "2029-05-28", // Memorial Day (Last Monday of May)
+  "2029-06-19", // Juneteenth
+  "2029-07-04", // Independence Day
+  "2029-09-03", // Labor Day (1st Monday of September)
+  "2029-10-08", // Columbus Day (2nd Monday of October)
+  "2029-11-12", // Veterans Day (observed, Nov 11 is Sunday)
+  "2029-11-22", // Thanksgiving (4th Thursday of November)
+  "2029-12-25", // Christmas
+];
+
+const FEDERAL_HOLIDAYS_2030 = [
+  "2030-01-01", // New Year's Day
+  "2030-01-21", // MLK Day (3rd Monday of January)
+  "2030-02-18", // Presidents Day (3rd Monday of February)
+  "2030-05-27", // Memorial Day (Last Monday of May)
+  "2030-06-19", // Juneteenth
+  "2030-07-04", // Independence Day
+  "2030-09-02", // Labor Day (1st Monday of September)
+  "2030-10-14", // Columbus Day (2nd Monday of October)
+  "2030-11-11", // Veterans Day
+  "2030-11-28", // Thanksgiving (4th Thursday of November)
+  "2030-12-25", // Christmas
+];
+
+const FEDERAL_HOLIDAYS = new Set([
+  ...FEDERAL_HOLIDAYS_2024,
+  ...FEDERAL_HOLIDAYS_2025,
+  ...FEDERAL_HOLIDAYS_2026,
+  ...FEDERAL_HOLIDAYS_2027,
+  ...FEDERAL_HOLIDAYS_2028,
+  ...FEDERAL_HOLIDAYS_2029,
+  ...FEDERAL_HOLIDAYS_2030,
+]);
 
 function isHoliday(date: Date): boolean {
   const dateStr = date.toISOString().split("T")[0];
@@ -603,45 +681,20 @@ function deduplicateById<T extends { id: string }>(data: T[]): T[] {
 export function deduplicateLocalStorageData(): void {
   if (typeof window === "undefined") return;
 
-  // Deduplicate units
-  const units = getFromStorage<UnitSection>(KEYS.units);
-  const dedupedUnits = deduplicateById(units);
-  if (dedupedUnits.length !== units.length) {
-    console.log(`Deduplicated units: ${units.length} -> ${dedupedUnits.length}`);
-    saveToStorage(KEYS.units, dedupedUnits);
-  }
+  const deduplicateAndSave = <T extends { id: string }>(key: string, name: string) => {
+    const items = getFromStorage<T>(key);
+    const dedupedItems = deduplicateById(items);
+    if (dedupedItems.length !== items.length) {
+      console.log(`Deduplicated ${name}: ${items.length} -> ${dedupedItems.length}`);
+      saveToStorage(key, dedupedItems);
+    }
+  };
 
-  // Deduplicate personnel
-  const personnel = getFromStorage<Personnel>(KEYS.personnel);
-  const dedupedPersonnel = deduplicateById(personnel);
-  if (dedupedPersonnel.length !== personnel.length) {
-    console.log(`Deduplicated personnel: ${personnel.length} -> ${dedupedPersonnel.length}`);
-    saveToStorage(KEYS.personnel, dedupedPersonnel);
-  }
-
-  // Deduplicate duty slots
-  const dutySlots = getFromStorage<DutySlot>(KEYS.dutySlots);
-  const dedupedSlots = deduplicateById(dutySlots);
-  if (dedupedSlots.length !== dutySlots.length) {
-    console.log(`Deduplicated duty slots: ${dutySlots.length} -> ${dedupedSlots.length}`);
-    saveToStorage(KEYS.dutySlots, dedupedSlots);
-  }
-
-  // Deduplicate duty types
-  const dutyTypes = getFromStorage<DutyType>(KEYS.dutyTypes);
-  const dedupedTypes = deduplicateById(dutyTypes);
-  if (dedupedTypes.length !== dutyTypes.length) {
-    console.log(`Deduplicated duty types: ${dutyTypes.length} -> ${dedupedTypes.length}`);
-    saveToStorage(KEYS.dutyTypes, dedupedTypes);
-  }
-
-  // Deduplicate non-availability
-  const nonAvail = getFromStorage<NonAvailability>(KEYS.nonAvailability);
-  const dedupedNA = deduplicateById(nonAvail);
-  if (dedupedNA.length !== nonAvail.length) {
-    console.log(`Deduplicated non-availability: ${nonAvail.length} -> ${dedupedNA.length}`);
-    saveToStorage(KEYS.nonAvailability, dedupedNA);
-  }
+  deduplicateAndSave<UnitSection>(KEYS.units, "units");
+  deduplicateAndSave<Personnel>(KEYS.personnel, "personnel");
+  deduplicateAndSave<DutySlot>(KEYS.dutySlots, "duty slots");
+  deduplicateAndSave<DutyType>(KEYS.dutyTypes, "duty types");
+  deduplicateAndSave<NonAvailability>(KEYS.nonAvailability, "non-availability");
 }
 
 // Unit Sections

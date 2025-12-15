@@ -60,6 +60,9 @@ function getApproverLevelName(level: 'work_section' | 'section' | 'company'): st
     case 'work_section': return 'Work Section Manager';
     case 'section': return 'Section Manager';
     case 'company': return 'Company Manager';
+    default:
+      // This should not be reachable with the current types, but ensures future safety.
+      return 'Unknown Approver';
   }
 }
 
@@ -218,6 +221,12 @@ export default function DutySwapsPage() {
     return myRequests;
   }, [requests, effectiveIsAppAdmin, user?.id, currentUserPersonnel]);
 
+  // Refresh requests data from storage
+  function refreshRequests() {
+    const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
+    setRequests(requestsData);
+  }
+
   // Handle approve
   async function handleApprove(requestId: string) {
     if (!user) return;
@@ -225,9 +234,7 @@ export default function DutySwapsPage() {
     try {
       const result = approveDutyChangeRequest(requestId, user.id);
       if (result.success) {
-        // Refresh data
-        const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
-        setRequests(requestsData);
+        refreshRequests();
       } else {
         alert(result.error || "Failed to approve request");
       }
@@ -253,9 +260,7 @@ export default function DutySwapsPage() {
     setProcessingId(rejectModal.requestId);
     try {
       rejectDutyChangeRequest(rejectModal.requestId, user.id, rejectModal.reason);
-      // Refresh data
-      const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
-      setRequests(requestsData);
+      refreshRequests();
       setRejectModal({ isOpen: false, requestId: null, reason: "" });
     } catch (err) {
       console.error("Error rejecting request:", err);
@@ -268,13 +273,14 @@ export default function DutySwapsPage() {
   function handleDelete(requestId: string) {
     if (!confirm("Are you sure you want to delete this request?")) return;
 
+    setProcessingId(requestId);
     try {
       deleteDutyChangeRequest(requestId);
-      // Refresh data
-      const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
-      setRequests(requestsData);
+      refreshRequests();
     } catch (err) {
       console.error("Error deleting request:", err);
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -442,9 +448,7 @@ export default function DutySwapsPage() {
 
       createDutyChangeRequest(request);
 
-      // Refresh data
-      const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
-      setRequests(requestsData);
+      refreshRequests();
 
       alert("Swap request submitted successfully!");
 
@@ -628,14 +632,14 @@ export default function DutySwapsPage() {
                           <>
                             <button
                               onClick={() => handleApprove(request.id)}
-                              disabled={processingId === request.id}
+                              disabled={processingId !== null}
                               className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
                             >
                               {processingId === request.id ? "..." : "Approve"}
                             </button>
                             <button
                               onClick={() => handleReject(request.id)}
-                              disabled={processingId === request.id}
+                              disabled={processingId !== null}
                               className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 disabled:opacity-50"
                             >
                               Reject
@@ -645,9 +649,10 @@ export default function DutySwapsPage() {
                         {request.status === "pending" && request.requester_id === user?.id && (
                           <button
                             onClick={() => handleDelete(request.id)}
-                            className="px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded hover:bg-gray-500/30"
+                            disabled={processingId !== null}
+                            className="px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded hover:bg-gray-500/30 disabled:opacity-50"
                           >
-                            Cancel
+                            {processingId === request.id ? "..." : "Cancel"}
                           </button>
                         )}
                       </div>
