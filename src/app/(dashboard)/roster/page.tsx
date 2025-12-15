@@ -855,8 +855,8 @@ export default function RosterPage() {
         </div>
       </div>
 
-      {/* Unit Admin Controls Info */}
-      {isUnitAdmin && (
+      {/* Unit Admin Controls Info - only show in Unit Admin View */}
+      {isUnitAdmin && isUnitAdminView && (
         <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm text-green-400">
@@ -974,8 +974,8 @@ export default function RosterPage() {
                           libertyDay?.type === "holiday" ? "bg-pink-500/10" :
                           dateIsToday ? "bg-primary/10 font-bold text-primary" :
                           dateIsWeekend ? "bg-highlight/5" : "bg-surface"
-                        } ${isUnitAdmin ? "cursor-pointer hover:bg-primary/20" : ""}`}
-                        onClick={() => isUnitAdmin && handleDateClick(date)}
+                        } ${isUnitAdmin && isUnitAdminView ? "cursor-pointer hover:bg-primary/20" : ""}`}
+                        onClick={() => isUnitAdmin && isUnitAdminView && handleDateClick(date)}
                       >
                         <span className={
                           libertyDay ? "text-green-400" :
@@ -1008,8 +1008,8 @@ export default function RosterPage() {
                           return (
                             <td
                               key={dt.id}
-                              className={`text-center px-3 py-2 text-sm ${isUnitAdmin ? "cursor-pointer hover:bg-orange-500/10" : ""}`}
-                              onClick={() => isUnitAdmin && openExistingBlockModal(date, dt)}
+                              className={`text-center px-3 py-2 text-sm ${isUnitAdmin && isUnitAdminView ? "cursor-pointer hover:bg-orange-500/10" : ""}`}
+                              onClick={() => isUnitAdmin && isUnitAdminView && openExistingBlockModal(date, dt)}
                               title={cellBlock.reason || "Blocked"}
                             >
                               <div className="flex flex-col items-center gap-0.5">
@@ -1026,8 +1026,8 @@ export default function RosterPage() {
                           );
                         }
 
-                        // Selection mode - show selection state
-                        if (isSelectingMode && isUnitAdmin) {
+                        // Selection mode - show selection state (only in Unit Admin View)
+                        if (isSelectingMode && isUnitAdmin && isUnitAdminView) {
                           return (
                             <td
                               key={dt.id}
