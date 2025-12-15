@@ -2,40 +2,32 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Button from "@/components/ui/Button";
-import type { UnitSection } from "@/types";
+import type { UnitSection, DutyType } from "@/types";
 import {
   getUnitSections,
   getEnrichedSlots,
+  getAllDutyTypes,
   type EnrichedSlot,
 } from "@/lib/client-stores";
 
 export default function RosterPage() {
   const [slots, setSlots] = useState<EnrichedSlot[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
+  const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUnit, setSelectedUnit] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<EnrichedSlot | null>(null);
 
-  // Get first and last day of the current month view (including surrounding days for calendar grid)
-  const { startDate, endDate, calendarDays } = useMemo(() => {
+  // Get first and last day of the current month
+  const { startDate, endDate, monthDays } = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
-    // First day of the month
-    const firstDay = new Date(year, month, 1);
-    // Last day of the month
-    const lastDay = new Date(year, month + 1, 0);
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0);
 
-    // Start from the Sunday of the first week
-    const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - startDate.getDay());
-
-    // End on the Saturday of the last week
-    const endDate = new Date(lastDay);
-    endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
-
-    // Generate array of calendar days
+    // Generate array of days in the month
     const days: Date[] = [];
     const current = new Date(startDate);
     while (current <= endDate) {
@@ -43,7 +35,7 @@ export default function RosterPage() {
       current.setDate(current.getDate() + 1);
     }
 
-    return { startDate, endDate, calendarDays: days };
+    return { startDate, endDate, monthDays: days };
   }, [currentDate]);
 
   useEffect(() => {
@@ -57,6 +49,10 @@ export default function RosterPage() {
       // Fetch units
       const unitsData = getUnitSections();
       setUnits(unitsData);
+
+      // Fetch all duty types
+      const dutyTypesData = getAllDutyTypes();
+      setDutyTypes(dutyTypesData);
 
       // Fetch duty slots for the date range
       const slotsData = getEnrichedSlots(startDate, endDate, selectedUnit || undefined);
@@ -80,21 +76,18 @@ export default function RosterPage() {
     setCurrentDate(new Date());
   }
 
-  function getSlotsForDate(date: Date): EnrichedSlot[] {
+  // Get slot for a specific date and duty type
+  function getSlotForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot | null {
     const dateStr = date.toISOString().split("T")[0];
-    return slots.filter((slot) => {
+    return slots.find((slot) => {
       const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
-      return slotDateStr === dateStr;
-    });
+      return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
+    }) || null;
   }
 
   function isToday(date: Date): boolean {
     const today = new Date();
     return date.toDateString() === today.toDateString();
-  }
-
-  function isCurrentMonth(date: Date): boolean {
-    return date.getMonth() === currentDate.getMonth();
   }
 
   function isWeekend(date: Date): boolean {
@@ -106,20 +99,30 @@ export default function RosterPage() {
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }
 
+  function formatDate(date: Date): string {
+    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
+
   function getStatusColor(status: string): string {
     switch (status) {
       case "completed":
-        return "bg-green-500/20 text-green-400 border-green-500/30";
+        return "bg-green-500/20 text-green-400";
       case "cancelled":
-        return "bg-red-500/20 text-red-400 border-red-500/30";
+        return "bg-red-500/20 text-red-400 line-through";
       default:
-        return "bg-primary/20 text-primary border-primary/30";
+        return "bg-primary/10 text-foreground";
     }
   }
 
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  // Filter duty types based on selected unit
+  const filteredDutyTypes = useMemo(() => {
+    if (!selectedUnit) {
+      return dutyTypes.filter(dt => dt.is_active);
+    }
+    return dutyTypes.filter(dt => dt.is_active && dt.unit_section_id === selectedUnit);
+  }, [dutyTypes, selectedUnit]);
 
-  // Helper to properly escape a CSV cell (handles commas, quotes, newlines)
+  // Helper to properly escape a CSV cell
   function escapeCsvCell(cell: string | number | null | undefined): string {
     const str = String(cell ?? "");
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -130,40 +133,32 @@ export default function RosterPage() {
 
   // Export to CSV
   function exportToCSV() {
-    // Get first and last day of current month for export
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+    const headers = ["Date", "Day", ...filteredDutyTypes.map(dt => dt.duty_name)];
+    const rows = monthDays.map((date) => {
+      const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
+      const dateStr = date.toISOString().split("T")[0];
 
-    const exportSlots = getEnrichedSlots(firstDay, lastDay, selectedUnit || undefined);
+      const dutyAssignments = filteredDutyTypes.map(dt => {
+        const slot = getSlotForDateAndType(date, dt.id);
+        if (!slot) return "";
+        if (!slot.personnel) return "Unassigned";
+        return `${slot.personnel.rank} ${slot.personnel.last_name}`;
+      });
 
-    // Generate CSV content
-    const headers = ["Date", "Day", "Duty Type", "Personnel", "Rank", "Points", "Status"];
-    const rows = exportSlots.map((slot) => {
-      const date = new Date(slot.date_assigned);
-      return [
-        date.toISOString().split("T")[0],
-        date.toLocaleDateString("en-US", { weekday: "long" }),
-        slot.duty_type?.duty_name || "Unknown",
-        slot.personnel ? `${slot.personnel.last_name}, ${slot.personnel.first_name}` : "Unassigned",
-        slot.personnel?.rank || "",
-        slot.duty_points_earned.toFixed(1),
-        slot.status,
-      ];
+      return [dateStr, dayName, ...dutyAssignments];
     });
 
-    // Properly escape all cells for CSV format
     const csv = [
       headers.map(escapeCsvCell).join(","),
       ...rows.map((row) => row.map(escapeCsvCell).join(",")),
     ].join("\n");
 
-    // Download the file
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
     a.download = `duty-roster-${year}-${String(month + 1).padStart(2, "0")}.csv`;
     document.body.appendChild(a);
     a.click();
@@ -171,7 +166,7 @@ export default function RosterPage() {
     URL.revokeObjectURL(url);
   }
 
-  // Print-friendly view (for PDF)
+  // Print roster
   function printRoster() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -181,33 +176,23 @@ export default function RosterPage() {
       ? units.find((u) => u.id === selectedUnit)?.unit_name || "Selected Unit"
       : "All Units";
 
-    // Group slots by date for print
-    const slotsByDate = new Map<string, EnrichedSlot[]>();
-    slots.forEach((slot) => {
-      const dateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
-      if (!slotsByDate.has(dateStr)) {
-        slotsByDate.set(dateStr, []);
-      }
-      slotsByDate.get(dateStr)!.push(slot);
-    });
-
-    const sortedDates = Array.from(slotsByDate.keys()).sort();
-
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
           <title>Duty Roster - ${monthYear}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
-            h1 { text-align: center; margin-bottom: 5px; }
-            h2 { text-align: center; color: #666; margin-top: 0; font-weight: normal; }
+            body { font-family: Arial, sans-serif; padding: 20px; color: #333; font-size: 11px; }
+            h1 { text-align: center; margin-bottom: 5px; font-size: 18px; }
+            h2 { text-align: center; color: #666; margin-top: 0; font-weight: normal; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #1A237E; color: white; }
+            th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: center; }
+            th { background-color: #1A237E; color: white; font-size: 10px; }
+            td { font-size: 10px; }
             tr:nth-child(even) { background-color: #f9f9f9; }
             .weekend { background-color: #FFF3E0; }
-            .date-header { font-weight: bold; background-color: #E8EAF6; }
+            .today { background-color: #E3F2FD; }
+            .date-col { text-align: left; white-space: nowrap; }
             @media print {
               body { padding: 0; }
               button { display: none; }
@@ -222,37 +207,36 @@ export default function RosterPage() {
               <tr>
                 <th>Date</th>
                 <th>Day</th>
-                <th>Duty Type</th>
-                <th>Personnel</th>
-                <th>Points</th>
-                <th>Status</th>
+                ${filteredDutyTypes.map(dt => `<th>${dt.duty_name}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
-              ${sortedDates.map((dateStr) => {
-                const daySlots = slotsByDate.get(dateStr) || [];
-                const date = new Date(dateStr);
-                const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-                const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+              ${monthDays.map((date) => {
+                const isWeekendDay = isWeekend(date);
+                const isTodayDate = isToday(date);
+                const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+                const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-                return daySlots.map((slot, idx) => `
-                  <tr class="${isWeekend ? "weekend" : ""}">
-                    ${idx === 0 ? `<td rowspan="${daySlots.length}">${formattedDate}</td><td rowspan="${daySlots.length}">${dayName}</td>` : ""}
-                    <td>${slot.duty_type?.duty_name || "Unknown"}</td>
-                    <td>${slot.personnel ? `${slot.personnel.rank} ${slot.personnel.last_name}, ${slot.personnel.first_name}` : "Unassigned"}</td>
-                    <td>${slot.duty_points_earned.toFixed(1)}</td>
-                    <td>${slot.status}</td>
+                return `
+                  <tr class="${isWeekendDay ? "weekend" : ""} ${isTodayDate ? "today" : ""}">
+                    <td class="date-col">${formattedDate}</td>
+                    <td>${dayName}</td>
+                    ${filteredDutyTypes.map(dt => {
+                      const slot = getSlotForDateAndType(date, dt.id);
+                      if (!slot) return '<td>-</td>';
+                      if (!slot.personnel) return '<td style="color: #999;">Unassigned</td>';
+                      return `<td>${slot.personnel.rank} ${slot.personnel.last_name}</td>`;
+                    }).join("")}
                   </tr>
-                `).join("");
+                `;
               }).join("")}
             </tbody>
           </table>
-          <p style="margin-top: 20px; text-align: center; color: #666; font-size: 12px;">
+          <p style="margin-top: 20px; text-align: center; color: #666; font-size: 10px;">
             Generated on ${new Date().toLocaleString()} by Duty Sync
           </p>
           <div style="text-align: center; margin-top: 20px;">
-            <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
+            <button onclick="window.print()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">
               Print / Save as PDF
             </button>
           </div>
@@ -271,7 +255,7 @@ export default function RosterPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Duty Roster</h1>
           <p className="text-foreground-muted mt-1">
-            View and manage duty assignments
+            View duty assignments by date and type
           </p>
         </div>
         <div className="flex gap-2">
@@ -332,118 +316,122 @@ export default function RosterPage() {
         </div>
       </div>
 
-      {/* Calendar Grid */}
+      {/* Cross-Table Roster */}
       <div className="bg-surface rounded-lg border border-border overflow-hidden">
-        {/* Week Day Headers */}
-        <div className="grid grid-cols-7 border-b border-border">
-          {weekDays.map((day, idx) => (
-            <div
-              key={day}
-              className={`py-3 text-center text-sm font-medium ${
-                idx === 0 || idx === 6 ? "text-highlight" : "text-foreground"
-              }`}
-            >
-              {day}
-            </div>
-          ))}
-        </div>
-
-        {/* Calendar Days */}
         {loading ? (
           <div className="flex items-center justify-center h-96">
-            <div className="text-foreground-muted">Loading calendar...</div>
+            <div className="text-foreground-muted">Loading roster...</div>
+          </div>
+        ) : filteredDutyTypes.length === 0 ? (
+          <div className="flex items-center justify-center h-48">
+            <div className="text-foreground-muted">
+              No duty types found. {selectedUnit ? "Try selecting a different unit or 'All Units'." : "Create duty types in the Duty Types page."}
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-7">
-            {calendarDays.map((date, idx) => {
-              const daySlots = getSlotsForDate(date);
-              const dateIsToday = isToday(date);
-              const dateIsCurrentMonth = isCurrentMonth(date);
-              const dateIsWeekend = isWeekend(date);
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-surface-elevated">
+                  <th className="text-left px-3 py-3 text-sm font-medium text-foreground sticky left-0 bg-surface-elevated z-10 min-w-[100px]">
+                    Date
+                  </th>
+                  <th className="text-center px-2 py-3 text-sm font-medium text-foreground min-w-[50px]">
+                    Day
+                  </th>
+                  {filteredDutyTypes.map((dt) => (
+                    <th
+                      key={dt.id}
+                      className="text-center px-3 py-3 text-sm font-medium text-foreground min-w-[120px]"
+                      title={dt.description || dt.duty_name}
+                    >
+                      {dt.duty_name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {monthDays.map((date, idx) => {
+                  const dateIsToday = isToday(date);
+                  const dateIsWeekend = isWeekend(date);
+                  const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
 
-              return (
-                <div
-                  key={idx}
-                  className={`min-h-[120px] border-b border-r border-border p-2 ${
-                    !dateIsCurrentMonth ? "bg-background/50" : ""
-                  } ${dateIsWeekend ? "bg-highlight/5" : ""}`}
-                >
-                  {/* Date Number */}
-                  <div className="flex items-center justify-between mb-1">
-                    <span
-                      className={`text-sm font-medium ${
-                        dateIsToday
-                          ? "w-7 h-7 flex items-center justify-center rounded-full bg-primary text-white"
-                          : dateIsCurrentMonth
-                          ? dateIsWeekend
-                            ? "text-highlight"
-                            : "text-foreground"
-                          : "text-foreground-muted"
+                  return (
+                    <tr
+                      key={idx}
+                      className={`border-b border-border last:border-0 ${
+                        dateIsToday ? "bg-primary/10" : dateIsWeekend ? "bg-highlight/5" : ""
                       }`}
                     >
-                      {date.getDate()}
-                    </span>
-                    {daySlots.length > 0 && (
-                      <span className="text-xs text-foreground-muted">
-                        {daySlots.length} {daySlots.length === 1 ? "duty" : "duties"}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Duty Slots */}
-                  <div className="space-y-1">
-                    {daySlots.slice(0, 3).map((slot) => (
-                      <button
-                        key={slot.id}
-                        onClick={() => setSelectedSlot(slot)}
-                        className={`w-full text-left px-2 py-1 rounded text-xs truncate border transition-colors hover:brightness-110 ${getStatusColor(slot.status)}`}
-                      >
-                        <span className="font-medium">
-                          {slot.duty_type?.duty_name || "Unknown"}
+                      <td className={`px-3 py-2 text-sm sticky left-0 z-10 ${
+                        dateIsToday ? "bg-primary/10 font-bold text-primary" : dateIsWeekend ? "bg-highlight/5" : "bg-surface"
+                      }`}>
+                        <span className={dateIsToday ? "text-primary" : dateIsWeekend ? "text-highlight" : "text-foreground"}>
+                          {formatDate(date)}
                         </span>
-                        {slot.personnel && (
-                          <span className="text-[10px] block opacity-80">
-                            {slot.personnel.rank} {slot.personnel.last_name}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                    {daySlots.length > 3 && (
-                      <button
-                        onClick={() => {
-                          // Could open a modal showing all slots for this day
-                          if (daySlots[3]) setSelectedSlot(daySlots[3]);
-                        }}
-                        className="text-xs text-foreground-muted hover:text-foreground"
-                      >
-                        +{daySlots.length - 3} more
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                      </td>
+                      <td className={`text-center px-2 py-2 text-sm ${
+                        dateIsWeekend ? "text-highlight font-medium" : "text-foreground-muted"
+                      }`}>
+                        {dayName}
+                      </td>
+                      {filteredDutyTypes.map((dt) => {
+                        const slot = getSlotForDateAndType(date, dt.id);
+
+                        return (
+                          <td
+                            key={dt.id}
+                            className="text-center px-3 py-2 text-sm"
+                          >
+                            {slot ? (
+                              <button
+                                onClick={() => setSelectedSlot(slot)}
+                                className={`px-2 py-1 rounded text-xs transition-colors hover:brightness-110 ${getStatusColor(slot.status)}`}
+                              >
+                                {slot.personnel ? (
+                                  <span>
+                                    {slot.personnel.rank} {slot.personnel.last_name}
+                                  </span>
+                                ) : (
+                                  <span className="text-foreground-muted italic">Unassigned</span>
+                                )}
+                              </button>
+                            ) : (
+                              <span className="text-foreground-muted/50">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-6 text-sm">
+      <div className="flex flex-wrap items-center gap-6 text-sm">
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded bg-primary/20 border border-primary/30" />
+          <span className="w-3 h-3 rounded bg-primary/10" />
           <span className="text-foreground-muted">Scheduled</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded bg-green-500/20 border border-green-500/30" />
+          <span className="w-3 h-3 rounded bg-green-500/20" />
           <span className="text-foreground-muted">Completed</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded bg-red-500/20 border border-red-500/30" />
+          <span className="w-3 h-3 rounded bg-red-500/20" />
           <span className="text-foreground-muted">Cancelled</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded bg-highlight/10 border border-highlight/30" />
           <span className="text-foreground-muted">Weekend</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded bg-primary/10 border border-primary" />
+          <span className="text-foreground-muted">Today</span>
         </div>
       </div>
 
