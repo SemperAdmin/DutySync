@@ -1599,19 +1599,11 @@ export default function RosterPage() {
               </div>
 
               {/* Scheduling Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-foreground-muted">Duty Points</label>
-                  <p className="text-foreground font-medium">
-                    {dutyTypeDetailsModal.dutyType.duty_points} pts
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm text-foreground-muted">Personnel Required</label>
-                  <p className="text-foreground font-medium">
-                    {dutyTypeDetailsModal.dutyType.required_personnel_count}
-                  </p>
-                </div>
+              <div>
+                <label className="text-sm text-foreground-muted">Personnel Required (Slots)</label>
+                <p className="text-foreground font-medium">
+                  {dutyTypeDetailsModal.dutyType.slots_needed}
+                </p>
               </div>
 
               {/* Rank Filters */}
