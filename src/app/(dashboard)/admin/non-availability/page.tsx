@@ -235,7 +235,7 @@ export default function NonAvailabilityAdminPage() {
         reason: formData.reason,
         // Admin-created requests are auto-approved, standard users must wait for approval
         status: hasElevatedAccess ? "approved" : "pending",
-        approved_by: hasElevatedAccess ? "admin" : undefined,
+        approved_by: hasElevatedAccess ? "admin" : null,
         created_at: new Date(),
       };
 
