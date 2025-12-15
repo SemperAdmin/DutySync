@@ -25,9 +25,12 @@ import {
   isRosterApproved,
   approveRoster,
   getDutySlotsByDateAndType,
+  createDutyChangeRequest,
+  determineApproverLevel,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
+import type { DutyChangeRequest } from "@/types";
 import { useAuth } from "@/lib/client-auth";
 import {
   VIEW_MODE_KEY,
@@ -132,6 +135,16 @@ export default function RosterPage() {
   const [rosterApproval, setRosterApproval] = useState<ApprovedRoster | null>(null);
   const [approveModal, setApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
+
+  // Swap request modal state
+  const [swapModal, setSwapModal] = useState<{
+    isOpen: boolean;
+    originalSlot: EnrichedSlot | null;
+    step: 'select' | 'confirm';
+    targetSlot: EnrichedSlot | null;
+    reason: string;
+  }>({ isOpen: false, originalSlot: null, step: 'select', targetSlot: null, reason: '' });
+  const [submittingSwap, setSubmittingSwap] = useState(false);
 
   // Sync with view mode from localStorage
   useEffect(() => {
@@ -792,6 +805,90 @@ export default function RosterPage() {
       console.error("Error removing assignment:", err);
     } finally {
       setAssigning(false);
+    }
+  }
+
+  // Open swap request modal
+  function openSwapModal(slot: EnrichedSlot) {
+    setSwapModal({
+      isOpen: true,
+      originalSlot: slot,
+      step: 'select',
+      targetSlot: null,
+      reason: ''
+    });
+    setSelectedSlot(null); // Close the details modal
+  }
+
+  // Get available slots for swap (duties assigned to other personnel in the same month)
+  const availableSlotsForSwap = useMemo(() => {
+    if (!swapModal.originalSlot || !currentUserPersonnel) return [];
+
+    // Get all assigned slots in the current month (excluding the original slot)
+    return slots.filter(slot => {
+      // Must be assigned to someone else
+      if (!slot.personnel_id || slot.personnel_id === swapModal.originalSlot?.personnel_id) return false;
+      // Must not be the same slot
+      if (slot.id === swapModal.originalSlot?.id) return false;
+      // Must have personnel info
+      if (!slot.personnel) return false;
+      return true;
+    });
+  }, [slots, swapModal.originalSlot, currentUserPersonnel]);
+
+  // Handle swap request submission
+  function handleSubmitSwapRequest() {
+    if (!swapModal.originalSlot || !swapModal.targetSlot || !user || !swapModal.reason.trim()) {
+      alert("Please select a duty to swap with and provide a reason.");
+      return;
+    }
+
+    setSubmittingSwap(true);
+
+    try {
+      // Determine the required approver level
+      const approverLevel = determineApproverLevel(
+        swapModal.originalSlot.personnel_id!,
+        swapModal.targetSlot.personnel_id!
+      );
+
+      // Create the swap request
+      const request: DutyChangeRequest = {
+        id: crypto.randomUUID(),
+        requester_id: user.id,
+        requester_personnel_id: currentUserPersonnel?.id || null,
+
+        original_slot_id: swapModal.originalSlot.id,
+        original_personnel_id: swapModal.originalSlot.personnel_id!,
+        original_duty_date: new Date(swapModal.originalSlot.date_assigned),
+        original_duty_type_id: swapModal.originalSlot.duty_type_id,
+
+        target_slot_id: swapModal.targetSlot.id,
+        target_personnel_id: swapModal.targetSlot.personnel_id!,
+        target_duty_date: new Date(swapModal.targetSlot.date_assigned),
+        target_duty_type_id: swapModal.targetSlot.duty_type_id,
+
+        reason: swapModal.reason.trim(),
+        status: 'pending',
+        required_approver_level: approverLevel,
+        approved_by: null,
+        approved_at: null,
+        rejection_reason: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      createDutyChangeRequest(request);
+
+      alert("Swap request submitted successfully! You can track its status on the Duty Swaps page.");
+
+      // Close the modal
+      setSwapModal({ isOpen: false, originalSlot: null, step: 'select', targetSlot: null, reason: '' });
+    } catch (err) {
+      console.error("Error submitting swap request:", err);
+      alert("Failed to submit swap request. Please try again.");
+    } finally {
+      setSubmittingSwap(false);
     }
   }
 
@@ -1570,10 +1667,170 @@ export default function RosterPage() {
                 </div>
               </div>
             </div>
-            <div className="p-4 border-t border-border flex justify-end">
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              {/* Show Request Swap button if roster is approved and user can request */}
+              {rosterApproval && selectedSlot.personnel_id && (
+                (selectedSlot.personnel_id === currentUserPersonnel?.id || isManager) && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => openSwapModal(selectedSlot)}
+                  >
+                    Request Swap
+                  </Button>
+                )
+              )}
               <Button variant="ghost" onClick={() => setSelectedSlot(null)}>
                 Close
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Request Modal */}
+      {swapModal.isOpen && swapModal.originalSlot && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Request Duty Swap</h2>
+                <p className="text-sm text-foreground-muted mt-1">
+                  {swapModal.step === 'select' ? 'Select a duty to swap with' : 'Confirm swap request'}
+                </p>
+              </div>
+              <button
+                onClick={() => setSwapModal({ isOpen: false, originalSlot: null, step: 'select', targetSlot: null, reason: '' })}
+                className="text-foreground-muted hover:text-foreground"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-1">
+              {/* Original Duty Info */}
+              <div className="mb-4 p-3 bg-primary/10 rounded-lg">
+                <p className="text-sm text-foreground-muted mb-1">Your Duty:</p>
+                <p className="text-foreground font-medium">
+                  {swapModal.originalSlot.duty_type?.duty_name} - {new Date(swapModal.originalSlot.date_assigned).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-foreground-muted">
+                  {swapModal.originalSlot.personnel?.rank} {swapModal.originalSlot.personnel?.last_name}
+                </p>
+              </div>
+
+              {swapModal.step === 'select' ? (
+                <>
+                  {/* Available slots to swap with */}
+                  <div className="space-y-2">
+                    <p className="text-sm text-foreground-muted">Select a duty to swap with ({availableSlotsForSwap.length} available):</p>
+                    {availableSlotsForSwap.length === 0 ? (
+                      <p className="text-center text-foreground-muted py-4">
+                        No duties available to swap with in this month.
+                      </p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto space-y-2 border border-border rounded-lg p-2">
+                        {availableSlotsForSwap.map((slot) => (
+                          <button
+                            key={slot.id}
+                            onClick={() => setSwapModal(prev => ({ ...prev, targetSlot: slot, step: 'confirm' }))}
+                            className="w-full text-left p-3 rounded-lg border border-border hover:bg-primary/10 hover:border-primary transition-colors"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {slot.duty_type?.duty_name}
+                                </p>
+                                <p className="text-sm text-foreground-muted">
+                                  {new Date(slot.date_assigned).toLocaleDateString("en-US", { weekday: 'short', month: 'short', day: 'numeric' })}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm text-foreground">
+                                  {slot.personnel?.rank} {slot.personnel?.last_name}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Confirm step */}
+                  <div className="space-y-4">
+                    {/* Target Duty Info */}
+                    <div className="p-3 bg-green-500/10 rounded-lg">
+                      <p className="text-sm text-foreground-muted mb-1">Swap With:</p>
+                      <p className="text-foreground font-medium">
+                        {swapModal.targetSlot?.duty_type?.duty_name} - {swapModal.targetSlot && new Date(swapModal.targetSlot.date_assigned).toLocaleDateString()}
+                      </p>
+                      <p className="text-sm text-foreground-muted">
+                        {swapModal.targetSlot?.personnel?.rank} {swapModal.targetSlot?.personnel?.last_name}
+                      </p>
+                    </div>
+
+                    {/* Reason */}
+                    <div>
+                      <label className="block text-sm font-medium text-foreground-muted mb-1">
+                        Reason for Swap Request *
+                      </label>
+                      <textarea
+                        value={swapModal.reason}
+                        onChange={(e) => setSwapModal(prev => ({ ...prev, reason: e.target.value }))}
+                        rows={3}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-foreground-muted"
+                        placeholder="Explain why you need to swap this duty..."
+                      />
+                    </div>
+
+                    {/* Approval Info */}
+                    {swapModal.targetSlot && (
+                      <div className="p-3 bg-yellow-500/10 rounded-lg text-sm">
+                        <p className="text-yellow-400 font-medium">Approval Required:</p>
+                        <p className="text-foreground-muted">
+                          {determineApproverLevel(swapModal.originalSlot.personnel_id!, swapModal.targetSlot.personnel_id!) === 'work_section'
+                            ? 'Work Section Manager'
+                            : determineApproverLevel(swapModal.originalSlot.personnel_id!, swapModal.targetSlot.personnel_id!) === 'section'
+                            ? 'Section Manager'
+                            : 'Company Manager'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-border flex justify-between">
+              {swapModal.step === 'confirm' && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setSwapModal(prev => ({ ...prev, step: 'select', targetSlot: null }))}
+                >
+                  Back
+                </Button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSwapModal({ isOpen: false, originalSlot: null, step: 'select', targetSlot: null, reason: '' })}
+                >
+                  Cancel
+                </Button>
+                {swapModal.step === 'confirm' && (
+                  <Button
+                    variant="primary"
+                    onClick={handleSubmitSwapRequest}
+                    disabled={submittingSwap || !swapModal.reason.trim()}
+                  >
+                    {submittingSwap ? "Submitting..." : "Submit Request"}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -155,6 +155,39 @@ export interface BlockedDuty {
   created_at: Date;
 }
 
+// Duty Change Request (swap duties between personnel after roster approval)
+export interface DutyChangeRequest {
+  id: UUID;
+  // The requester (could be duty holder or manager acting on their behalf)
+  requester_id: UUID; // User ID
+  requester_personnel_id: UUID | null; // Personnel ID if applicable
+
+  // Original duty assignment (the one being given up)
+  original_slot_id: UUID;
+  original_personnel_id: UUID; // Person currently assigned
+  original_duty_date: Date;
+  original_duty_type_id: UUID;
+
+  // Target duty assignment (the one being received in exchange)
+  target_slot_id: UUID;
+  target_personnel_id: UUID; // Person to swap with
+  target_duty_date: Date;
+  target_duty_type_id: UUID;
+
+  // Request details
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+
+  // Approval tracking
+  required_approver_level: 'work_section' | 'section' | 'company'; // Determined by unit relationship
+  approved_by: UUID | null;
+  approved_at: Date | null;
+  rejection_reason: string | null;
+
+  created_at: Date;
+  updated_at: Date;
+}
+
 // Session user for Auth.js
 export interface SessionUser {
   id: string;
