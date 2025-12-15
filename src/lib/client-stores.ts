@@ -275,9 +275,8 @@ interface RawPersonnelRecord {
   updated_at?: Date;
 }
 
-// Load seed data from JSON files if localStorage is empty
-// Uses atomic loading: either all data loads successfully or nothing is saved
-export async function loadSeedDataIfNeeded(): Promise<{
+// Return type for loadSeedDataIfNeeded
+type SeedDataResult = {
   unitsLoaded: number;
   personnelLoaded: number;
   dutyTypesLoaded: number;
@@ -286,15 +285,33 @@ export async function loadSeedDataIfNeeded(): Promise<{
   qualificationsLoaded: number;
   dutyChangeRequestsLoaded: number;
   alreadyLoaded: boolean;
-}> {
+};
+
+// Helper to create default seed data result
+function createSeedDataResult(alreadyLoaded: boolean): SeedDataResult {
+  return {
+    unitsLoaded: 0,
+    personnelLoaded: 0,
+    dutyTypesLoaded: 0,
+    dutySlotsLoaded: 0,
+    nonAvailabilityLoaded: 0,
+    qualificationsLoaded: 0,
+    dutyChangeRequestsLoaded: 0,
+    alreadyLoaded,
+  };
+}
+
+// Load seed data from JSON files if localStorage is empty
+// Uses atomic loading: either all data loads successfully or nothing is saved
+export async function loadSeedDataIfNeeded(): Promise<SeedDataResult> {
   if (typeof window === "undefined") {
-    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: false };
+    return createSeedDataResult(false);
   }
 
   // Check if seed data was already loaded
   const seedLoaded = localStorage.getItem(KEYS.seedDataLoaded);
   if (seedLoaded === "true") {
-    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: true };
+    return createSeedDataResult(true);
   }
 
   // Check if there's existing data
@@ -304,7 +321,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
   if (existingUnits.length > 0 || existingPersonnel.length > 0) {
     // Mark as loaded since data exists
     localStorage.setItem(KEYS.seedDataLoaded, "true");
-    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: true };
+    return createSeedDataResult(true);
   }
 
   // Collect all data before saving (atomic operation)
@@ -324,7 +341,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
 
     if (availableRucs.length === 0) {
       console.warn("No RUCs found in units index");
-      return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: false };
+      return createSeedDataResult(false);
     }
 
     // Fetch all data in parallel for each RUC
@@ -463,7 +480,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
     localStorage.removeItem(KEYS.qualifications);
     // Do NOT set seedDataLoaded - allow retry on next page load
     console.error("Failed to load seed data (atomic rollback):", error);
-    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: false };
+    return createSeedDataResult(false);
   }
 }
 
@@ -1226,11 +1243,7 @@ export function canRecommendChangeRequest(
     const scopeUnitIds = getAllDescendantUnitIds(role.scope_unit_id);
     const scopeSet = new Set(scopeUnitIds);
 
-    // If BOTH personnel are in scope, user should approve not recommend
-    const bothInScope = [...unitIds].every(id => scopeSet.has(id));
-    if (bothInScope) return false;
-
-    // If at least one personnel is in scope, user is in approval chain - should approve
+    // If at least one personnel is in scope, user is in approval chain - should approve not recommend
     const anyInScope = [...unitIds].some(id => scopeSet.has(id));
     if (anyInScope) return false;
   }
@@ -2964,9 +2977,7 @@ export function exportDutyChangeRequests(unitId?: string): {
 
   // Filter by unit if specified (via personnel's unit_section_id)
   if (unitId) {
-    const unitPersonnel = getFromStorage<Personnel>(KEYS.personnel)
-      .filter(p => p.unit_section_id === unitId);
-    const unitPersonnelIds = new Set(unitPersonnel.map(p => p.id));
+    const unitPersonnelIds = new Set(getPersonnelByUnit(unitId).map(p => p.id));
     requests = requests.filter(r =>
       unitPersonnelIds.has(r.original_personnel_id) ||
       unitPersonnelIds.has(r.target_personnel_id)
