@@ -124,7 +124,9 @@ export default function DashboardLayout({
   interface ExtendedNavItem extends NavItem {
     adminOnly?: boolean; // Only show in Admin View (App Admin only)
     unitAdminOnly?: boolean; // Show in Admin View OR Unit Admin View
+    unitAdminViewOnly?: boolean; // Only show in Unit Admin View (NOT App Admin View)
     userOnly?: boolean; // Only show in User View (hide from Admin/Unit Admin View)
+    userAndUnitAdminView?: boolean; // Show in User View AND Unit Admin View (NOT App Admin View)
   }
 
   const navItems: ExtendedNavItem[] = [
@@ -193,8 +195,8 @@ export default function DashboardLayout({
     {
       href: "/admin/duty-types",
       label: "Duty Types",
-      allowedRoles: ADMIN_ROLES,
-      unitAdminOnly: true, // Show in Unit Admin View (not App Admin View)
+      allowedRoles: ["Unit Admin"],
+      unitAdminViewOnly: true, // Only show in Unit Admin View (NOT App Admin View)
       icon: (
         <svg
           className="w-5 h-5"
@@ -214,8 +216,8 @@ export default function DashboardLayout({
     {
       href: "/admin/scheduler",
       label: "Scheduler",
-      allowedRoles: ADMIN_ROLES,
-      unitAdminOnly: true, // Show in Unit Admin View (not App Admin View)
+      allowedRoles: ["Unit Admin"],
+      unitAdminViewOnly: true, // Only show in Unit Admin View (NOT App Admin View)
       icon: (
         <svg
           className="w-5 h-5"
@@ -256,7 +258,7 @@ export default function DashboardLayout({
     {
       href: "/admin/non-availability",
       label: "Non-Availability",
-      allowedRoles: PERSONNEL_ACCESS_ROLES,
+      // All users can access to submit their own requests
       userOnly: true, // Only show in User View
       icon: (
         <svg
@@ -277,7 +279,7 @@ export default function DashboardLayout({
     {
       href: "/roster",
       label: "Duty Roster",
-      userOnly: true, // Only show in User View
+      userAndUnitAdminView: true, // Show in User View AND Unit Admin View (NOT App Admin View)
       icon: (
         <svg
           className="w-5 h-5"
@@ -330,6 +332,21 @@ export default function DashboardLayout({
       // Unit Admin in Unit Admin View
       if (actuallyIsUnitAdmin && isUnitAdminView) return true;
       return false;
+    }
+
+    // If item is marked unitAdminViewOnly, ONLY show in Unit Admin View (not App Admin View)
+    if (item.unitAdminViewOnly) {
+      return actuallyIsUnitAdmin && isUnitAdminView;
+    }
+
+    // If item is marked userAndUnitAdminView, show in User View AND Unit Admin View (NOT App Admin View)
+    if (item.userAndUnitAdminView) {
+      // Hide from App Admin in Admin View
+      if (actuallyIsAppAdmin && isAdminView) return false;
+      // Show for Unit Admin in Unit Admin View
+      if (actuallyIsUnitAdmin && isUnitAdminView) return true;
+      // Show in User View for everyone
+      return true;
     }
 
     // If item is marked userOnly, hide it when in Admin View or Unit Admin View
