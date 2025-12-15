@@ -22,37 +22,7 @@ import {
   clearDutySlotsInRange,
 } from "./client-stores";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
-
-// US Federal Holidays (approximate - would need proper holiday calculation in production)
-const FEDERAL_HOLIDAYS_2024 = [
-  "2024-01-01", // New Year's Day
-  "2024-01-15", // MLK Day
-  "2024-02-19", // Presidents Day
-  "2024-05-27", // Memorial Day
-  "2024-06-19", // Juneteenth
-  "2024-07-04", // Independence Day
-  "2024-09-02", // Labor Day
-  "2024-10-14", // Columbus Day
-  "2024-11-11", // Veterans Day
-  "2024-11-28", // Thanksgiving
-  "2024-12-25", // Christmas
-];
-
-const FEDERAL_HOLIDAYS_2025 = [
-  "2025-01-01", // New Year's Day
-  "2025-01-20", // MLK Day
-  "2025-02-17", // Presidents Day
-  "2025-05-26", // Memorial Day
-  "2025-06-19", // Juneteenth
-  "2025-07-04", // Independence Day
-  "2025-09-01", // Labor Day
-  "2025-10-13", // Columbus Day
-  "2025-11-11", // Veterans Day
-  "2025-11-27", // Thanksgiving
-  "2025-12-25", // Christmas
-];
-
-const HOLIDAYS = new Set([...FEDERAL_HOLIDAYS_2024, ...FEDERAL_HOLIDAYS_2025]);
+import { isHoliday, isWeekend } from "@/lib/date-utils";
 
 export interface ScheduleRequest {
   unitId: string;
@@ -75,25 +45,6 @@ interface EligiblePersonnel {
   personnel: Personnel;
   score: number;
   recentDutyCount: number;
-}
-
-/**
- * Check if a date is a weekend (Saturday or Sunday)
- */
-function isWeekend(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6;
-}
-
-/**
- * Check if a date is a federal holiday
- */
-function isHoliday(date: Date): boolean {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const dateStr = `${year}-${month}-${day}`;
-  return HOLIDAYS.has(dateStr);
 }
 
 /**
