@@ -43,9 +43,11 @@ export default function ProfilePage() {
   }
 
   // Get unit path by ID (full hierarchy)
+  // Note: Uses getUnitSections() directly to ensure we have latest data
   function getUnitPath(unitId: string | null): string {
     if (!unitId) return "Global";
-    return buildUnitPath(unitId, units) || "Unknown Unit";
+    const allUnits = getUnitSections();
+    return buildUnitPath(unitId, allUnits) || "Unknown Unit";
   }
 
   return (
