@@ -344,15 +344,15 @@ export default function PersonnelPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Personnel</h1>
           <p className="text-foreground-muted mt-1">
-            {effectiveIsAppAdmin
+            {effectiveIsUnitAdmin
               ? "Manage service members and import roster data"
               : hasElevatedAccess
               ? "View personnel within your scope"
               : "View your personnel record"}
           </p>
         </div>
-        {/* Only show admin buttons for App Admins in Admin View mode */}
-        {effectiveIsAppAdmin && (
+        {/* Only show import/add buttons for Unit Admins in Unit Admin View mode */}
+        {effectiveIsUnitAdmin && (
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setShowImportModal(true)}>
               <svg
