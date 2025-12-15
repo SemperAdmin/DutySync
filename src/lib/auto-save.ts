@@ -308,7 +308,7 @@ export function initAutoSave(ruc: string, options?: Partial<AutoSaveConfig>): vo
  * Check if a string is a valid SaveableDataType
  */
 function isSaveableDataType(value: string): value is SaveableDataType {
-  return ['dutyTypes', 'dutyRoster', 'nonAvailability', 'qualifications', 'unitStructure', 'unitMembers', 'dutyChangeRequests'].includes(value);
+  return Object.keys(dirtyFlags).includes(value);
 }
 
 /**

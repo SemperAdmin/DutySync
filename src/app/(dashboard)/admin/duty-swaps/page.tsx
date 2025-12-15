@@ -327,6 +327,7 @@ export default function DutySwapsPage() {
       setRecommendModal({ isOpen: false, requestId: null, recommendation: 'recommend', comment: "" });
     } catch (err) {
       console.error("Error adding recommendation:", err);
+      alert("Failed to add recommendation. Please try again.");
     } finally {
       setProcessingId(null);
     }
@@ -711,8 +712,8 @@ export default function DutySwapsPage() {
                         {/* Show recommendations if any */}
                         {request.recommendations && request.recommendations.length > 0 && (
                           <div className="text-xs space-y-1">
-                            {request.recommendations.map((rec, idx) => (
-                              <div key={idx} className={rec.recommendation === 'recommend' ? 'text-blue-300' : 'text-orange-300'}>
+                            {request.recommendations.map((rec) => (
+                              <div key={rec.recommender_id} className={rec.recommendation === 'recommend' ? 'text-blue-300' : 'text-orange-300'}>
                                 {rec.recommendation === 'recommend' ? '👍' : '👎'} {rec.recommender_name} ({rec.role_name})
                               </div>
                             ))}
@@ -737,32 +738,31 @@ export default function DutySwapsPage() {
                               </button>
                             </>
                           )}
-                          {request.status === "pending" && canRecommendRequest(request) && (
-                            <>
-                              {hasRecommended(request) ? (
-                                <span className="text-xs text-foreground-muted">
-                                  {hasRecommended(request)?.recommendation === 'recommend' ? '✓ Recommended' : '✗ Not Recommended'}
-                                </span>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => handleRecommend(request.id, 'recommend')}
-                                    disabled={processingId !== null}
-                                    className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded hover:bg-blue-500/30 disabled:opacity-50"
-                                  >
-                                    Recommend
-                                  </button>
-                                  <button
-                                    onClick={() => handleRecommend(request.id, 'not_recommend')}
-                                    disabled={processingId !== null}
-                                    className="px-2 py-1 text-xs bg-orange-500/20 text-orange-300 rounded hover:bg-orange-500/30 disabled:opacity-50"
-                                  >
-                                    Not Recommend
-                                  </button>
-                                </>
-                              )}
-                            </>
-                          )}
+                          {request.status === "pending" && canRecommendRequest(request) && (() => {
+                            const userRecommendation = hasRecommended(request);
+                            return userRecommendation ? (
+                              <span className="text-xs text-foreground-muted">
+                                {userRecommendation.recommendation === 'recommend' ? '✓ Recommended' : '✗ Not Recommended'}
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleRecommend(request.id, 'recommend')}
+                                  disabled={processingId !== null}
+                                  className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded hover:bg-blue-500/30 disabled:opacity-50"
+                                >
+                                  Recommend
+                                </button>
+                                <button
+                                  onClick={() => handleRecommend(request.id, 'not_recommend')}
+                                  disabled={processingId !== null}
+                                  className="px-2 py-1 text-xs bg-orange-500/20 text-orange-300 rounded hover:bg-orange-500/30 disabled:opacity-50"
+                                >
+                                  Not Recommend
+                                </button>
+                              </>
+                            );
+                          })()}
                           {request.status === "pending" && request.requester_id === user?.id && (
                             <button
                               onClick={() => handleDelete(request.id)}
