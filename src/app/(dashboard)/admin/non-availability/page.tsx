@@ -186,6 +186,7 @@ export default function NonAvailabilityAdminPage() {
     start_date: "",
     end_date: "",
     reason: "",
+    approveImmediately: false, // Only applies if user has approval permission
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -255,22 +256,26 @@ export default function NonAvailabilityAdminPage() {
         return;
       }
 
+      // Determine if this request should be approved immediately
+      // Only users with approval permission who check the "approve immediately" box
+      const shouldApprove = canApprove && formData.approveImmediately;
+
       const newRequest: NonAvailability = {
         id: crypto.randomUUID(),
         personnel_id: personnelId,
         start_date: new Date(formData.start_date),
         end_date: new Date(formData.end_date),
         reason: formData.reason,
-        // Admin-created requests are auto-approved, standard users must wait for approval
-        status: hasElevatedAccess ? "approved" : "pending",
-        approved_by: hasElevatedAccess ? "admin" : null,
+        // Default to pending, only approve if user has permission AND checked the box
+        status: shouldApprove ? "approved" : "pending",
+        approved_by: shouldApprove ? (user?.id || "admin") : null,
         created_at: new Date(),
       };
 
       createNonAvailability(newRequest);
 
       setIsAddModalOpen(false);
-      setFormData({ personnel_id: "", start_date: "", end_date: "", reason: "" });
+      setFormData({ personnel_id: "", start_date: "", end_date: "", reason: "", approveImmediately: false });
       fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create request");
@@ -629,9 +634,27 @@ export default function NonAvailabilityAdminPage() {
                 />
               </div>
 
+              {/* Approve Immediately checkbox - only for users with approval permission */}
+              {canApprove && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="approveImmediately"
+                    checked={formData.approveImmediately}
+                    onChange={(e) => setFormData({ ...formData, approveImmediately: e.target.checked })}
+                    className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary"
+                  />
+                  <label htmlFor="approveImmediately" className="text-sm text-foreground">
+                    Approve immediately
+                  </label>
+                </div>
+              )}
+
               <p className="text-xs text-foreground-muted">
-                {hasElevatedAccess
-                  ? "Requests created by admins are automatically approved."
+                {canApprove
+                  ? formData.approveImmediately
+                    ? "This request will be created as approved."
+                    : "This request will be created as pending and require separate approval."
                   : "Your request will be submitted for approval by your manager."}
               </p>
 
@@ -644,7 +667,11 @@ export default function NonAvailabilityAdminPage() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? "Submitting..." : hasElevatedAccess ? "Create Request" : "Submit Request"}
+                  {submitting
+                    ? "Submitting..."
+                    : canApprove && formData.approveImmediately
+                      ? "Create & Approve"
+                      : "Submit Request"}
                 </Button>
               </div>
             </form>
