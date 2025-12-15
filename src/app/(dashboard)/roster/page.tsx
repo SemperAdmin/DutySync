@@ -95,6 +95,19 @@ export default function RosterPage() {
   }>({ isOpen: false, cells: [], existingBlock: null });
   const [blockComment, setBlockComment] = useState("");
 
+  // Duty type details modal state (read-only view)
+  const [dutyTypeDetailsModal, setDutyTypeDetailsModal] = useState<{
+    isOpen: boolean;
+    dutyType: DutyType | null;
+  }>({ isOpen: false, dutyType: null });
+
+  // Export/Print filter state
+  const [exportModal, setExportModal] = useState<{
+    isOpen: boolean;
+    mode: 'csv' | 'print';
+  }>({ isOpen: false, mode: 'csv' });
+  const [selectedExportDutyTypes, setSelectedExportDutyTypes] = useState<Set<string>>(new Set());
+
   // Assignment modal state
   const [assignmentModal, setAssignmentModal] = useState<{
     isOpen: boolean;
@@ -476,6 +489,28 @@ export default function RosterPage() {
         }
       }
 
+      // Check rank filter criteria from duty type
+      if (dutyType.rank_filter_mode && dutyType.rank_filter_values && dutyType.rank_filter_values.length > 0) {
+        const personRankMatches = dutyType.rank_filter_values.includes(person.rank);
+        if (dutyType.rank_filter_mode === 'include' && !personRankMatches) {
+          return false; // Rank not in the include list
+        }
+        if (dutyType.rank_filter_mode === 'exclude' && personRankMatches) {
+          return false; // Rank is in the exclude list
+        }
+      }
+
+      // Check section filter criteria from duty type
+      if (dutyType.section_filter_mode && dutyType.section_filter_values && dutyType.section_filter_values.length > 0) {
+        const personSectionMatches = dutyType.section_filter_values.includes(person.unit_section_id);
+        if (dutyType.section_filter_mode === 'include' && !personSectionMatches) {
+          return false; // Section not in the include list
+        }
+        if (dutyType.section_filter_mode === 'exclude' && personSectionMatches) {
+          return false; // Section is in the exclude list
+        }
+      }
+
       // Check if person is available (not on non-availability)
       const nonAvail = getActiveNonAvailability(person.id, date);
       if (nonAvail) return false;
@@ -612,16 +647,51 @@ export default function RosterPage() {
     return str;
   }
 
+  // Open export modal with all duty types selected by default
+  function openExportModal(mode: 'csv' | 'print') {
+    setSelectedExportDutyTypes(new Set(filteredDutyTypes.map(dt => dt.id)));
+    setExportModal({ isOpen: true, mode });
+  }
+
+  // Toggle duty type selection for export
+  function toggleExportDutyType(dutyTypeId: string) {
+    setSelectedExportDutyTypes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(dutyTypeId)) {
+        newSet.delete(dutyTypeId);
+      } else {
+        newSet.add(dutyTypeId);
+      }
+      return newSet;
+    });
+  }
+
+  // Select all duty types for export
+  function selectAllExportDutyTypes() {
+    setSelectedExportDutyTypes(new Set(filteredDutyTypes.map(dt => dt.id)));
+  }
+
+  // Deselect all duty types for export
+  function deselectAllExportDutyTypes() {
+    setSelectedExportDutyTypes(new Set());
+  }
+
+  // Get duty types selected for export
+  const exportDutyTypes = useMemo(() => {
+    return filteredDutyTypes.filter(dt => selectedExportDutyTypes.has(dt.id));
+  }, [filteredDutyTypes, selectedExportDutyTypes]);
+
   // Export to CSV
   function exportToCSV() {
-    const headers = ["Date", "Day", "Status", ...filteredDutyTypes.map(dt => dt.duty_name)];
+    if (exportDutyTypes.length === 0) return;
+    const headers = ["Date", "Day", "Status", ...exportDutyTypes.map(dt => dt.duty_name)];
     const rows = monthDays.map((date) => {
       const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
       const dateStr = date.toISOString().split("T")[0];
       const libertyDay = getLibertyDay(date);
       const dayStatus = libertyDay ? libertyDay.type.toUpperCase() : "";
 
-      const dutyAssignments = filteredDutyTypes.map(dt => {
+      const dutyAssignments = exportDutyTypes.map(dt => {
         if (libertyDay) return libertyDay.type.toUpperCase();
         const slot = getSlotForDateAndType(date, dt.id);
         if (!slot) return "";
@@ -652,6 +722,7 @@ export default function RosterPage() {
 
   // Print roster
   function printRoster() {
+    if (exportDutyTypes.length === 0) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
@@ -693,7 +764,7 @@ export default function RosterPage() {
               <tr>
                 <th>Date</th>
                 <th>Day</th>
-                ${filteredDutyTypes.map(dt => `<th>${dt.duty_name}</th>`).join("")}
+                ${exportDutyTypes.map(dt => `<th>${dt.duty_name}</th>`).join("")}
               </tr>
             </thead>
             <tbody>
@@ -714,7 +785,7 @@ export default function RosterPage() {
                   <tr class="${rowClass}">
                     <td class="date-col">${formattedDate}</td>
                     <td>${dayName}${libertyDay ? ` (${libertyDay.type.toUpperCase()})` : ""}</td>
-                    ${filteredDutyTypes.map(dt => {
+                    ${exportDutyTypes.map(dt => {
                       if (libertyDay) return `<td style="color: #4CAF50; font-style: italic;">${libertyDay.type.toUpperCase()}</td>`;
                       const slot = getSlotForDateAndType(date, dt.id);
                       if (!slot) return '<td>-</td>';
@@ -798,13 +869,13 @@ export default function RosterPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={exportToCSV}>
+          <Button variant="secondary" size="sm" onClick={() => openExportModal('csv')}>
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Export CSV
           </Button>
-          <Button variant="secondary" size="sm" onClick={printRoster}>
+          <Button variant="secondary" size="sm" onClick={() => openExportModal('print')}>
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
@@ -939,7 +1010,12 @@ export default function RosterPage() {
                       className="text-center px-3 py-3 text-sm font-medium text-foreground min-w-[120px]"
                       title={dt.description || dt.duty_name}
                     >
-                      {dt.duty_name}
+                      <button
+                        onClick={() => setDutyTypeDetailsModal({ isOpen: true, dutyType: dt })}
+                        className="hover:text-primary hover:underline transition-colors"
+                      >
+                        {dt.duty_name}
+                      </button>
                     </th>
                   ))}
                 </tr>
@@ -1477,6 +1553,241 @@ export default function RosterPage() {
                   Block {blockModal.cells.length} Cell{blockModal.cells.length > 1 ? "s" : ""}
                 </Button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duty Type Details Modal (read-only) */}
+      {dutyTypeDetailsModal.isOpen && dutyTypeDetailsModal.dutyType && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-border flex items-center justify-between sticky top-0 bg-surface">
+              <h2 className="text-lg font-semibold text-foreground">Duty Type Details</h2>
+              <button
+                onClick={() => setDutyTypeDetailsModal({ isOpen: false, dutyType: null })}
+                className="text-foreground-muted hover:text-foreground"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Name and Description */}
+              <div>
+                <label className="text-sm text-foreground-muted">Duty Name</label>
+                <p className="text-lg font-semibold text-foreground">
+                  {dutyTypeDetailsModal.dutyType.duty_name}
+                </p>
+              </div>
+              {dutyTypeDetailsModal.dutyType.description && (
+                <div>
+                  <label className="text-sm text-foreground-muted">Description</label>
+                  <p className="text-foreground">
+                    {dutyTypeDetailsModal.dutyType.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Unit Section */}
+              <div>
+                <label className="text-sm text-foreground-muted">Unit Section</label>
+                <p className="text-foreground">
+                  {units.find(u => u.id === dutyTypeDetailsModal.dutyType?.unit_section_id)?.unit_name || "Unknown"}
+                </p>
+              </div>
+
+              {/* Scheduling Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-foreground-muted">Duty Points</label>
+                  <p className="text-foreground font-medium">
+                    {dutyTypeDetailsModal.dutyType.duty_points} pts
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm text-foreground-muted">Personnel Required</label>
+                  <p className="text-foreground font-medium">
+                    {dutyTypeDetailsModal.dutyType.required_personnel_count}
+                  </p>
+                </div>
+              </div>
+
+              {/* Rank Filters */}
+              {dutyTypeDetailsModal.dutyType.rank_filter_mode &&
+               dutyTypeDetailsModal.dutyType.rank_filter_values &&
+               dutyTypeDetailsModal.dutyType.rank_filter_values.length > 0 && (
+                <div className="p-3 bg-surface-elevated rounded-lg border border-border">
+                  <label className="text-sm text-foreground-muted">
+                    Rank Filter ({dutyTypeDetailsModal.dutyType.rank_filter_mode === 'include' ? 'Only these ranks' : 'Exclude these ranks'})
+                  </label>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {dutyTypeDetailsModal.dutyType.rank_filter_values.map((rank, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-2 py-0.5 rounded text-xs ${
+                          dutyTypeDetailsModal.dutyType?.rank_filter_mode === 'include'
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                        }`}
+                      >
+                        {rank}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Section Filters */}
+              {dutyTypeDetailsModal.dutyType.section_filter_mode &&
+               dutyTypeDetailsModal.dutyType.section_filter_values &&
+               dutyTypeDetailsModal.dutyType.section_filter_values.length > 0 && (
+                <div className="p-3 bg-surface-elevated rounded-lg border border-border">
+                  <label className="text-sm text-foreground-muted">
+                    Section Filter ({dutyTypeDetailsModal.dutyType.section_filter_mode === 'include' ? 'Only these sections' : 'Exclude these sections'})
+                  </label>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {dutyTypeDetailsModal.dutyType.section_filter_values.map((sectionId, idx) => {
+                      const sectionName = units.find(u => u.id === sectionId)?.unit_name || sectionId;
+                      return (
+                        <span
+                          key={idx}
+                          className={`px-2 py-0.5 rounded text-xs ${
+                            dutyTypeDetailsModal.dutyType?.section_filter_mode === 'include'
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-red-500/20 text-red-400'
+                          }`}
+                        >
+                          {sectionName}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Status */}
+              <div>
+                <label className="text-sm text-foreground-muted">Status</label>
+                <p>
+                  <span className={`inline-block px-2 py-0.5 rounded text-sm ${
+                    dutyTypeDetailsModal.dutyType.is_active
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {dutyTypeDetailsModal.dutyType.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end sticky bottom-0 bg-surface">
+              <Button
+                variant="ghost"
+                onClick={() => setDutyTypeDetailsModal({ isOpen: false, dutyType: null })}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export/Print Modal with Duty Type Selection */}
+      {exportModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-border flex items-center justify-between sticky top-0 bg-surface">
+              <h2 className="text-lg font-semibold text-foreground">
+                {exportModal.mode === 'csv' ? 'Export to CSV' : 'Print / PDF'}
+              </h2>
+              <button
+                onClick={() => setExportModal({ isOpen: false, mode: 'csv' })}
+                className="text-foreground-muted hover:text-foreground"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Select Duty Types to Include
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={selectAllExportDutyTypes}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-foreground-muted">|</span>
+                    <button
+                      onClick={deselectAllExportDutyTypes}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+                <div className="max-h-64 overflow-y-auto space-y-1 border border-border rounded-lg p-2">
+                  {filteredDutyTypes.length === 0 ? (
+                    <p className="text-foreground-muted text-sm text-center py-4">No duty types available</p>
+                  ) : (
+                    filteredDutyTypes.map((dt) => (
+                      <label
+                        key={dt.id}
+                        className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-surface-elevated cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedExportDutyTypes.has(dt.id)}
+                          onChange={() => toggleExportDutyType(dt.id)}
+                          className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary"
+                        />
+                        <span className="text-foreground">{dt.duty_name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-foreground-muted mt-2">
+                  {selectedExportDutyTypes.size} of {filteredDutyTypes.length} duty types selected
+                </p>
+              </div>
+
+              <div className="p-3 bg-surface-elevated rounded-lg border border-border">
+                <p className="text-sm text-foreground-muted">
+                  <strong>Export Details:</strong>
+                </p>
+                <ul className="text-sm text-foreground-muted mt-1 space-y-0.5">
+                  <li>Month: {formatMonthYear(currentDate)}</li>
+                  <li>Days: {monthDays.length}</li>
+                  <li>Duty Types: {selectedExportDutyTypes.size}</li>
+                </ul>
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2 sticky bottom-0 bg-surface">
+              <Button
+                variant="ghost"
+                onClick={() => setExportModal({ isOpen: false, mode: 'csv' })}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (exportModal.mode === 'csv') {
+                    exportToCSV();
+                  } else {
+                    printRoster();
+                  }
+                  setExportModal({ isOpen: false, mode: 'csv' });
+                }}
+                disabled={selectedExportDutyTypes.size === 0}
+              >
+                {exportModal.mode === 'csv' ? 'Export CSV' : 'Print / PDF'}
+              </Button>
             </div>
           </div>
         </div>
