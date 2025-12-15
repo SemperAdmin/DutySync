@@ -11,7 +11,7 @@
 import type { DutySlot, DutyType, Personnel, DutyValue } from "@/types";
 import {
   getDutyTypesByUnit,
-  getPersonnelByUnit,
+  getPersonnelByUnitWithDescendants,
   getDutyRequirements,
   getDutyValueByDutyType,
   getActiveNonAvailability,
@@ -167,7 +167,8 @@ function getEligiblePersonnel(
   dutyType: DutyType,
   date: Date
 ): EligiblePersonnel[] {
-  const personnel = getPersonnelByUnit(dutyType.unit_section_id);
+  // Get personnel from the duty type's unit and all its child units
+  const personnel = getPersonnelByUnitWithDescendants(dutyType.unit_section_id);
 
   const eligible: EligiblePersonnel[] = [];
 
@@ -365,7 +366,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
 
   // Create a temporary score map for preview
   const tempScores: Map<string, number> = new Map();
-  const personnel = getPersonnelByUnit(unitId);
+  const personnel = getPersonnelByUnitWithDescendants(unitId);
   personnel.forEach((p) => tempScores.set(p.id, p.current_duty_score));
 
   // Track assignments to prevent double-booking in preview
@@ -387,7 +388,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
       for (let slot = 0; slot < dutyType.slots_needed; slot++) {
         // Get eligible personnel with temp scores
         const eligibleList: EligiblePersonnel[] = [];
-        const unitPersonnel = getPersonnelByUnit(dutyType.unit_section_id);
+        const unitPersonnel = getPersonnelByUnitWithDescendants(dutyType.unit_section_id);
 
         for (const person of unitPersonnel) {
           // Check availability

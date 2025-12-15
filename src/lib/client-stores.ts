@@ -574,6 +574,27 @@ export function getChildUnits(parentId: string): UnitSection[] {
   return getFromStorage<UnitSection>(KEYS.units).filter((u) => u.parent_id === parentId);
 }
 
+// Get all descendant unit IDs (recursive) including the given unit ID
+export function getAllDescendantUnitIds(unitId: string): string[] {
+  const result: string[] = [unitId];
+  const children = getChildUnits(unitId);
+  for (const child of children) {
+    result.push(...getAllDescendantUnitIds(child.id));
+  }
+  return result;
+}
+
+// Get personnel from a unit and all its descendant units
+export function getPersonnelByUnitWithDescendants(unitId: string): Personnel[] {
+  const unitIds = new Set(getAllDescendantUnitIds(unitId));
+  return getFromStorage<Personnel>(KEYS.personnel)
+    .filter((p) => unitIds.has(p.unit_section_id))
+    .map(p => ({
+      ...p,
+      service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
+    }));
+}
+
 export function deleteUnitSection(id: string): boolean {
   const allUnits = getFromStorage<UnitSection>(KEYS.units);
 
