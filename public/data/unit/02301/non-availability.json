@@ -9,9 +9,19 @@
       "status": "approved",
       "approved_by": "admin",
       "created_at": "2025-12-15T07:04:06.205Z"
+    },
+    {
+      "id": "ccb28121-5fd3-45be-afc0-fd0b8b156c64",
+      "personnel_id": "ae0c853d-2d97-4346-9f20-4305d95cc024",
+      "start_date": "2025-12-22T00:00:00.000Z",
+      "end_date": "2025-12-26T00:00:00.000Z",
+      "reason": "E-Leave",
+      "status": "pending",
+      "approved_by": null,
+      "created_at": "2025-12-15T07:18:33.252Z"
     }
   ],
-  "exportedAt": "2025-12-15T07:04:11.214Z",
+  "exportedAt": "2025-12-15T07:18:38.266Z",
   "version": "1.0",
   "description": "Non-availability requests (leave, TAD, etc.) for personnel in this unit"
 }
