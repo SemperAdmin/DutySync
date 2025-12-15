@@ -14,13 +14,13 @@
     {
       "id": "role-404c4006-935f-4b7e-af4d-c21bc48ea99d-unit-admin",
       "role_name": "Unit Admin",
-      "scope_unit_id": "unit-ruc-02301",
+      "scope_unit_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
       "created_at": "2025-12-15T00:36:14.000Z"
     },
     {
       "id": "role-404c4006-935f-4b7e-af4d-c21bc48ea99d-work-section-manager",
       "role_name": "Work Section Manager",
-      "scope_unit_id": "unit-worksection-MPHQ",
+      "scope_unit_id": "68b9591e-eda6-443e-9ba3-a0fadde97063",
       "created_at": "2025-12-15T00:36:14.000Z"
     }
   ],
