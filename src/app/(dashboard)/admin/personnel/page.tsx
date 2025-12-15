@@ -475,10 +475,8 @@ export default function PersonnelPage() {
                           {person.last_name}, {person.first_name}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-primary/20 text-blue-400">
-                          {person.rank}
-                        </span>
+                      <td className="py-3 px-4 text-foreground-muted">
+                        {person.rank}
                       </td>
                       <td className="py-3 px-4 text-foreground-muted">
                         {getParentAtLevel(person.unit_section_id, "company")}
