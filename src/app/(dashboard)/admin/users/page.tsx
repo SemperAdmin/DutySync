@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Card, {
   CardHeader,
   CardTitle,
@@ -8,9 +8,24 @@ import Card, {
   CardContent,
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import type { UnitSection, RoleName } from "@/types";
-import { getAllUsers, getUnitSections, assignUserRole, updateUserApprovalPermission } from "@/lib/client-stores";
-import { triggerUpdateRolesWorkflow } from "@/lib/client-auth";
+import type { UnitSection, RoleName, Personnel } from "@/types";
+import {
+  getAllUsers,
+  getUnitSections,
+  getAllPersonnel,
+  getPersonnelByEdipi,
+  assignUserRole,
+  removeUserRole,
+  updateUserApprovalPermission,
+  deleteUser,
+} from "@/lib/client-stores";
+import { triggerUpdateRolesWorkflow, triggerDeleteUserWorkflow } from "@/lib/client-auth";
+
+interface UserRole {
+  id?: string;
+  role_name: RoleName;
+  scope_unit_id: string | null;
+}
 
 interface UserData {
   id: string;
@@ -18,16 +33,20 @@ interface UserData {
   email: string;
   personnel_id: string | null;
   can_approve_non_availability: boolean;
-  roles: Array<{
-    id?: string;
-    role_name: RoleName;
-    scope_unit_id: string | null;
-  }>;
+  roles: UserRole[];
+}
+
+interface PendingChanges {
+  rolesToAdd: UserRole[];
+  rolesToRemove: UserRole[];
+  approvalPermissionChanged: boolean;
+  newApprovalValue: boolean;
 }
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
+  const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
@@ -36,6 +55,7 @@ export default function UsersPage() {
     try {
       const usersData = getAllUsers();
       const unitsData = getUnitSections();
+      const personnelData = getAllPersonnel();
 
       setUsers(usersData.map(u => ({
         id: u.id,
@@ -50,6 +70,7 @@ export default function UsersPage() {
         })),
       })));
       setUnits(unitsData);
+      setPersonnel(personnelData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -60,6 +81,20 @@ export default function UsersPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Create a map of EDIPI to personnel for O(1) lookups
+  const personnelByEdipi = useMemo(() => {
+    const map = new Map<string, Personnel>();
+    personnel.forEach(p => {
+      // service_id is the EDIPI
+      map.set(p.service_id, p);
+    });
+    return map;
+  }, [personnel]);
+
+  const getPersonnelInfo = (edipi: string) => {
+    return personnelByEdipi.get(edipi);
+  };
 
   const getRoleColor = (roleName: RoleName) => {
     switch (roleName) {
@@ -130,6 +165,7 @@ export default function UsersPage() {
         <RoleAssignmentModal
           user={editingUser}
           units={units}
+          getUnitName={getUnitName}
           onClose={() => setEditingUser(null)}
           onSuccess={() => {
             setEditingUser(null);
@@ -160,6 +196,12 @@ export default function UsersPage() {
                       EDIPI
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Rank
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Name
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Email
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
@@ -174,75 +216,86 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
-                    <tr
-                      key={user.id}
-                      className="border-b border-border hover:bg-surface-elevated"
-                    >
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-foreground font-mono">
-                          {user.edipi}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-foreground-muted">
-                        {user.email}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {user.roles.map((role) => (
-                            <span
-                              key={role.id}
-                              className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(
-                                role.role_name
-                              )}`}
-                            >
-                              {role.role_name}
-                              {role.scope_unit_id && (
-                                <span className="ml-1 opacity-75">
-                                  ({getUnitName(role.scope_unit_id)})
-                                </span>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        {hasScopedRoles(user) && user.can_approve_non_availability && (
-                          <span className="px-2 py-0.5 text-xs font-medium rounded bg-warning/20 text-warning border border-warning/30">
-                            Can Approve N/A
+                  {users.map((user) => {
+                    const personnelInfo = getPersonnelInfo(user.edipi);
+                    return (
+                      <tr
+                        key={user.id}
+                        className="border-b border-border hover:bg-surface-elevated"
+                      >
+                        <td className="py-3 px-4">
+                          <span className="font-medium text-foreground font-mono">
+                            {user.edipi}
                           </span>
-                        )}
-                        {hasScopedRoles(user) && !user.can_approve_non_availability && (
-                          <span className="text-foreground-muted text-xs">-</span>
-                        )}
-                        {!hasScopedRoles(user) && (
-                          <span className="text-foreground-muted text-xs">N/A</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingUser(user)}
-                        >
-                          <svg
-                            className="w-4 h-4 mr-1"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {personnelInfo?.rank || "-"}
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {personnelInfo
+                            ? `${personnelInfo.last_name}, ${personnelInfo.first_name}`
+                            : "-"}
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {user.email}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {user.roles.map((role, idx) => (
+                              <span
+                                key={role.id || idx}
+                                className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(
+                                  role.role_name
+                                )}`}
+                              >
+                                {role.role_name}
+                                {role.scope_unit_id && (
+                                  <span className="ml-1 opacity-75">
+                                    ({getUnitName(role.scope_unit_id)})
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {hasScopedRoles(user) && user.can_approve_non_availability && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-warning/20 text-warning border border-warning/30">
+                              Can Approve N/A
+                            </span>
+                          )}
+                          {hasScopedRoles(user) && !user.can_approve_non_availability && (
+                            <span className="text-foreground-muted text-xs">-</span>
+                          )}
+                          {!hasScopedRoles(user) && (
+                            <span className="text-foreground-muted text-xs">N/A</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingUser(user)}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                          </svg>
-                          Edit Roles
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                            <svg
+                              className="w-4 h-4 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                            Edit Roles
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -256,25 +309,44 @@ export default function UsersPage() {
 function RoleAssignmentModal({
   user,
   units,
+  getUnitName,
   onClose,
   onSuccess,
 }: {
   user: UserData;
   units: UnitSection[];
+  getUnitName: (unitId: string | null) => string | null;
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
   const [selectedUnit, setSelectedUnit] = useState<string>("");
-  const [canApproveNA, setCanApproveNA] = useState(user.can_approve_non_availability);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const isAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
+  // Track local state for roles and approval permission
+  const [localRoles, setLocalRoles] = useState<UserRole[]>(user.roles);
+  const [localCanApproveNA, setLocalCanApproveNA] = useState(user.can_approve_non_availability);
+
+  // Track if there are unsaved changes
+  const hasChanges = useMemo(() => {
+    // Check if roles changed
+    const originalRoleKeys = user.roles.map(r => `${r.role_name}:${r.scope_unit_id}`).sort().join(",");
+    const localRoleKeys = localRoles.map(r => `${r.role_name}:${r.scope_unit_id}`).sort().join(",");
+    const rolesChanged = originalRoleKeys !== localRoleKeys;
+
+    // Check if approval permission changed
+    const approvalChanged = user.can_approve_non_availability !== localCanApproveNA;
+
+    return rolesChanged || approvalChanged;
+  }, [user.roles, user.can_approve_non_availability, localRoles, localCanApproveNA]);
+
+  const isAppAdmin = localRoles.some((r) => r.role_name === "App Admin");
 
   // Check if user has a scoped role that could have approval permissions
-  // This includes Unit Admin and all manager roles
-  const hasScopedRole = user.roles.some(r => [
+  const hasScopedRole = localRoles.some(r => [
     "Unit Admin",
     "Unit Manager",
     "Company Manager",
@@ -293,98 +365,128 @@ function RoleAssignmentModal({
     ].includes(role);
   };
 
-  const handleAssignRole = async () => {
-    setIsSubmitting(true);
+  const handleAddRole = () => {
+    const scopeUnitId = roleRequiresScope(selectedRole) ? selectedUnit : null;
+
+    // Check if role already exists
+    const roleExists = localRoles.some(
+      r => r.role_name === selectedRole && r.scope_unit_id === scopeUnitId
+    );
+
+    if (roleExists) {
+      setError("This role is already assigned");
+      return;
+    }
+
+    setLocalRoles([...localRoles, {
+      role_name: selectedRole,
+      scope_unit_id: scopeUnitId,
+    }]);
+
+    // Reset selection
+    setSelectedRole("Standard User");
+    setSelectedUnit("");
+    setError(null);
+  };
+
+  const handleRemoveRole = (roleToRemove: UserRole) => {
+    // Don't allow removing the last role
+    if (localRoles.length <= 1) {
+      setError("User must have at least one role");
+      return;
+    }
+
+    setLocalRoles(localRoles.filter(
+      r => !(r.role_name === roleToRemove.role_name && r.scope_unit_id === roleToRemove.scope_unit_id)
+    ));
+    setError(null);
+  };
+
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
     setError(null);
 
     try {
-      // Determine scope based on role type
-      const scopeUnitId = roleRequiresScope(selectedRole) ? selectedUnit : null;
+      // Determine what changed
+      const originalRoleKeys = new Set(user.roles.map(r => `${r.role_name}:${r.scope_unit_id}`));
+      const localRoleKeys = new Set(localRoles.map(r => `${r.role_name}:${r.scope_unit_id}`));
 
-      // Update in-memory cache first
-      const success = assignUserRole(user.id, selectedRole, scopeUnitId);
+      // Find roles to add
+      const rolesToAdd = localRoles.filter(r => !originalRoleKeys.has(`${r.role_name}:${r.scope_unit_id}`));
+      // Find roles to remove
+      const rolesToRemove = user.roles.filter(r => !localRoleKeys.has(`${r.role_name}:${r.scope_unit_id}`));
 
-      if (!success) {
-        throw new Error("Failed to assign role");
+      // Apply role additions to in-memory cache
+      for (const role of rolesToAdd) {
+        assignUserRole(user.id, role.role_name, role.scope_unit_id);
       }
 
-      // Build the complete roles array for the user
-      const newRole = {
-        role_name: selectedRole,
-        scope_unit_id: scopeUnitId,
-      };
+      // Apply role removals to in-memory cache
+      for (const role of rolesToRemove) {
+        removeUserRole(user.id, role.role_name, role.scope_unit_id);
+      }
 
-      // Get existing roles and add new one (avoid duplicates)
-      const existingRoles = user.roles.map((r) => ({
+      // Update approval permission if changed
+      if (user.can_approve_non_availability !== localCanApproveNA) {
+        updateUserApprovalPermission(user.id, localCanApproveNA);
+      }
+
+      // Build the final roles array for the workflow
+      const finalRoles = localRoles.map(r => ({
         role_name: r.role_name,
         scope_unit_id: r.scope_unit_id,
       }));
 
-      const roleExists = existingRoles.some(
-        (r) =>
-          r.role_name === newRole.role_name &&
-          r.scope_unit_id === newRole.scope_unit_id
+      // Trigger GitHub workflow to persist all changes
+      const workflowResult = await triggerUpdateRolesWorkflow(
+        user.id,
+        finalRoles,
+        localCanApproveNA
       );
 
-      const allRoles = roleExists ? existingRoles : [...existingRoles, newRole];
-
-      // Trigger GitHub workflow to persist changes
-      const workflowResult = await triggerUpdateRolesWorkflow(user.id, allRoles);
-
       if (!workflowResult.success) {
-        console.warn("Failed to persist role to GitHub:", workflowResult.error);
+        console.warn("Failed to persist changes to GitHub:", workflowResult.error);
         // Still show success since in-memory cache was updated
-        // The workflow failure means it won't persist across deploys
       }
 
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
   };
 
-  // Handle toggling approval permission
-  const handleToggleApproval = async () => {
-    setIsSubmitting(true);
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
     setError(null);
 
     try {
-      const newValue = !canApproveNA;
+      // Delete from in-memory cache
+      const success = deleteUser(user.id);
 
-      // Update in-memory cache first
-      updateUserApprovalPermission(user.id, newValue);
-
-      // Build roles for the workflow
-      const currentRoles = user.roles.map((r) => ({
-        role_name: r.role_name,
-        scope_unit_id: r.scope_unit_id,
-      }));
-
-      // Trigger workflow to persist the change
-      const workflowResult = await triggerUpdateRolesWorkflow(
-        user.id,
-        currentRoles,
-        newValue
-      );
-
-      if (!workflowResult.success) {
-        console.warn("Failed to persist approval permission to GitHub:", workflowResult.error);
+      if (!success) {
+        throw new Error("Failed to delete user");
       }
 
-      setCanApproveNA(newValue);
+      // Trigger GitHub workflow to persist deletion
+      const workflowResult = await triggerDeleteUserWorkflow(user.id);
+
+      if (!workflowResult.success) {
+        console.warn("Failed to persist deletion to GitHub:", workflowResult.error);
+      }
+
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setIsSubmitting(false);
+      setIsDeleting(false);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card variant="elevated" className="w-full max-w-md">
+      <Card variant="elevated" className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <CardTitle>Manage Roles - {user.edipi}</CardTitle>
           <CardDescription>
@@ -398,18 +500,36 @@ function RoleAssignmentModal({
             </div>
           )}
 
-          {/* Current Roles */}
+          {/* Current Roles with Remove Button */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Current Roles
             </label>
             <div className="flex flex-wrap gap-2">
-              {user.roles.map((role) => (
+              {localRoles.map((role, idx) => (
                 <span
-                  key={role.id}
-                  className="px-3 py-1 text-sm rounded-lg bg-surface-elevated border border-border"
+                  key={role.id || idx}
+                  className="inline-flex items-center gap-1 px-3 py-1 text-sm rounded-lg bg-surface-elevated border border-border"
                 >
                   {role.role_name}
+                  {role.scope_unit_id && (
+                    <span className="opacity-75">
+                      ({getUnitName(role.scope_unit_id)})
+                    </span>
+                  )}
+                  {/* Remove button - don't show for the last role */}
+                  {localRoles.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRole(role)}
+                      className="ml-1 p-0.5 rounded hover:bg-error/20 text-foreground-muted hover:text-error transition-colors"
+                      title="Remove role"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
@@ -426,15 +546,15 @@ function RoleAssignmentModal({
                   </p>
                 </div>
                 <button
-                  onClick={handleToggleApproval}
-                  disabled={isSubmitting}
+                  onClick={() => setLocalCanApproveNA(!localCanApproveNA)}
+                  disabled={isSaving}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 ${
-                    canApproveNA ? "bg-success" : "bg-foreground-muted/30"
+                    localCanApproveNA ? "bg-success" : "bg-foreground-muted/30"
                   }`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      canApproveNA ? "translate-x-6" : "translate-x-1"
+                      localCanApproveNA ? "translate-x-6" : "translate-x-1"
                     }`}
                   />
                 </button>
@@ -457,7 +577,7 @@ function RoleAssignmentModal({
                   onChange={(e) =>
                     setSelectedRole(e.target.value as RoleName)
                   }
-                  disabled={isSubmitting}
+                  disabled={isSaving}
                 >
                   <option value="Standard User">Standard User</option>
                   <option value="Unit Manager">Unit Manager</option>
@@ -478,7 +598,7 @@ function RoleAssignmentModal({
                     className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     value={selectedUnit}
                     onChange={(e) => setSelectedUnit(e.target.value)}
-                    disabled={isSubmitting}
+                    disabled={isSaving}
                   >
                     <option value="">Select a unit...</option>
                     {units.map((unit) => (
@@ -491,16 +611,18 @@ function RoleAssignmentModal({
               )}
 
               <Button
-                variant="accent"
-                onClick={handleAssignRole}
-                isLoading={isSubmitting}
+                variant="secondary"
+                onClick={handleAddRole}
                 disabled={
-                  isSubmitting ||
+                  isSaving ||
                   (roleRequiresScope(selectedRole) && !selectedUnit)
                 }
                 className="w-full"
               >
-                Assign Role
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Role
               </Button>
             </div>
           )}
@@ -512,14 +634,76 @@ function RoleAssignmentModal({
             </div>
           )}
 
-          <div className="flex justify-end pt-4">
+          {/* Unsaved Changes Indicator */}
+          {hasChanges && (
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm">
+              You have unsaved changes. Click "Save Changes" to apply them.
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-4 border-t border-border">
+            {/* Save Changes Button */}
             <Button
-              variant="secondary"
-              onClick={onClose}
-              disabled={isSubmitting}
+              variant="accent"
+              onClick={handleSaveChanges}
+              isLoading={isSaving}
+              disabled={isSaving || isDeleting || !hasChanges}
+              className="w-full"
             >
-              Close
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Save Changes
             </Button>
+
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={onClose}
+                disabled={isSaving || isDeleting}
+                className="flex-1"
+              >
+                {hasChanges ? "Cancel" : "Close"}
+              </Button>
+
+              {/* Delete Account Button */}
+              {!showDeleteConfirm ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isSaving || isDeleting}
+                  className="text-error hover:bg-error/10"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={handleDeleteAccount}
+                  isLoading={isDeleting}
+                  disabled={isSaving || isDeleting}
+                  className="bg-error/10 text-error hover:bg-error/20"
+                >
+                  Confirm Delete
+                </Button>
+              )}
+            </div>
+
+            {showDeleteConfirm && (
+              <p className="text-xs text-error text-center">
+                Are you sure? This will permanently delete this user account.
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="ml-2 underline hover:no-underline"
+                >
+                  Cancel
+                </button>
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
