@@ -7,7 +7,7 @@
       "last_name": "ALBERTOROCHA",
       "rank": "LCPL",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "add24204-83cc-4c9e-91d6-56bae399cb2d",
@@ -25,7 +25,7 @@
       "last_name": "LEE",
       "rank": "SSGT",
       "unit_section_id": "97519b57-1f3c-4f9a-b8fe-2be62d9ca1a0",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "5dca095c-743c-47d6-8d8c-894ba3b73a87",
@@ -43,7 +43,7 @@
       "last_name": "PARKER",
       "rank": "LCPL",
       "unit_section_id": "c714894b-832f-4fb2-89cc-76594aae3ece",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "6147e573-6067-4518-86ff-99a0a80ca6fd",
@@ -52,7 +52,7 @@
       "last_name": "ROBINSON",
       "rank": "SSGT",
       "unit_section_id": "d36707a2-ddd9-4927-acf5-dbc154c738a2",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "a13aaecd-f050-4d1b-af5b-caa04976d98a",
@@ -61,7 +61,7 @@
       "last_name": "SAUCEDA",
       "rank": "GYSGT",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "79772df0-8acc-4e67-9baf-3cdae7e44e66",
@@ -70,7 +70,7 @@
       "last_name": "URENA",
       "rank": "CPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "685d33d7-4df9-4748-ab5e-831391f97611",
@@ -79,7 +79,7 @@
       "last_name": "WORLEY",
       "rank": "SSGT",
       "unit_section_id": "56639d9d-063b-4091-b9d5-e82ae20086b5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "d0956278-eec4-4603-9ef4-720ad16d548e",
@@ -88,7 +88,7 @@
       "last_name": "MAINA",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "72631b8d-c48f-4081-8066-6a9a6c324c54",
@@ -124,7 +124,7 @@
       "last_name": "BARILLASDELCID",
       "rank": "CPL",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "84a85259-42b8-4788-a403-147edf414802",
@@ -133,7 +133,7 @@
       "last_name": "CAMPBELL",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "5dd347c1-415c-416c-87b8-9739bda46f0f",
@@ -151,7 +151,7 @@
       "last_name": "FOLEY",
       "rank": "GYSGT",
       "unit_section_id": "cbd6ecda-6a3e-456e-be72-03b7b27d6c1a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4480b1bb-fd5b-41a8-96d4-38166c296cdf",
@@ -169,7 +169,7 @@
       "last_name": "MORGAN",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "6540b406-b3d8-415d-a580-2066d1971e5d",
@@ -178,7 +178,7 @@
       "last_name": "MYERS",
       "rank": "SGT",
       "unit_section_id": "cbd6ecda-6a3e-456e-be72-03b7b27d6c1a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2fc7813b-f36a-48b7-834f-411e55f960d7",
@@ -187,7 +187,7 @@
       "last_name": "WILSON",
       "rank": "LCPL",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "22da243e-fcc5-4dd9-b387-eb3d267196f6",
@@ -214,7 +214,7 @@
       "last_name": "BORKOWSKI",
       "rank": "SSGT",
       "unit_section_id": "301ee313-12bf-4771-8df1-5e5965ea7d4d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "77cec94d-504e-4cc7-b158-ef51a4e0c2f3",
@@ -232,7 +232,7 @@
       "last_name": "CUELLAR",
       "rank": "SSGT",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "02ec2648-ba33-4dc3-bf81-1eeb283e5e00",
@@ -250,7 +250,7 @@
       "last_name": "FAJARDO",
       "rank": "SSGT",
       "unit_section_id": "edc40ec6-48a2-47b7-b6cb-58c15287e20e",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "70cdda84-35a7-48c0-8cd1-04837b85563f",
@@ -268,7 +268,7 @@
       "last_name": "HILL",
       "rank": "PFC",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "84a55f50-2115-4ec2-96ee-0be4c7882b1a",
@@ -286,7 +286,7 @@
       "last_name": "LOPEZCORTEZ",
       "rank": "CPL",
       "unit_section_id": "3750c87d-ceb0-4616-8b39-0bcbb32f9b65",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2a67cf91-6de0-4838-987f-e9d4737e4659",
@@ -313,7 +313,7 @@
       "last_name": "SALDANA",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "4a331cfd-28ad-46a8-b85c-b7b575973823",
@@ -376,7 +376,7 @@
       "last_name": "ANGULOIBARRA",
       "rank": "SSGT",
       "unit_section_id": "d5486408-083b-418e-94b3-479108809b79",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "d9689d11-170d-4f48-a30b-c017cd247039",
@@ -385,7 +385,7 @@
       "last_name": "CHAVARRIA",
       "rank": "SSGT",
       "unit_section_id": "3c37e7b8-ae94-4b5c-96c3-0f5830585bb1",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "89269b03-0a31-4311-9861-f9e07d04fcc7",
@@ -394,7 +394,7 @@
       "last_name": "FRANCOFRANCO",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "b7ee47d2-cf4a-4d19-ba0f-00a0bc98bc2c",
@@ -412,7 +412,7 @@
       "last_name": "PINDELL",
       "rank": "LCPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0c9f7f2e-0812-4d02-8c81-3f73dd06546b",
@@ -421,7 +421,7 @@
       "last_name": "ALBA",
       "rank": "SSGT",
       "unit_section_id": "8a7f473d-638d-4389-856e-c726e2fe5ddd",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d5d023cb-4591-4baa-8e2b-99ee03e4655f",
@@ -430,7 +430,7 @@
       "last_name": "BOATWRIGHT",
       "rank": "PFC",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a108edce-08bd-4f8d-852a-d9039225de94",
@@ -439,7 +439,7 @@
       "last_name": "FROST",
       "rank": "CPL",
       "unit_section_id": "46954f1f-87ab-4661-8350-6828b46ec9d5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "449f978e-a636-4288-8362-e7be9f794e58",
@@ -466,7 +466,7 @@
       "last_name": "WALL",
       "rank": "CPL",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "828f8eb8-66d1-43ea-b958-385611b0c185",
@@ -484,7 +484,7 @@
       "last_name": "BLANCO",
       "rank": "GYSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a25d26ac-768a-4bf1-834d-0967d03d7fcb",
@@ -493,7 +493,7 @@
       "last_name": "COOLEY",
       "rank": "PFC",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "07c18db7-e24c-4585-963f-3422f5951743",
@@ -511,7 +511,7 @@
       "last_name": "MARTINEZ JR",
       "rank": "CPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "690e0494-ac04-4a4f-b7b3-e287c136517f",
@@ -529,7 +529,7 @@
       "last_name": "ALLEN",
       "rank": "GYSGT",
       "unit_section_id": "301ee313-12bf-4771-8df1-5e5965ea7d4d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4ebc749e-4e18-435d-9b00-80854c02c85c",
@@ -547,7 +547,7 @@
       "last_name": "CONLEY",
       "rank": "LCPL",
       "unit_section_id": "6fc33620-7238-40be-a369-220b5fb52e9c",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "b8db8f14-0acb-464d-96c9-2885057002aa",
@@ -556,7 +556,7 @@
       "last_name": "MORRISON",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "cd2963d3-2276-41d9-a3f3-b3b04faf53e6",
@@ -565,7 +565,7 @@
       "last_name": "SERRANO",
       "rank": "GYSGT",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "62ad806e-074d-4c26-b2b4-5f905f888ad2",
@@ -592,7 +592,7 @@
       "last_name": "CRUZMELO",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d9c254f2-04ba-4c78-8f17-ef803b57ca61",
@@ -610,7 +610,7 @@
       "last_name": "MANCILLA",
       "rank": "GYSGT",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "7879b8f1-db52-4f4b-b92a-00c47d44685e",
@@ -664,7 +664,7 @@
       "last_name": "IRONS",
       "rank": "SSGT",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "fd69be85-76ea-44c3-85eb-8dcee91d99fd",
@@ -682,7 +682,7 @@
       "last_name": "CONTRERAS",
       "rank": "LCPL",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d9bfc3e4-7079-4684-86fc-faa288a26e3d",
@@ -700,7 +700,7 @@
       "last_name": "SAUCEDO",
       "rank": "GYSGT",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "b8c2a3dd-dccb-4faa-9a61-7fd1d35eff1d",
@@ -709,7 +709,7 @@
       "last_name": "HAMILTON",
       "rank": "GYSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "682104ff-ae2c-455c-baf0-ccf4d48e16dd",
@@ -781,7 +781,7 @@
       "last_name": "SPENCER",
       "rank": "SGT",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "1ffec177-3a87-476d-ae12-fce89f929886",
@@ -835,7 +835,7 @@
       "last_name": "FILSAIME",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "5c21e647-e79f-46f3-9532-16af13a5b358",
@@ -844,7 +844,7 @@
       "last_name": "CORNEJOMENDOZA",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "9e34706f-1eb4-4cc5-9f2c-d6d0be18ca46",
@@ -853,7 +853,7 @@
       "last_name": "VILLEGAS",
       "rank": "CPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "5fb14531-302d-422f-89d1-c8ba6a8a3683",
@@ -862,7 +862,7 @@
       "last_name": "LANDGRAF",
       "rank": "SGT",
       "unit_section_id": "3c37e7b8-ae94-4b5c-96c3-0f5830585bb1",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f2186a33-809d-4a9c-9454-85a400f319f1",
@@ -898,7 +898,7 @@
       "last_name": "ESTRADAARMENDARIZ",
       "rank": "CPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "03a0d628-a8a0-41b0-93bf-43c828d6da49",
@@ -916,7 +916,7 @@
       "last_name": "AMICK",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "c885bedb-0a01-4326-9bbc-7e7803ce90ed",
@@ -934,7 +934,7 @@
       "last_name": "RIVERA",
       "rank": "LCPL",
       "unit_section_id": "46954f1f-87ab-4661-8350-6828b46ec9d5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "21dd7cf5-14ae-44fa-9ad1-b1cb01bc3ab3",
@@ -961,7 +961,7 @@
       "last_name": "MORMAN",
       "rank": "GYSGT",
       "unit_section_id": "56639d9d-063b-4091-b9d5-e82ae20086b5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "b1d060a3-8bd8-400f-a1f0-6327f4e2d9d6",
@@ -997,7 +997,7 @@
       "last_name": "AGUILAR",
       "rank": "CPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "37a28538-da29-4803-9e8f-a43088785ad0",
@@ -1015,7 +1015,7 @@
       "last_name": "AHAMED",
       "rank": "PFC",
       "unit_section_id": "46954f1f-87ab-4661-8350-6828b46ec9d5",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "c63963ae-3670-4bf5-9f63-cfe355050514",
@@ -1024,7 +1024,7 @@
       "last_name": "AHERN",
       "rank": "GYSGT",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2a627ee7-def8-4187-be57-38a68505853d",
@@ -1033,7 +1033,7 @@
       "last_name": "AKANNO",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "e0a419b3-fa98-4e6c-bd16-25f5f23c35d5",
@@ -1042,7 +1042,7 @@
       "last_name": "ALACHEDELGADO",
       "rank": "PFC",
       "unit_section_id": "691bc2ce-6c57-4b58-b4db-8267f085ddb8",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "418c2e2b-1621-44e7-867c-7f06828e61b0",
@@ -1060,7 +1060,7 @@
       "last_name": "ALJAWHARI",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "129e2edd-fcdb-4851-8b10-39f94914b76b",
@@ -1087,7 +1087,7 @@
       "last_name": "ALVARADO",
       "rank": "SSGT",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "47f104b0-1eda-4bd3-b2f7-9fa80dcc4cd4",
@@ -1114,7 +1114,7 @@
       "last_name": "AMANI",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d439a94e-702a-4f3e-8f8f-fbc6784ec1f9",
@@ -1123,7 +1123,7 @@
       "last_name": "AMEEVOR",
       "rank": "PFC",
       "unit_section_id": "d14e5cce-db6b-4775-a56c-03e0b828b872",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "65a072df-aa02-4d31-80cf-64dab5866b1a",
@@ -1150,7 +1150,7 @@
       "last_name": "ANTONIO",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "31f2ecfd-5444-4ec7-85e9-c7a0989c4c40",
@@ -1159,7 +1159,7 @@
       "last_name": "APENVILLATORO",
       "rank": "PFC",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "7c90f49c-6890-4786-921b-9ec6c237ced3",
@@ -1168,7 +1168,7 @@
       "last_name": "ARDITO",
       "rank": "LCPL",
       "unit_section_id": "d14e5cce-db6b-4775-a56c-03e0b828b872",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "5db32081-224e-4c1d-b94c-ebe874dec300",
@@ -1186,7 +1186,7 @@
       "last_name": "ARNOLD",
       "rank": "SGT",
       "unit_section_id": "56639d9d-063b-4091-b9d5-e82ae20086b5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "06a39779-68c0-44f2-a6dd-90cf460df707",
@@ -1195,7 +1195,7 @@
       "last_name": "ARROWOOD",
       "rank": "LCPL",
       "unit_section_id": "edc40ec6-48a2-47b7-b6cb-58c15287e20e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "450994f1-0a2e-411d-a235-28aa57e56f51",
@@ -1231,7 +1231,7 @@
       "last_name": "AUSTIN",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "34e24daf-a538-4089-86be-074db3489da3",
@@ -1240,7 +1240,7 @@
       "last_name": "BABB",
       "rank": "SSGT",
       "unit_section_id": "cbd6ecda-6a3e-456e-be72-03b7b27d6c1a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "59362dab-3c58-43f8-b5b2-c0f14400e2da",
@@ -1258,7 +1258,7 @@
       "last_name": "BAHE",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f9ee1caa-a000-453d-bf8c-b074c4403b4d",
@@ -1285,7 +1285,7 @@
       "last_name": "BANDALAN",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "a4670e13-105e-4dbe-bc56-4e063e6fad49",
@@ -1294,7 +1294,7 @@
       "last_name": "BARNETT",
       "rank": "LCPL",
       "unit_section_id": "902eacfa-aa08-4bd9-b6fc-d2cdc548d8dc",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "9d671f5b-14f6-49fb-aee2-5318f79bf4c2",
@@ -1312,7 +1312,7 @@
       "last_name": "BAUTISTAGOMEZ",
       "rank": "LCPL",
       "unit_section_id": "6fc33620-7238-40be-a369-220b5fb52e9c",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "81fa269a-470d-432a-8222-53d72d67219e",
@@ -1330,7 +1330,7 @@
       "last_name": "BEERS",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "156e6bb6-3e8b-4e7c-9dce-75afc3f3b582",
@@ -1348,7 +1348,7 @@
       "last_name": "BELL",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "d036874e-2081-440e-a93f-b23e3af9ed34",
@@ -1366,7 +1366,7 @@
       "last_name": "BENNETT",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "6b25e385-8b3c-488b-bba5-9a8bf88607e9",
@@ -1402,7 +1402,7 @@
       "last_name": "BERTZYK JR",
       "rank": "LCPL",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d643383e-ed24-468d-9f2f-3af46e06cc6c",
@@ -1411,7 +1411,7 @@
       "last_name": "BILLETDEAUX",
       "rank": "LCPL",
       "unit_section_id": "691bc2ce-6c57-4b58-b4db-8267f085ddb8",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f87b9eea-a232-416b-bbf5-7d75bc7a664f",
@@ -1456,7 +1456,7 @@
       "last_name": "BLAKE",
       "rank": "LCPL",
       "unit_section_id": "68b9591e-eda6-443e-9ba3-a0fadde97063",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "3a3b3069-56a3-4f75-a1c9-b1ad43d4e064",
@@ -1510,7 +1510,7 @@
       "last_name": "BOUMAQUINN",
       "rank": "PFC",
       "unit_section_id": "68b9591e-eda6-443e-9ba3-a0fadde97063",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "552bb2d5-65ab-4db2-8c6a-7dcf68c8263a",
@@ -1528,7 +1528,7 @@
       "last_name": "BOWMAN",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "e1762bfe-5c48-477c-a265-edc91773b340",
@@ -1546,7 +1546,7 @@
       "last_name": "BOYD",
       "rank": "PFC",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0f1a667a-62c9-4066-b7a2-42a641b6461e",
@@ -1582,7 +1582,7 @@
       "last_name": "BRAHNEY",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "bf9b64b6-47b7-44f7-b03a-65d7b8f14b09",
@@ -1600,7 +1600,7 @@
       "last_name": "BREY",
       "rank": "LCPL",
       "unit_section_id": "6fc33620-7238-40be-a369-220b5fb52e9c",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0ebc6951-7904-4e27-aa12-744675666475",
@@ -1618,7 +1618,7 @@
       "last_name": "BRIGHTLEY",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "9c24c5ef-22b1-4b1f-a170-bf6e7d117e8a",
@@ -1636,7 +1636,7 @@
       "last_name": "BRITO",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f4c7a3cb-0acd-4751-9aa3-6db8d093c2e9",
@@ -1645,7 +1645,7 @@
       "last_name": "BRONFIELD",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "79338491-0d17-440f-8215-5464c37ed881",
@@ -1654,7 +1654,7 @@
       "last_name": "BROWN",
       "rank": "CPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "ede1900c-8469-40bf-bb5d-c54587cff157",
@@ -1690,7 +1690,7 @@
       "last_name": "BRUNS",
       "rank": "LCPL",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4849f75b-83e8-446a-90de-1ac0079f6020",
@@ -1699,7 +1699,7 @@
       "last_name": "BRUNSON JR",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0e621256-a35f-448a-b525-c4e62d44f69c",
@@ -1708,7 +1708,7 @@
       "last_name": "BUCHANAN",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "fa5afff9-71b6-45fa-b815-3516b9de4641",
@@ -1717,7 +1717,7 @@
       "last_name": "BUCKLEY",
       "rank": "LCPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2de3603c-efd0-4c63-8409-d536b1b55ce6",
@@ -1726,7 +1726,7 @@
       "last_name": "BUFFORD",
       "rank": "CPL",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "75d526f7-8e36-4b8d-a84f-8c9ffba29b73",
@@ -1735,7 +1735,7 @@
       "last_name": "BURTON",
       "rank": "LCPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4f4485a9-7bb7-4170-9eaa-ea33c5099840",
@@ -1744,7 +1744,7 @@
       "last_name": "CALDERON",
       "rank": "LCPL",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f4b3e25a-31e4-4a81-ae5b-84d51aad1ff9",
@@ -1753,7 +1753,7 @@
       "last_name": "CALTABIANO",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "6100680f-2c2c-473b-b59b-d0013593eacd",
@@ -1798,7 +1798,7 @@
       "last_name": "CAPUSEGUACORTEZ",
       "rank": "PFC",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "17c551d8-6d19-47ee-93af-34232337b630",
@@ -1816,7 +1816,7 @@
       "last_name": "CARLSEN",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "358655f4-e7eb-4e17-b4e9-249545ea636c",
@@ -1825,7 +1825,7 @@
       "last_name": "CARLSON",
       "rank": "PFC",
       "unit_section_id": "5f2c7c72-704a-4fce-9eb0-de73053d5e4a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "630ed543-6a5e-445e-b78b-2d4028199dbe",
@@ -1834,7 +1834,7 @@
       "last_name": "CARMONA",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "6a4bac49-9f54-4fd7-a8ff-e4f023330563",
@@ -1843,7 +1843,7 @@
       "last_name": "CARNLEY",
       "rank": "SGT",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "8c49f7ff-ff38-4116-9f60-fe2a313d357c",
@@ -1852,7 +1852,7 @@
       "last_name": "CARRILLO",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "3b63f15c-eaed-4e80-86a2-f5c120a0886e",
@@ -1879,7 +1879,7 @@
       "last_name": "CASTILLOMORENO",
       "rank": "LCPL",
       "unit_section_id": "3750c87d-ceb0-4616-8b39-0bcbb32f9b65",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f9191763-9d9a-4015-8837-7fe465ac93f5",
@@ -1906,7 +1906,7 @@
       "last_name": "CEDILLO",
       "rank": "PFC",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "170f84ab-b83d-4e83-82fd-8b14169fc54c",
@@ -1915,7 +1915,7 @@
       "last_name": "CEPEDA",
       "rank": "LCPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "3224bc25-7525-40d7-a234-cf91205a4b63",
@@ -1942,7 +1942,7 @@
       "last_name": "CHAVEZFLORES",
       "rank": "LCPL",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "12511133-62e9-4c09-982e-e8557a00b72f",
@@ -1960,7 +1960,7 @@
       "last_name": "CHILD",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "1afd5502-d35f-4587-95f1-05517da9ab00",
@@ -1996,7 +1996,7 @@
       "last_name": "CHOUDRI",
       "rank": "LCPL",
       "unit_section_id": "46954f1f-87ab-4661-8350-6828b46ec9d5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "9be2dad8-a380-4fe0-913e-430f9b78527b",
@@ -2005,7 +2005,7 @@
       "last_name": "CHRASTINA",
       "rank": "PFC",
       "unit_section_id": "d5486408-083b-418e-94b3-479108809b79",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4012c19c-54aa-4efc-84aa-53df2e2a6d64",
@@ -2014,7 +2014,7 @@
       "last_name": "CHRISTIAN",
       "rank": "LCPL",
       "unit_section_id": "46954f1f-87ab-4661-8350-6828b46ec9d5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "58c28ae4-9539-4855-b883-87ed6bfee4ed",
@@ -2032,7 +2032,7 @@
       "last_name": "COLE",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d4de0672-7e3e-475b-aa30-81fd067648e3",
@@ -2041,7 +2041,7 @@
       "last_name": "COLLUM",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "1dfa8d92-4569-4aca-9928-1080c1f77da9",
@@ -2050,7 +2050,7 @@
       "last_name": "COMBS",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "087febb1-f46a-480c-a296-92192b9d3904",
@@ -2068,7 +2068,7 @@
       "last_name": "CONNELLY",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "199167eb-5ee2-4bd8-9e63-8cc11222329a",
@@ -2077,7 +2077,7 @@
       "last_name": "COOK",
       "rank": "LCPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "848effba-2e8c-48e8-833b-e417c1d4a9fd",
@@ -2086,7 +2086,7 @@
       "last_name": "CORDERO",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "b3364e3f-fee2-4ab3-8f49-853bf06ca41b",
@@ -2095,7 +2095,7 @@
       "last_name": "CORTEZ",
       "rank": "PFC",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "098b85c8-5ef6-45e7-953e-d634660bf49f",
@@ -2113,7 +2113,7 @@
       "last_name": "CUMMINGS",
       "rank": "LCPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "ed664aef-8a8a-4c63-b6b6-69e737221124",
@@ -2122,7 +2122,7 @@
       "last_name": "CUNHA",
       "rank": "LCPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "9ca786f1-5923-4d32-a693-60ae0c0d51f2",
@@ -2140,7 +2140,7 @@
       "last_name": "DAVIS",
       "rank": "SSGT",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "83f2c624-7e2c-4f1a-9fd2-9f78fccfa59e",
@@ -2149,7 +2149,7 @@
       "last_name": "DAVIS III",
       "rank": "SSGT",
       "unit_section_id": "691bc2ce-6c57-4b58-b4db-8267f085ddb8",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "e8b1b980-ea15-4645-8a3f-46860a6a2fc2",
@@ -2230,7 +2230,7 @@
       "last_name": "DIAZRODRIGUEZ",
       "rank": "LCPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "9fe8c37d-c7d0-4be0-9ac1-26823c0e111a",
@@ -2239,7 +2239,7 @@
       "last_name": "DIEGO",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "bec4f8fe-bcd5-4e8c-9aa1-012b9583680f",
@@ -2275,7 +2275,7 @@
       "last_name": "DODSON",
       "rank": "SSGT",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4fac3f4e-0834-4852-8233-89d25929853b",
@@ -2284,7 +2284,7 @@
       "last_name": "DOMINGUEZ",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "be1f8c00-80ae-4c1f-acfa-72327d9e1357",
@@ -2293,7 +2293,7 @@
       "last_name": "DONALDSON",
       "rank": "LCPL",
       "unit_section_id": "3750c87d-ceb0-4616-8b39-0bcbb32f9b65",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "47d17eb3-ac82-46dd-ab72-6558de6c4010",
@@ -2329,7 +2329,7 @@
       "last_name": "DUMFEH",
       "rank": "LCPL",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f5c95780-0db0-40f0-97fe-8f4bcf47002b",
@@ -2347,7 +2347,7 @@
       "last_name": "DY",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "faef4543-9085-438c-bbcc-75a881218d79",
@@ -2365,7 +2365,7 @@
       "last_name": "ELIKAHI",
       "rank": "GYSGT",
       "unit_section_id": "639ecca9-5651-49a2-b297-8acf5e7850ab",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d80469ef-2f50-4ec1-bfaa-7822f28c8dee",
@@ -2392,7 +2392,7 @@
       "last_name": "ELY",
       "rank": "PFC",
       "unit_section_id": "3750c87d-ceb0-4616-8b39-0bcbb32f9b65",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "295d06ce-848e-43db-86e1-76a8980b1816",
@@ -2401,7 +2401,7 @@
       "last_name": "ERICKSON",
       "rank": "LCPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "7d97b008-eea2-48cc-a48d-cd824b529cea",
@@ -2410,7 +2410,7 @@
       "last_name": "ESCO",
       "rank": "LCPL",
       "unit_section_id": "d14e5cce-db6b-4775-a56c-03e0b828b872",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "2b6058ac-457c-42af-966e-12b05eb62953",
@@ -2428,7 +2428,7 @@
       "last_name": "ESTEP",
       "rank": "LCPL",
       "unit_section_id": "8a7f473d-638d-4389-856e-c726e2fe5ddd",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "aff5e40c-c10c-4518-93ff-86b6fe7b8c8c",
@@ -2446,7 +2446,7 @@
       "last_name": "ESTEVES",
       "rank": "LCPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a2a8984a-b762-48e4-acf0-a823cf2236b7",
@@ -2464,7 +2464,7 @@
       "last_name": "ESTRIDGE IV",
       "rank": "LCPL",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "345930e3-3d75-46c9-9dc5-1f63f3af8ddc",
@@ -2473,7 +2473,7 @@
       "last_name": "EVANS",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "11bcbdf6-9ece-4079-a22b-83180bf7e820",
@@ -2518,7 +2518,7 @@
       "last_name": "FIELDS",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "87bd3ea4-f097-45c0-9d63-868b295afef9",
@@ -2545,7 +2545,7 @@
       "last_name": "FLORES",
       "rank": "CPL",
       "unit_section_id": "7d8471c9-7614-4b9e-a1b2-205898a2d876",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "c4483330-72a9-4c47-abfe-18aa626e0d96",
@@ -2563,7 +2563,7 @@
       "last_name": "FLYNN",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "a4be8223-d0c3-4bde-aed8-60189155e5be",
@@ -2599,7 +2599,7 @@
       "last_name": "FOSTER",
       "rank": "LCPL",
       "unit_section_id": "6fc33620-7238-40be-a369-220b5fb52e9c",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "98cde186-31ce-4e5d-bc2f-870f0da6012e",
@@ -2635,7 +2635,7 @@
       "last_name": "FULLERTON",
       "rank": "SSGT",
       "unit_section_id": "3f1c6976-247e-4125-89cc-cdd6547b50a7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "e67df9d6-7d57-4c45-b5b2-fb558dff74f4",
@@ -2644,7 +2644,7 @@
       "last_name": "GAGNON",
       "rank": "CPL",
       "unit_section_id": "c32141e1-02cf-4519-a71f-c5ca7306d75e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2ace424b-bb7f-4161-83cd-0480478b7087",
@@ -2662,7 +2662,7 @@
       "last_name": "GALINDOROJAS",
       "rank": "CPL",
       "unit_section_id": "7d8471c9-7614-4b9e-a1b2-205898a2d876",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f0157a19-f23b-47b4-bb1d-adcd5a36aaa1",
@@ -2680,7 +2680,7 @@
       "last_name": "GARCIA III",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f4e2448e-6876-4327-9f65-eb76cad34e76",
@@ -2689,7 +2689,7 @@
       "last_name": "GARCIAGARCIA",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "36b327ed-fed9-47ee-b69e-ae96aae51eda",
@@ -2707,7 +2707,7 @@
       "last_name": "GASPARLUCAS",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "158b3de1-c7ca-4d61-b256-4fef61953bd9",
@@ -2725,7 +2725,7 @@
       "last_name": "GEORGE",
       "rank": "LCPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "b4241b37-72be-4a31-b1d3-75ec1b11c8b5",
@@ -2752,7 +2752,7 @@
       "last_name": "GIPSON",
       "rank": "LCPL",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a186f0a7-a216-4160-9495-b9338a368bf7",
@@ -2770,7 +2770,7 @@
       "last_name": "GOFF",
       "rank": "CPL",
       "unit_section_id": "902eacfa-aa08-4bd9-b6fc-d2cdc548d8dc",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "38827a3a-a79a-467b-9761-0de3c0ee114d",
@@ -2779,7 +2779,7 @@
       "last_name": "GOMBER",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "e88d6b25-ecd4-4cb3-995c-70776111e18c",
@@ -2797,7 +2797,7 @@
       "last_name": "GOMEZESCALERA",
       "rank": "LCPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "c1ec2f86-3b21-4173-ae6e-de0dfeb74246",
@@ -2815,7 +2815,7 @@
       "last_name": "GONZALEZ",
       "rank": "LCPL",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "93da6284-8259-457c-aeca-460ca302bd8f",
@@ -2824,7 +2824,7 @@
       "last_name": "GONZALEZ",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "197241d9-2e40-477d-a32f-c1e800183e4f",
@@ -2833,7 +2833,7 @@
       "last_name": "GONZALEZ",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "84f88d49-9524-48f8-ac0e-0dc2654bf48c",
@@ -2842,7 +2842,7 @@
       "last_name": "GONZALEZ",
       "rank": "PFC",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "60e52e18-ecc1-4228-9b37-4275130446b1",
@@ -2851,7 +2851,7 @@
       "last_name": "GONZALEZCEDANO",
       "rank": "GYSGT",
       "unit_section_id": "3f1c6976-247e-4125-89cc-cdd6547b50a7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "0512ac49-a280-401e-ad30-df7e53c144a3",
@@ -2860,7 +2860,7 @@
       "last_name": "GONZALEZGARCIA",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a7d9e25a-00df-4a41-9495-f47a2f39a30e",
@@ -2878,7 +2878,7 @@
       "last_name": "GORDON",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "1cee01c0-187f-4ce3-b338-d5d5108259f0",
@@ -2896,7 +2896,7 @@
       "last_name": "GOVEAALEJO",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "3e6d8986-f5bf-4425-a1e4-cf9090a0ad1a",
@@ -2905,7 +2905,7 @@
       "last_name": "GRAICHEN",
       "rank": "GYSGT",
       "unit_section_id": "c32141e1-02cf-4519-a71f-c5ca7306d75e",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "480062c1-9b8c-4e5e-a684-612b8dbcf749",
@@ -2932,7 +2932,7 @@
       "last_name": "GREEN",
       "rank": "CPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "704c2967-c434-4634-aea4-a2eedab06712",
@@ -2941,7 +2941,7 @@
       "last_name": "GREEN",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "b20bf88d-371f-49ae-8227-7ff7275773e3",
@@ -2950,7 +2950,7 @@
       "last_name": "GREEN",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "58106232-4c54-4578-b79b-4af65a7cad46",
@@ -2968,7 +2968,7 @@
       "last_name": "GREENE",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4ff5b9c7-33df-40d8-beb5-c98bbc4777fa",
@@ -2977,7 +2977,7 @@
       "last_name": "GREGG JR",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "264f2416-4c1e-4b83-a91e-e0ccbc6be896",
@@ -3004,7 +3004,7 @@
       "last_name": "GUERRERO",
       "rank": "LCPL",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "6dbe0ef2-56cf-4bdb-9fb5-064c2799e8d4",
@@ -3013,7 +3013,7 @@
       "last_name": "GUERRERO",
       "rank": "SGT",
       "unit_section_id": "3750c87d-ceb0-4616-8b39-0bcbb32f9b65",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "8810d0e1-9c1c-4d24-854e-f00fb3cd22d5",
@@ -3022,7 +3022,7 @@
       "last_name": "GUILLEN",
       "rank": "CPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "ded14ba9-33d2-427b-9272-28db915a3147",
@@ -3040,7 +3040,7 @@
       "last_name": "GUTIERREZ",
       "rank": "LCPL",
       "unit_section_id": "02c4a79f-66cf-4ead-9b4f-1d3fe9092033",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "bda56546-6d2f-447b-b4a9-1cb52d399789",
@@ -3076,7 +3076,7 @@
       "last_name": "HAMILTON",
       "rank": "SSGT",
       "unit_section_id": "97519b57-1f3c-4f9a-b8fe-2be62d9ca1a0",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "4921b592-e63e-46eb-be12-796f8045d89e",
@@ -3112,7 +3112,7 @@
       "last_name": "HARMON",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "6efbb4a6-14b3-4b33-9f8c-2ed96828b2da",
@@ -3148,7 +3148,7 @@
       "last_name": "HAYES",
       "rank": "LCPL",
       "unit_section_id": "5f2c7c72-704a-4fce-9eb0-de73053d5e4a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "42e9a31b-fe35-4ec7-8fdd-46be0b3f78fc",
@@ -3157,7 +3157,7 @@
       "last_name": "HAYES",
       "rank": "GYSGT",
       "unit_section_id": "3d5659d2-2ff9-471a-bd9a-3c82153fb119",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4d4e0ad3-427a-4bd6-b48c-33a965085914",
@@ -3175,7 +3175,7 @@
       "last_name": "HAZLETT",
       "rank": "GYSGT",
       "unit_section_id": "04751ed0-78b9-41a6-b370-ead0fed89bc9",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "a2b2346c-bea4-49e6-beec-487c248dcf30",
@@ -3184,7 +3184,7 @@
       "last_name": "HEAFER",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "aabffbd1-bdb7-4127-9006-c54bb08a0201",
@@ -3193,7 +3193,7 @@
       "last_name": "HENAO",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "d1a8521c-1856-4fcb-b321-4ae2f4a7d6df",
@@ -3202,7 +3202,7 @@
       "last_name": "HERNANDEZ",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "4b45e067-8b96-4142-9a0d-263f26a24367",
@@ -3211,7 +3211,7 @@
       "last_name": "HERNANDEZ",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "3dbdcdf2-6d83-465e-a9ff-6d17d1b8208d",
@@ -3220,7 +3220,7 @@
       "last_name": "HERNANDEZ",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "01b1931e-c5f4-4ff0-8ae2-ebfbcae754e7",
@@ -3229,7 +3229,7 @@
       "last_name": "HERNANDEZ",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "ba99f358-f683-4808-b1e3-ce829d571e56",
@@ -3238,7 +3238,7 @@
       "last_name": "HERNANDEZ",
       "rank": "GYSGT",
       "unit_section_id": "8ecadd8a-79f2-499a-b70a-57e28644af79",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "7440eedf-212a-48c3-bc59-e7fa8a5cc315",
@@ -3247,7 +3247,7 @@
       "last_name": "HERNANDEZSANTOS",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "8ca9febd-bb5d-4e73-867d-b78335a3f2f5",
@@ -3256,7 +3256,7 @@
       "last_name": "HERRERA",
       "rank": "LCPL",
       "unit_section_id": "d14e5cce-db6b-4775-a56c-03e0b828b872",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "3720715d-7111-4ac4-b052-49975623d84a",
@@ -3274,7 +3274,7 @@
       "last_name": "HILL",
       "rank": "SSGT",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "e9dde487-107e-4825-8c8a-17ee8685d740",
@@ -3283,7 +3283,7 @@
       "last_name": "HINOJOS JR",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "1591549b-282f-428d-9382-d89e10d7190f",
@@ -3310,7 +3310,7 @@
       "last_name": "HOFFMAN",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "369657fb-4ab3-46c3-9572-d26bf0260830",
@@ -3337,7 +3337,7 @@
       "last_name": "HORTON",
       "rank": "LCPL",
       "unit_section_id": "d14e5cce-db6b-4775-a56c-03e0b828b872",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "bd6916b4-c560-43b0-b9e2-e4efeca14ee4",
@@ -3364,7 +3364,7 @@
       "last_name": "IBARRABRAVO",
       "rank": "PFC",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "02086bed-ca2e-43e4-92a2-fbfe494f0eba",
@@ -3373,7 +3373,7 @@
       "last_name": "IRELAND",
       "rank": "LCPL",
       "unit_section_id": "cf789ee6-fd74-4b65-ae2c-0945051a19c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "9817dbb2-8c68-4e2b-8f41-bcf06dd2b870",
@@ -3391,7 +3391,7 @@
       "last_name": "JAIMES",
       "rank": "SSGT",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "32cba9ab-bd31-4f95-ba86-7acb6d9d5eaf",
@@ -3409,7 +3409,7 @@
       "last_name": "JAMIESON",
       "rank": "PFC",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "705ae67b-0b2f-4754-8ed6-80557990c30b",
@@ -3418,7 +3418,7 @@
       "last_name": "JAMISON",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "8e72a87c-fce0-4ab2-94e0-d8642a5a72d6",
@@ -3436,7 +3436,7 @@
       "last_name": "JIMENEZ",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f5b0dab3-92fc-4a36-9fdf-197dad01a480",
@@ -3445,7 +3445,7 @@
       "last_name": "JOAQUINLOPEZ",
       "rank": "PFC",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "8f429047-12d5-4c9f-b018-6e489945b459",
@@ -3454,7 +3454,7 @@
       "last_name": "JOHNSON",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "dfbb76f6-6dd4-4b91-82b2-2e79ed0ea0c7",
@@ -3463,7 +3463,7 @@
       "last_name": "JOHNSON",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "863f0c97-6006-4608-af3f-68adcdbb9783",
@@ -3472,7 +3472,7 @@
       "last_name": "JOHNSON",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d3f112d2-3b60-4823-8136-5f1be9488057",
@@ -3490,7 +3490,7 @@
       "last_name": "JOHNSON JR",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f6127510-6cfa-44a3-bdb3-47fe9c750bd0",
@@ -3499,7 +3499,7 @@
       "last_name": "JOHNSTON",
       "rank": "SSGT",
       "unit_section_id": "8847e8e9-7895-4042-a6e1-4861776c9b5e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "99ba89dd-05ec-4090-ac82-e393bb08c019",
@@ -3517,7 +3517,7 @@
       "last_name": "JONES",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "93d36116-5b56-4ec7-ac16-6eb58b9460cd",
@@ -3544,7 +3544,7 @@
       "last_name": "JUAREZ",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "961a3626-b211-43f5-b86f-b49f0e018f9c",
@@ -3553,7 +3553,7 @@
       "last_name": "JUSTE",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0b738c53-1d89-43eb-9e5a-18f4e7d3a360",
@@ -3562,7 +3562,7 @@
       "last_name": "KANE",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "71cd31ac-8078-4720-b906-65a5f6ddbabb",
@@ -3571,7 +3571,7 @@
       "last_name": "KEENE",
       "rank": "LCPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "eb27d340-a881-421a-9221-fe0f153bc47b",
@@ -3580,7 +3580,7 @@
       "last_name": "KIM",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "968588ca-61db-4e82-88f0-e3172d666d64",
@@ -3625,7 +3625,7 @@
       "last_name": "KOLB",
       "rank": "GYSGT",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "d9613a4a-d822-43ce-8de4-d59072fb01f3",
@@ -3634,7 +3634,7 @@
       "last_name": "KRAMER",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "31a5f7ca-442c-436d-9e2a-fca0b8b11166",
@@ -3643,7 +3643,7 @@
       "last_name": "KRESMERY",
       "rank": "SGT",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "93679869-4712-410d-9b75-4ce0da23d39a",
@@ -3661,7 +3661,7 @@
       "last_name": "LAWRENCE",
       "rank": "LCPL",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "89a18bca-891c-4f17-838a-cd0c444b3293",
@@ -3679,7 +3679,7 @@
       "last_name": "LEIBOLD",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "cf18c428-cda0-4698-8cfe-ce5fc9d46350",
@@ -3706,7 +3706,7 @@
       "last_name": "LEPEGUTIERREZ",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "174f1c6b-a5a7-4d3c-88fd-4a96d5603c3c",
@@ -3715,7 +3715,7 @@
       "last_name": "LERMA",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "dee8bd56-e28e-4b8d-920d-9bbf56cf0121",
@@ -3724,7 +3724,7 @@
       "last_name": "LESHER",
       "rank": "CPL",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "455c2b55-afd1-4184-805a-a577087af1cd",
@@ -3733,7 +3733,7 @@
       "last_name": "LEWIS",
       "rank": "PFC",
       "unit_section_id": "3750c87d-ceb0-4616-8b39-0bcbb32f9b65",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "f8e3e46a-1771-4972-adae-5ccae2c3b484",
@@ -3742,7 +3742,7 @@
       "last_name": "LILLEY",
       "rank": "GYSGT",
       "unit_section_id": "c32141e1-02cf-4519-a71f-c5ca7306d75e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "17daeb59-6d2d-47b7-a946-90107aa6885a",
@@ -3769,7 +3769,7 @@
       "last_name": "LINDSEY",
       "rank": "LCPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "ac658521-bc14-4ea3-91c3-f423cc8b22b3",
@@ -3787,7 +3787,7 @@
       "last_name": "LOAIZAANDRADE",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "901388cc-87db-4bd9-8720-ed9224954000",
@@ -3796,7 +3796,7 @@
       "last_name": "LOMAS",
       "rank": "LCPL",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f05ebbcf-3c6b-422d-a73b-64ca99b0080e",
@@ -3805,7 +3805,7 @@
       "last_name": "LOPEZ",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "ddae3dd7-f2de-4406-8c90-1594ac7a698c",
@@ -3814,7 +3814,7 @@
       "last_name": "LOPEZ",
       "rank": "GYSGT",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a8204b9e-f584-4a4e-8cf8-fb2367668f4b",
@@ -3823,7 +3823,7 @@
       "last_name": "LOPEZ",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0c737654-a964-4f3b-8c9f-39070151a3c8",
@@ -3832,7 +3832,7 @@
       "last_name": "LOPEZ",
       "rank": "CPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "1fdf4630-7dc4-443a-a99d-cabbd10caaa8",
@@ -3841,7 +3841,7 @@
       "last_name": "LOPEZ",
       "rank": "PFC",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "5a95c6fa-1f67-4584-b40c-caf46f6d1caa",
@@ -3850,7 +3850,7 @@
       "last_name": "LOPEZLOPEZ",
       "rank": "CPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4cac253e-c441-4162-a667-ce8ff96d7377",
@@ -3859,7 +3859,7 @@
       "last_name": "LORENZOMARTINEZ",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "36ecce94-33b8-46cf-a712-95457c437e22",
@@ -3868,7 +3868,7 @@
       "last_name": "LOWE",
       "rank": "LCPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d72808dc-db00-4693-8e69-732c2f1dfa61",
@@ -3877,7 +3877,7 @@
       "last_name": "LOWE",
       "rank": "GYSGT",
       "unit_section_id": "3c37e7b8-ae94-4b5c-96c3-0f5830585bb1",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "5eace2c0-ed3e-47f9-98d1-eaaa03e85228",
@@ -3886,7 +3886,7 @@
       "last_name": "LUCAS",
       "rank": "SSGT",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "15374cb2-2305-4271-b3e1-7e3092dda5b2",
@@ -3895,7 +3895,7 @@
       "last_name": "LUEDIKE",
       "rank": "LCPL",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "61773321-b44f-4c1e-91d0-f20b5bb6e902",
@@ -3940,7 +3940,7 @@
       "last_name": "MACNEIL",
       "rank": "SSGT",
       "unit_section_id": "5f2c7c72-704a-4fce-9eb0-de73053d5e4a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "229d1712-2fca-44c4-bab1-2f68f1934a5e",
@@ -3958,7 +3958,7 @@
       "last_name": "MALVEAUX",
       "rank": "GYSGT",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "66a2e82a-494b-4b4f-94be-62b0c662c3ef",
@@ -3985,7 +3985,7 @@
       "last_name": "MAR",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2b36a68c-33c4-4bdd-859f-5f65846eb52d",
@@ -3994,7 +3994,7 @@
       "last_name": "MARISCAL",
       "rank": "LCPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "92b31a71-ca60-46bd-9522-7db904445e47",
@@ -4003,7 +4003,7 @@
       "last_name": "MARSHALL",
       "rank": "LCPL",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "442057aa-97a1-4d77-a27d-91b2dce503f5",
@@ -4021,7 +4021,7 @@
       "last_name": "MARTINEZ",
       "rank": "LCPL",
       "unit_section_id": "67febf09-1bcc-4c94-b0ba-564c827af5f5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "88b0c5f6-3f74-45b8-b85f-ea5e30ed02fc",
@@ -4030,7 +4030,7 @@
       "last_name": "MARTINEZ",
       "rank": "SGT",
       "unit_section_id": "f230afbc-1d59-4a67-b879-40fc43804592",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "99867ad6-e4ee-48f8-8a29-10e5a36076ff",
@@ -4048,7 +4048,7 @@
       "last_name": "MARTINEZ",
       "rank": "LCPL",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "23266f22-c797-4cd8-a172-a26e793a24f0",
@@ -4057,7 +4057,7 @@
       "last_name": "MARTINEZ",
       "rank": "LCPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "27b67fd5-2f7f-4d13-9d90-46c706e1bdfd",
@@ -4066,7 +4066,7 @@
       "last_name": "MARTINEZ",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2fa5ebec-4a71-4691-bb3d-b2b734785055",
@@ -4084,7 +4084,7 @@
       "last_name": "MARTINEZACUNA",
       "rank": "LCPL",
       "unit_section_id": "ebd1b4d3-8bf5-4ee4-bbca-30066e7edcd7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f0b7cf13-ff74-4c36-9cd7-db7ec684c5f8",
@@ -4102,7 +4102,7 @@
       "last_name": "MASTERS",
       "rank": "PFC",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "fb7ab64d-0c45-466f-93fc-4c1129a1f3bc",
@@ -4129,7 +4129,7 @@
       "last_name": "MAYORGA",
       "rank": "PFC",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "4d65d286-e788-41c2-8dfc-facaffcf9bda",
@@ -4147,7 +4147,7 @@
       "last_name": "MCCLARNON",
       "rank": "SGT",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "bdc49736-5e23-47aa-b9ac-ace93392278d",
@@ -4174,7 +4174,7 @@
       "last_name": "MCDANIEL",
       "rank": "CPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d8d1fb9e-7806-4924-8472-e41d82577669",
@@ -4183,7 +4183,7 @@
       "last_name": "MCDONALD",
       "rank": "PFC",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "ebd44e54-9994-4758-a829-48d741d0917d",
@@ -4210,7 +4210,7 @@
       "last_name": "MCNAIR",
       "rank": "SGT",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f706e07f-6ad7-4ab2-aafe-e401674432a4",
@@ -4219,7 +4219,7 @@
       "last_name": "MEH",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "6df3dd70-c3e9-47e9-acba-c79b0e176b90",
@@ -4228,7 +4228,7 @@
       "last_name": "MEJIATUNCHEZ",
       "rank": "CPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "fd837bab-8fb2-4029-8e29-3a36ac986601",
@@ -4237,7 +4237,7 @@
       "last_name": "MELGAR",
       "rank": "CPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "19c6357e-4716-47e8-a292-c10922a82246",
@@ -4255,7 +4255,7 @@
       "last_name": "MERCER",
       "rank": "LCPL",
       "unit_section_id": "c32141e1-02cf-4519-a71f-c5ca7306d75e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f6d5e820-1126-4302-a116-d3829db7290c",
@@ -4273,7 +4273,7 @@
       "last_name": "MICHEL",
       "rank": "PFC",
       "unit_section_id": "3750c87d-ceb0-4616-8b39-0bcbb32f9b65",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "b4db3c47-03f1-4403-ab98-fe0c4cc53336",
@@ -4282,7 +4282,7 @@
       "last_name": "MIDDLEBROOKS",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "9313f6cb-07f0-48af-999f-e15a516d8b29",
@@ -4291,7 +4291,7 @@
       "last_name": "MIDDLETON",
       "rank": "PFC",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "96e93e4c-f059-443c-acfb-d86595fc46ae",
@@ -4309,7 +4309,7 @@
       "last_name": "MILLER",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "3e7f61ad-c92c-4441-8255-2a2b725272d9",
@@ -4318,7 +4318,7 @@
       "last_name": "MILLER",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f9cb4a3a-395d-4ba3-b689-d4e2e43a7c9e",
@@ -4327,7 +4327,7 @@
       "last_name": "MILLER",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "348cd1ed-44f5-4d84-87b3-62c08ece3c3b",
@@ -4336,7 +4336,7 @@
       "last_name": "MIRANDA",
       "rank": "PFC",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "e935a6bf-9bca-4ad1-ad0b-ad5bd5d506fb",
@@ -4345,7 +4345,7 @@
       "last_name": "MIRANDAHENRIQUEZ",
       "rank": "LCPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "faa7975c-9dbc-4f12-a3cc-14073a466dfb",
@@ -4354,7 +4354,7 @@
       "last_name": "MOLINA JR",
       "rank": "CPL",
       "unit_section_id": "8a7f473d-638d-4389-856e-c726e2fe5ddd",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "0ac8f4ad-debf-47da-8201-b6d5fbc36099",
@@ -4372,7 +4372,7 @@
       "last_name": "MOLINAVALLEJO",
       "rank": "PFC",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "686a32cf-657d-4b34-a42e-c63a366f06af",
@@ -4381,7 +4381,7 @@
       "last_name": "MOMANYI",
       "rank": "LCPL",
       "unit_section_id": "d14e5cce-db6b-4775-a56c-03e0b828b872",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "b0ff27b9-1e42-4d49-9609-798de10d9b9a",
@@ -4390,7 +4390,7 @@
       "last_name": "MONTEZ",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "668aaa7c-6c33-4ad8-8247-7fde79731b3a",
@@ -4399,7 +4399,7 @@
       "last_name": "MONTIJO",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "9772a829-11bb-4520-b154-fd68610fc4fe",
@@ -4408,7 +4408,7 @@
       "last_name": "MONTPETIT",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "c17e3d6a-8f95-42f9-aa75-97ed78d7d6f9",
@@ -4426,7 +4426,7 @@
       "last_name": "MOORE JR",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "7ba81985-9aaa-4bb2-9451-6259b1f5cfb7",
@@ -4435,7 +4435,7 @@
       "last_name": "MORALESMONTES",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "2cc43316-ac7d-40b6-9ca0-4a1120dfa753",
@@ -4471,7 +4471,7 @@
       "last_name": "MORITZ",
       "rank": "LCPL",
       "unit_section_id": "edc40ec6-48a2-47b7-b6cb-58c15287e20e",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "36d29f82-b3c1-46f6-bca4-4eaa50297c08",
@@ -4480,7 +4480,7 @@
       "last_name": "MOROCHO",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f55b1926-008d-4c37-aac3-28dcb22ed3f9",
@@ -4489,7 +4489,7 @@
       "last_name": "MOSQUEDA JR",
       "rank": "PFC",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "727149fb-8b8f-4746-adc4-2c73b2aa1923",
@@ -4516,7 +4516,7 @@
       "last_name": "MURO",
       "rank": "PFC",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "be81e566-fdf0-43ff-9619-6a0d01153483",
@@ -4525,7 +4525,7 @@
       "last_name": "NASH",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "9b21739e-904c-4541-9045-b7ae0c5bb74d",
@@ -4534,7 +4534,7 @@
       "last_name": "NEWBERRY",
       "rank": "LCPL",
       "unit_section_id": "cf789ee6-fd74-4b65-ae2c-0945051a19c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "4d4717ef-8366-4bcc-ac9f-fb9c8a724f42",
@@ -4561,7 +4561,7 @@
       "last_name": "NOLASCOGUTIERREZ",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "3fa2e94c-1c8a-4f17-b42d-1ce393ea6f4f",
@@ -4570,7 +4570,7 @@
       "last_name": "NOVAK",
       "rank": "LCPL",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "42725703-4140-49c2-b393-5417cf1ac4c7",
@@ -4579,7 +4579,7 @@
       "last_name": "NUNEZ",
       "rank": "LCPL",
       "unit_section_id": "6fc33620-7238-40be-a369-220b5fb52e9c",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f4bf2c67-2cfe-4ed3-a17b-27c4f3844ef6",
@@ -4597,7 +4597,7 @@
       "last_name": "OCHOA",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "52cbdd40-78ce-4b04-9cc8-616dc7a3dc4a",
@@ -4606,7 +4606,7 @@
       "last_name": "OCONNOR",
       "rank": "SSGT",
       "unit_section_id": "3c37e7b8-ae94-4b5c-96c3-0f5830585bb1",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "27b31171-010e-415c-8126-c5f618f73193",
@@ -4624,7 +4624,7 @@
       "last_name": "OHARA",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "e38aa19f-7f83-4b8a-a264-0226813fe62b",
@@ -4642,7 +4642,7 @@
       "last_name": "OLALEYE",
       "rank": "PFC",
       "unit_section_id": "6fc33620-7238-40be-a369-220b5fb52e9c",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "9d3c8f10-fb90-4983-96ac-0ca19b05cb26",
@@ -4678,7 +4678,7 @@
       "last_name": "PADILLA",
       "rank": "SSGT",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "ead18dc1-5e85-423b-989d-26c3927d3b9a",
@@ -4705,7 +4705,7 @@
       "last_name": "PARADISE",
       "rank": "LCPL",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "7e7589a0-fc1c-4787-a0a1-9a2591b815de",
@@ -4750,7 +4750,7 @@
       "last_name": "PEARSON",
       "rank": "SGT",
       "unit_section_id": "691bc2ce-6c57-4b58-b4db-8267f085ddb8",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a3a803c6-31ce-4be4-a113-07eab7105a40",
@@ -4777,7 +4777,7 @@
       "last_name": "PENAMIESES",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "a0c66189-acad-440b-8886-41fa404ff5b1",
@@ -4822,7 +4822,7 @@
       "last_name": "PERSINGER",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "73fedd12-e471-46b8-b759-7586cc690332",
@@ -4831,7 +4831,7 @@
       "last_name": "PHILLIPS",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "6b0aa6ba-a969-41e9-a895-d7ffac8934c9",
@@ -4858,7 +4858,7 @@
       "last_name": "PINTO",
       "rank": "GYSGT",
       "unit_section_id": "5f2c7c72-704a-4fce-9eb0-de73053d5e4a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "440560d4-ddc4-474c-a132-798a83bdd594",
@@ -4876,7 +4876,7 @@
       "last_name": "PITTMAN",
       "rank": "LCPL",
       "unit_section_id": "c1479f9d-41af-4e55-9df6-6c1ac32d008a",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "212aeec6-7541-4ca1-8cf3-e15d23d92ee5",
@@ -4885,7 +4885,7 @@
       "last_name": "POCAIGUE JR",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "45f384c8-cd40-4590-b817-bd229598c3dd",
@@ -4903,7 +4903,7 @@
       "last_name": "PONCEMARTINEZ",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "6542e578-8ec7-4a5b-93ce-cfc46a96f5a7",
@@ -4912,7 +4912,7 @@
       "last_name": "POSADAS",
       "rank": "GYSGT",
       "unit_section_id": "71298f8a-7356-4005-a855-bf57ba2a5ea0",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a01ce3dd-aa51-4424-8664-1aaed8588ed3",
@@ -4939,7 +4939,7 @@
       "last_name": "PRADO",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "a41d8a06-bb8a-417f-9739-74db7050ff46",
@@ -4948,7 +4948,7 @@
       "last_name": "PRESSON",
       "rank": "SGT",
       "unit_section_id": "b98ca49f-0c3f-40e0-8271-e778c208873f",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "17e087c0-5ef4-4826-a355-45048497860d",
@@ -4966,7 +4966,7 @@
       "last_name": "QIU",
       "rank": "CPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f6236d86-c4ec-4668-87f4-2d4871050861",
@@ -5011,7 +5011,7 @@
       "last_name": "REAM",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "43b40a83-2c53-4a9d-aac3-bd01a19224d8",
@@ -5020,7 +5020,7 @@
       "last_name": "REED",
       "rank": "LCPL",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "41fbae5d-c4bb-4be3-89ef-28aac82d99e2",
@@ -5038,7 +5038,7 @@
       "last_name": "REYES",
       "rank": "GYSGT",
       "unit_section_id": "9d95d8f9-e4c5-4a8a-bf0f-b2f85dfc035f",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "8ab5b11f-c573-4ea4-a8a2-2fec92565a48",
@@ -5065,7 +5065,7 @@
       "last_name": "REYNA",
       "rank": "CPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "47fe0262-62cc-4877-af75-d53e48f583d2",
@@ -5074,7 +5074,7 @@
       "last_name": "REYNAGA",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "4c930dd4-dad0-4927-97ec-8afa51b27f5b",
@@ -5083,7 +5083,7 @@
       "last_name": "RIBEIROSILVA",
       "rank": "SGT",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f6c74a61-1585-4649-a7ba-208d0c84c588",
@@ -5101,7 +5101,7 @@
       "last_name": "RINCON",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "44d6fbfa-f853-4d5f-8fac-2996803c2135",
@@ -5110,7 +5110,7 @@
       "last_name": "RIOSTORRES",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "8b932a0d-2bb4-408f-9577-f497a443510b",
@@ -5128,7 +5128,7 @@
       "last_name": "RIVERA",
       "rank": "PFC",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "5c42da98-544e-4c5d-b5f8-0a53dc3f0830",
@@ -5146,7 +5146,7 @@
       "last_name": "RIVERAROSARIO",
       "rank": "CPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "831f7ad7-6527-4f08-9cda-34dfaed84dcc",
@@ -5155,7 +5155,7 @@
       "last_name": "ROBERTS",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "bb2f52e3-95ae-4a7e-8245-ca7e1e82183c",
@@ -5164,7 +5164,7 @@
       "last_name": "ROBERTS",
       "rank": "SGT",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "5f8b9841-44c9-49ca-84ed-c5f29fa99b4a",
@@ -5173,7 +5173,7 @@
       "last_name": "ROBINSON",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "7c2181ff-ab91-4fe8-a5cb-8caf8a2343bb",
@@ -5191,7 +5191,7 @@
       "last_name": "ROBINSON",
       "rank": "LCPL",
       "unit_section_id": "6fc33620-7238-40be-a369-220b5fb52e9c",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "be8f9a69-b689-44a7-b075-fb95d647cc43",
@@ -5200,7 +5200,7 @@
       "last_name": "ROBINSON",
       "rank": "SSGT",
       "unit_section_id": "04751ed0-78b9-41a6-b370-ead0fed89bc9",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0f7c9026-cb15-4034-8378-5fac94fd1fef",
@@ -5209,7 +5209,7 @@
       "last_name": "ROBLES",
       "rank": "GYSGT",
       "unit_section_id": "3f1c6976-247e-4125-89cc-cdd6547b50a7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "2a9e4218-9878-4e7f-b084-0bd6397c7a02",
@@ -5218,7 +5218,7 @@
       "last_name": "ROCHESTER",
       "rank": "SSGT",
       "unit_section_id": "3f1c6976-247e-4125-89cc-cdd6547b50a7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0497f042-0e19-4c13-806a-b1424ac4c963",
@@ -5227,7 +5227,7 @@
       "last_name": "RODAS",
       "rank": "GYSGT",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "d9e687de-6450-4f83-892c-2bf603c8a218",
@@ -5236,7 +5236,7 @@
       "last_name": "RODRIGUEZ",
       "rank": "CPL",
       "unit_section_id": "71298f8a-7356-4005-a855-bf57ba2a5ea0",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2e3a7a4f-c0de-4b66-a346-c04573a057f6",
@@ -5263,7 +5263,7 @@
       "last_name": "RODRIGUEZ",
       "rank": "CPL",
       "unit_section_id": "edc40ec6-48a2-47b7-b6cb-58c15287e20e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "32497633-d1b5-4c05-bc33-255a719e0dea",
@@ -5281,7 +5281,7 @@
       "last_name": "RODRIGUEZCOLON",
       "rank": "PFC",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "3d3dc5dc-3f70-4af5-af85-caac361f7628",
@@ -5290,7 +5290,7 @@
       "last_name": "ROEST",
       "rank": "LCPL",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "89134204-f9da-45a3-b29c-4b8a016a26e4",
@@ -5344,7 +5344,7 @@
       "last_name": "RUIZ",
       "rank": "LCPL",
       "unit_section_id": "5f2c7c72-704a-4fce-9eb0-de73053d5e4a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "6d1ffad2-a997-4d7f-8ac7-9c35154b0759",
@@ -5362,7 +5362,7 @@
       "last_name": "SALAS",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "7bb35397-57a7-4c54-9b14-2da4376f3856",
@@ -5389,7 +5389,7 @@
       "last_name": "SANCHEZCASTILLO",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "256d9eab-1acd-45df-95e7-22ad0a8e8f1b",
@@ -5425,7 +5425,7 @@
       "last_name": "SAUREL",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "87564a8f-cf7f-4d5b-a19b-b94b3feac1d0",
@@ -5443,7 +5443,7 @@
       "last_name": "SCANDARIATO",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "51732e86-e5d1-4c33-a2fd-5d834850ba1d",
@@ -5461,7 +5461,7 @@
       "last_name": "SCHOOLER",
       "rank": "LCPL",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "6164aa1c-dd84-4668-9080-c3a6b3aec9f0",
@@ -5470,7 +5470,7 @@
       "last_name": "SEBASTIAN",
       "rank": "CPL",
       "unit_section_id": "6c7a467f-046f-4d91-9540-8ef54f5556d2",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "fe76b939-db95-4a82-986b-c880b0e40d9c",
@@ -5479,7 +5479,7 @@
       "last_name": "SENEGAL",
       "rank": "LCPL",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "7448875d-6281-421c-acd3-83c09465a97d",
@@ -5497,7 +5497,7 @@
       "last_name": "SHEPHERD",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "75f0ac46-924c-4eb6-a813-1c73af22dfa3",
@@ -5515,7 +5515,7 @@
       "last_name": "SHEW",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "f8a9699a-13c6-4869-b365-fa33f14744d3",
@@ -5524,7 +5524,7 @@
       "last_name": "SHIELDS",
       "rank": "CPL",
       "unit_section_id": "f2614214-f466-45d3-a391-64f22e2e3bad",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "3794a8c8-7914-4291-af22-d22f6844318d",
@@ -5533,7 +5533,7 @@
       "last_name": "SHORTER",
       "rank": "GYSGT",
       "unit_section_id": "d5a7694a-3462-4e69-80de-f8d0fb02238f",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "1ed778de-8559-458f-ad3e-dc5bb9c870e7",
@@ -5560,7 +5560,7 @@
       "last_name": "SIMELEUMO",
       "rank": "CPL",
       "unit_section_id": "46954f1f-87ab-4661-8350-6828b46ec9d5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "996b86eb-1903-4760-a73c-4904667dd248",
@@ -5596,7 +5596,7 @@
       "last_name": "SMALLWOOD",
       "rank": "LCPL",
       "unit_section_id": "ad95d132-b137-4182-be22-2dfd18c9b4c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "142872f3-8647-45bd-b246-0f7f411a3ac4",
@@ -5605,7 +5605,7 @@
       "last_name": "SMILEY",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "e8f7e8b3-f4c3-4f6c-8c21-fa185035daf1",
@@ -5614,7 +5614,7 @@
       "last_name": "SMITH",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "8a92d8bf-bfdd-4d93-83c9-dac0f558899a",
@@ -5695,7 +5695,7 @@
       "last_name": "SOTO III",
       "rank": "SSGT",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "82897bc3-71f0-430c-9c11-a3e80469dfd6",
@@ -5704,7 +5704,7 @@
       "last_name": "SOUTHWICK",
       "rank": "SSGT",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "996821f0-0912-467c-81e2-9dee89b4cf43",
@@ -5722,7 +5722,7 @@
       "last_name": "STAUTZENBERGER",
       "rank": "SGT",
       "unit_section_id": "3750c87d-ceb0-4616-8b39-0bcbb32f9b65",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "faa356a8-5a72-4343-8c16-ae55f887851e",
@@ -5731,7 +5731,7 @@
       "last_name": "STAYTON",
       "rank": "CPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "1b7072a0-020f-4391-bab3-fa7bc4a3f68c",
@@ -5749,7 +5749,7 @@
       "last_name": "STICHTER",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "25b61865-2a23-4043-bed9-db48b80d46bc",
@@ -5758,7 +5758,7 @@
       "last_name": "STOUT",
       "rank": "SGT",
       "unit_section_id": "d141dc96-1a14-405f-851c-b39f0036e355",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "65819282-6309-46fe-b3c3-bb9de2aa0778",
@@ -5767,7 +5767,7 @@
       "last_name": "STRONG III",
       "rank": "LCPL",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "74adac45-cb6c-4ed0-81f2-5f9baf6b6517",
@@ -5776,7 +5776,7 @@
       "last_name": "SUAREZ",
       "rank": "PFC",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "bb524f64-0af7-49fe-86d4-4632fa98ede7",
@@ -5794,7 +5794,7 @@
       "last_name": "SYLLA",
       "rank": "LCPL",
       "unit_section_id": "26d72fd0-0f7e-4e38-91b1-115d30a8da57",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "477813a0-0ef0-41de-809c-933e3313ed10",
@@ -5830,7 +5830,7 @@
       "last_name": "THOMPSON",
       "rank": "PFC",
       "unit_section_id": "3db65dcd-4f86-41c1-9b6a-be302ea84311",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "3889b612-6409-4c89-938a-62390d418c5d",
@@ -5848,7 +5848,7 @@
       "last_name": "TOBIASON",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "402b20a8-d775-4e70-84af-13acf753413e",
@@ -5857,7 +5857,7 @@
       "last_name": "TODD",
       "rank": "LCPL",
       "unit_section_id": "3fe4d0a5-0c89-4ce3-8537-f1a961d232c5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "4bc0fbee-6dbd-4657-87db-cbc2b616e9dc",
@@ -5875,7 +5875,7 @@
       "last_name": "TOMLIN",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "a3f484bd-0a25-4beb-94a4-93997ac3d484",
@@ -5884,7 +5884,7 @@
       "last_name": "TORRALBA",
       "rank": "CPL",
       "unit_section_id": "46954f1f-87ab-4661-8350-6828b46ec9d5",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "06823750-22ca-4199-ab20-a13b7dfef4dc",
@@ -5893,7 +5893,7 @@
       "last_name": "TORRES",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "9478835f-188e-405b-96bd-dc112e342493",
@@ -5920,7 +5920,7 @@
       "last_name": "TRILLO",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "6a969258-feca-40be-8d53-cfb6becccc91",
@@ -5929,7 +5929,7 @@
       "last_name": "TRIPLETT",
       "rank": "PFC",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "d47c7ea4-0a75-4374-b858-c42856531982",
@@ -6001,7 +6001,7 @@
       "last_name": "URRUTIA",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "8df397d6-e83e-4fd6-aaa9-d0e5207c0049",
@@ -6019,7 +6019,7 @@
       "last_name": "VALENTINE",
       "rank": "LCPL",
       "unit_section_id": "801f47b2-1920-4753-97fc-f4d47a4fb6df",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "5bc89e03-ddec-41d5-8d85-c02491f2d1da",
@@ -6037,7 +6037,7 @@
       "last_name": "VANG",
       "rank": "PFC",
       "unit_section_id": "68b9591e-eda6-443e-9ba3-a0fadde97063",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "55a1f5c4-2daa-4f3b-9472-8f7f971c6cc0",
@@ -6046,7 +6046,7 @@
       "last_name": "VARGAS",
       "rank": "LCPL",
       "unit_section_id": "52fef9eb-2930-4be6-add0-5a280764961a",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "51269284-ca96-4b55-af80-aca3633c124e",
@@ -6091,7 +6091,7 @@
       "last_name": "VERA",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f81bc1ea-7da3-4ab7-a19d-48ae32ec061e",
@@ -6100,7 +6100,7 @@
       "last_name": "VERDA",
       "rank": "SGT",
       "unit_section_id": "ba511473-e5bb-4f12-91e9-8f97fb6fff97",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "a7e07047-7cfd-45a3-b2f3-c0b09228cc79",
@@ -6118,7 +6118,7 @@
       "last_name": "VICTORIA",
       "rank": "PVT",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "1b1a0174-595f-4c67-aa43-f0b3edfc3951",
@@ -6136,7 +6136,7 @@
       "last_name": "VILLALOBOS JR",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "51c87a56-6b83-4b8e-aa50-0e1ad938d2a2",
@@ -6145,7 +6145,7 @@
       "last_name": "VILLASENOR IV",
       "rank": "LCPL",
       "unit_section_id": "861e9302-d9b4-41ae-bb06-3fc442b43b55",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "8330dc29-6471-4546-ac4f-b4acb080a156",
@@ -6163,7 +6163,7 @@
       "last_name": "VIVALDO",
       "rank": "GYSGT",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2c193aaa-5815-42db-bd7a-e0bb6c3b2453",
@@ -6172,7 +6172,7 @@
       "last_name": "VIVEKANANDH",
       "rank": "LCPL",
       "unit_section_id": "c714894b-832f-4fb2-89cc-76594aae3ece",
-      "current_duty_score": 2
+      "current_duty_score": 0
     },
     {
       "id": "62f9947f-b442-413d-85e0-fb64c35f080e",
@@ -6190,7 +6190,7 @@
       "last_name": "WALKER",
       "rank": "LCPL",
       "unit_section_id": "4aba8b76-20a3-4bfc-a56a-f6d4748e4ab7",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "c2bfca41-d2e3-40b5-8df1-c5f807891ccb",
@@ -6217,7 +6217,7 @@
       "last_name": "WATSON",
       "rank": "LCPL",
       "unit_section_id": "46954f1f-87ab-4661-8350-6828b46ec9d5",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "f2694fde-fea5-42e5-8806-dcb36b1cb32f",
@@ -6262,7 +6262,7 @@
       "last_name": "WIGHTMAN",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "254fdd64-cbbb-4537-8131-257e8a06c802",
@@ -6271,7 +6271,7 @@
       "last_name": "WILLIAMS",
       "rank": "LCPL",
       "unit_section_id": "a281b983-51d8-4ab7-a6a7-f0da4045b49e",
-      "current_duty_score": 1.5
+      "current_duty_score": 0
     },
     {
       "id": "5f8daf51-ec2b-446d-92aa-237e86d7d9bd",
@@ -6289,7 +6289,7 @@
       "last_name": "WILSON",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "bdddf950-1e7c-4a85-9fbb-e8a3c7b1b308",
@@ -6298,7 +6298,7 @@
       "last_name": "WILSON",
       "rank": "LCPL",
       "unit_section_id": "38b075bc-1c63-4ccc-9d4e-2a2ed690ff3b",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "bdf229cf-15c9-4195-95c6-58977a74387f",
@@ -6316,7 +6316,7 @@
       "last_name": "WITHERSPOON",
       "rank": "PFC",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "2d670b3f-3b1f-467f-87fa-99b64210d552",
@@ -6334,7 +6334,7 @@
       "last_name": "WRIGHT JR",
       "rank": "LCPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "35b954d1-d4ea-45b9-806b-8ce87be81bc6",
@@ -6343,7 +6343,7 @@
       "last_name": "WYSOCKI",
       "rank": "SSGT",
       "unit_section_id": "a23bfbe2-f9b3-4dd2-a645-817d5c80bd3a",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "befc77fd-9abc-456b-abe0-b703949b48cc",
@@ -6361,7 +6361,7 @@
       "last_name": "YAGER",
       "rank": "LCPL",
       "unit_section_id": "59485958-9e68-4328-830d-30e66a774e94",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "ffb197ab-55dc-4ac1-a739-220ea613a22f",
@@ -6388,7 +6388,7 @@
       "last_name": "ZACARIAS JR",
       "rank": "LCPL",
       "unit_section_id": "1e92668b-ffc4-4b7e-885a-6fdc53ac7610",
-      "current_duty_score": 1
+      "current_duty_score": 0
     },
     {
       "id": "0335f05e-971c-4c1d-b212-39886817a5a4",
@@ -6397,7 +6397,7 @@
       "last_name": "ZORICH JR",
       "rank": "CPL",
       "unit_section_id": "20247eb8-125a-4725-b617-c1f107fc7c2d",
-      "current_duty_score": 1
+      "current_duty_score": 0
     }
   ],
   "exportedAt": "2025-12-15T15:49:29.408Z",
