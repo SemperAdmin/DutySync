@@ -218,14 +218,24 @@ export default function NonAvailabilityAdminPage() {
     setError("");
 
     try {
+      // Standard users can only submit for themselves
+      const personnelId = hasElevatedAccess ? formData.personnel_id : currentUserPersonnel?.id;
+
+      if (!personnelId) {
+        setError("Unable to determine personnel. Please contact support.");
+        setSubmitting(false);
+        return;
+      }
+
       const newRequest: NonAvailability = {
         id: crypto.randomUUID(),
-        personnel_id: formData.personnel_id,
+        personnel_id: personnelId,
         start_date: new Date(formData.start_date),
         end_date: new Date(formData.end_date),
         reason: formData.reason,
-        status: "approved", // Admin-created requests are auto-approved
-        approved_by: "admin", // Admin-created requests
+        // Admin-created requests are auto-approved, standard users must wait for approval
+        status: hasElevatedAccess ? "approved" : "pending",
+        approved_by: hasElevatedAccess ? "admin" : undefined,
         created_at: new Date(),
       };
 
@@ -300,10 +310,14 @@ export default function NonAvailabilityAdminPage() {
               : "View your duty exemption requests"}
           </p>
         </div>
-        {/* Only show Add Request for admins/managers */}
-        {hasElevatedAccess && (
-          <Button onClick={() => setIsAddModalOpen(true)}>+ Add Request</Button>
-        )}
+        {/* All users can add requests - standard users submit for themselves */}
+        <Button onClick={() => {
+          // For standard users, auto-fill their own personnel ID
+          if (!hasElevatedAccess && currentUserPersonnel) {
+            setFormData(prev => ({ ...prev, personnel_id: currentUserPersonnel.id }));
+          }
+          setIsAddModalOpen(true);
+        }}>+ Add Request</Button>
       </div>
 
       {/* View Mode Toggle - only show if user has elevated access */}
@@ -507,26 +521,40 @@ export default function NonAvailabilityAdminPage() {
                 <div className="p-3 bg-accent/20 text-accent rounded-lg text-sm">{error}</div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Personnel *
-                </label>
-                <select
-                  value={formData.personnel_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, personnel_id: e.target.value })
-                  }
-                  required
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Select Personnel</option>
-                  {personnel.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.rank} {p.last_name}, {p.first_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Only show personnel dropdown for elevated users */}
+              {hasElevatedAccess ? (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Personnel *
+                  </label>
+                  <select
+                    value={formData.personnel_id}
+                    onChange={(e) =>
+                      setFormData({ ...formData, personnel_id: e.target.value })
+                    }
+                    required
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select Personnel</option>
+                    {personnel.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.rank} {p.last_name}, {p.first_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Personnel
+                  </label>
+                  <div className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-foreground">
+                    {currentUserPersonnel
+                      ? `${currentUserPersonnel.rank} ${currentUserPersonnel.last_name}, ${currentUserPersonnel.first_name}`
+                      : "Your personnel record"}
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-4 grid-cols-2">
                 <div>
@@ -574,7 +602,9 @@ export default function NonAvailabilityAdminPage() {
               </div>
 
               <p className="text-xs text-foreground-muted">
-                Requests created by admins are automatically approved.
+                {hasElevatedAccess
+                  ? "Requests created by admins are automatically approved."
+                  : "Your request will be submitted for approval by your manager."}
               </p>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
@@ -586,7 +616,7 @@ export default function NonAvailabilityAdminPage() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? "Creating..." : "Create Request"}
+                  {submitting ? "Submitting..." : hasElevatedAccess ? "Create Request" : "Submit Request"}
                 </Button>
               </div>
             </form>
