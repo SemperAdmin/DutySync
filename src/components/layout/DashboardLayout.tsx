@@ -194,7 +194,7 @@ export default function DashboardLayout({
       href: "/admin/duty-types",
       label: "Duty Types",
       allowedRoles: ADMIN_ROLES,
-      userOnly: true, // Only show in User View (accessible via dashboard links in Admin View)
+      unitAdminOnly: true, // Show in Unit Admin View (not App Admin View)
       icon: (
         <svg
           className="w-5 h-5"
@@ -215,7 +215,7 @@ export default function DashboardLayout({
       href: "/admin/scheduler",
       label: "Scheduler",
       allowedRoles: ADMIN_ROLES,
-      userOnly: true, // Only show in User View (accessible via dashboard links in Admin View)
+      unitAdminOnly: true, // Show in Unit Admin View (not App Admin View)
       icon: (
         <svg
           className="w-5 h-5"
