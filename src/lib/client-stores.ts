@@ -114,6 +114,7 @@ const KEYS = {
   users: "dutysync_users",
   rucs: "dutysync_rucs",
   seedDataLoaded: "dutysync_seed_loaded",
+  approvedRosters: "dutysync_approved_rosters",
 };
 
 // ============ RUC Reference Data ============
@@ -576,12 +577,18 @@ export function getChildUnits(parentId: string): UnitSection[] {
 
 // Get all descendant unit IDs (recursive) including the given unit ID
 export function getAllDescendantUnitIds(unitId: string): string[] {
-  const result: string[] = [unitId];
-  const children = getChildUnits(unitId);
-  for (const child of children) {
-    result.push(...getAllDescendantUnitIds(child.id));
+  const allUnits = getFromStorage<UnitSection>(KEYS.units);
+
+  function findDescendants(currentUnitId: string): string[] {
+    const result: string[] = [currentUnitId];
+    const children = allUnits.filter((u) => u.parent_id === currentUnitId);
+    for (const child of children) {
+      result.push(...findDescendants(child.id));
+    }
+    return result;
   }
-  return result;
+
+  return findDescendants(unitId);
 }
 
 // Get personnel from a unit and all its descendant units
@@ -825,6 +832,137 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
   saveToStorage(KEYS.dutySlots, filtered);
   if (count > 0) triggerAutoSave('dutyRoster');
   return count;
+}
+
+// ============ Roster Approval ============
+
+export interface ApprovedRoster {
+  id: string;
+  unit_id: string;
+  year: number;
+  month: number; // 0-11 (JavaScript month format)
+  approved_by: string;
+  approved_at: Date;
+  scores_applied: boolean;
+}
+
+// Get all approved rosters
+export function getAllApprovedRosters(): ApprovedRoster[] {
+  return getFromStorage<ApprovedRoster>(KEYS.approvedRosters);
+}
+
+// Check if a roster for a specific unit/month is approved
+export function isRosterApproved(unitId: string, year: number, month: number): ApprovedRoster | null {
+  const approvals = getFromStorage<ApprovedRoster>(KEYS.approvedRosters);
+  return approvals.find(
+    (a) => a.unit_id === unitId && a.year === year && a.month === month
+  ) || null;
+}
+
+// Approve a roster and apply duty scores to personnel
+export function approveRoster(
+  unitId: string,
+  year: number,
+  month: number,
+  approvedBy: string
+): { approval: ApprovedRoster; scoresApplied: number } {
+  // Check if already approved
+  const existing = isRosterApproved(unitId, year, month);
+  if (existing) {
+    throw new Error("This roster has already been approved.");
+  }
+
+  // Get the date range for the month
+  const startDate = new Date(year, month, 1);
+  const endDate = new Date(year, month + 1, 0); // Last day of month
+
+  // Get all duty slots for this month and unit
+  const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  const dutyTypes = getAllDutyTypes();
+  const unitDutyTypeIds = new Set(
+    dutyTypes.filter((dt) => dt.unit_section_id === unitId).map((dt) => dt.id)
+  );
+
+  const monthSlots = allSlots.filter((slot) => {
+    const slotDate = new Date(slot.date_assigned);
+    return (
+      slotDate >= startDate &&
+      slotDate <= endDate &&
+      unitDutyTypeIds.has(slot.duty_type_id)
+    );
+  });
+
+  // Calculate and apply duty scores to personnel
+  const personnelScores = new Map<string, number>();
+
+  for (const slot of monthSlots) {
+    if (!slot.personnel_id) continue;
+
+    // Get duty value for this duty type
+    const dutyValue = getDutyValueByDutyType(slot.duty_type_id);
+    const baseWeight = dutyValue?.base_weight ?? 1;
+
+    // Check if this is a weekend or holiday (simplified - just checking weekends)
+    const slotDate = new Date(slot.date_assigned);
+    const dayOfWeek = slotDate.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    // Calculate points (use weekend multiplier if weekend)
+    let points = baseWeight;
+    if (isWeekend && dutyValue) {
+      points = baseWeight * dutyValue.weekend_multiplier;
+    }
+
+    // Add to personnel's total
+    const currentTotal = personnelScores.get(slot.personnel_id) || 0;
+    personnelScores.set(slot.personnel_id, currentTotal + points);
+  }
+
+  // Apply scores to personnel records
+  const personnel = getFromStorage<Personnel>(KEYS.personnel);
+  let scoresApplied = 0;
+
+  for (const [personnelId, points] of personnelScores) {
+    const idx = personnel.findIndex((p) => p.id === personnelId);
+    if (idx !== -1) {
+      personnel[idx].current_duty_score = (personnel[idx].current_duty_score || 0) + points;
+      personnel[idx].updated_at = new Date();
+      scoresApplied++;
+    }
+  }
+
+  saveToStorage(KEYS.personnel, personnel);
+  if (scoresApplied > 0) triggerAutoSave('unitMembers');
+
+  // Create approval record
+  const approval: ApprovedRoster = {
+    id: crypto.randomUUID(),
+    unit_id: unitId,
+    year,
+    month,
+    approved_by: approvedBy,
+    approved_at: new Date(),
+    scores_applied: true,
+  };
+
+  const approvals = getFromStorage<ApprovedRoster>(KEYS.approvedRosters);
+  approvals.push(approval);
+  saveToStorage(KEYS.approvedRosters, approvals);
+  triggerAutoSave('approvedRosters');
+
+  return { approval, scoresApplied };
+}
+
+// Unapprove a roster (for corrections - does NOT reverse scores)
+export function unapproveRoster(unitId: string, year: number, month: number): boolean {
+  const approvals = getFromStorage<ApprovedRoster>(KEYS.approvedRosters);
+  const filtered = approvals.filter(
+    (a) => !(a.unit_id === unitId && a.year === year && a.month === month)
+  );
+  if (filtered.length === approvals.length) return false;
+  saveToStorage(KEYS.approvedRosters, filtered);
+  triggerAutoSave('approvedRosters');
+  return true;
 }
 
 // Non-Availability

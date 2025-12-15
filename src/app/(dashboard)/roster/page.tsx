@@ -21,7 +21,10 @@ import {
   deleteBlockedDuty,
   getAllBlockedDuties,
   getDutyValueByDutyType,
+  isRosterApproved,
+  approveRoster,
   type EnrichedSlot,
+  type ApprovedRoster,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
 import {
@@ -32,6 +35,7 @@ import {
   VIEW_MODE_USER,
   type ViewMode,
 } from "@/lib/constants";
+import { matchesFilter } from "@/lib/duty-thruster";
 
 // Manager role names that can assign duties within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -118,6 +122,11 @@ export default function RosterPage() {
   }>({ isOpen: false, date: null, dutyType: null, existingSlot: null });
   const [assigning, setAssigning] = useState(false);
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
+
+  // Roster approval state
+  const [rosterApproval, setRosterApproval] = useState<ApprovedRoster | null>(null);
+  const [approveModal, setApproveModal] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   // Sync with view mode from localStorage
   useEffect(() => {
@@ -275,10 +284,47 @@ export default function RosterPage() {
       // Fetch blocked duties
       const blockedData = getAllBlockedDuties();
       setBlockedDuties(blockedData);
+
+      // Check roster approval status (only if a unit is selected or user is Unit Admin)
+      const effectiveUnit = selectedUnit || unitAdminUnitId;
+      if (effectiveUnit) {
+        const approval = isRosterApproved(
+          effectiveUnit,
+          currentDate.getFullYear(),
+          currentDate.getMonth()
+        );
+        setRosterApproval(approval);
+      } else {
+        setRosterApproval(null);
+      }
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Handle roster approval
+  function handleApproveRoster() {
+    if (!user || !unitAdminUnitId) return;
+
+    setApproving(true);
+    try {
+      const result = approveRoster(
+        unitAdminUnitId,
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        user.id
+      );
+      setRosterApproval(result.approval);
+      setApproveModal(false);
+      alert(`Roster approved! ${result.scoresApplied} personnel duty scores have been updated.`);
+      fetchData(); // Refresh data
+    } catch (err) {
+      console.error("Error approving roster:", err);
+      alert(err instanceof Error ? err.message : "Failed to approve roster");
+    } finally {
+      setApproving(false);
     }
   }
 
@@ -491,25 +537,13 @@ export default function RosterPage() {
       }
 
       // Check rank filter criteria from duty type
-      if (dutyType.rank_filter_mode && dutyType.rank_filter_values && dutyType.rank_filter_values.length > 0) {
-        const personRankMatches = dutyType.rank_filter_values.includes(person.rank);
-        if (dutyType.rank_filter_mode === 'include' && !personRankMatches) {
-          return false; // Rank not in the include list
-        }
-        if (dutyType.rank_filter_mode === 'exclude' && personRankMatches) {
-          return false; // Rank is in the exclude list
-        }
+      if (!matchesFilter(dutyType.rank_filter_mode, dutyType.rank_filter_values, person.rank)) {
+        return false;
       }
 
       // Check section filter criteria from duty type
-      if (dutyType.section_filter_mode && dutyType.section_filter_values && dutyType.section_filter_values.length > 0) {
-        const personSectionMatches = dutyType.section_filter_values.includes(person.unit_section_id);
-        if (dutyType.section_filter_mode === 'include' && !personSectionMatches) {
-          return false; // Section not in the include list
-        }
-        if (dutyType.section_filter_mode === 'exclude' && personSectionMatches) {
-          return false; // Section is in the exclude list
-        }
+      if (!matchesFilter(dutyType.section_filter_mode, dutyType.section_filter_values, person.unit_section_id)) {
+        return false;
       }
 
       // Check if person is available (not on non-availability)
@@ -531,6 +565,12 @@ export default function RosterPage() {
   // Handle cell click for assignment
   function handleCellClick(date: Date, dutyType: DutyType) {
     if (!canAssignDuties) return;
+
+    // Check if roster is approved (locked)
+    if (rosterApproval) {
+      alert("This roster has been approved and is locked for editing.");
+      return;
+    }
 
     // Check if cell is blocked
     const cellBlock = getCellBlock(date, dutyType.id);
@@ -557,6 +597,12 @@ export default function RosterPage() {
   // Handle date click for liberty marking (Unit Admin only)
   function handleDateClick(date: Date) {
     if (!isUnitAdmin || !unitAdminUnitId) return;
+
+    // Check if roster is approved (locked)
+    if (rosterApproval) {
+      alert("This roster has been approved and is locked for editing.");
+      return;
+    }
 
     // Check if already a liberty day - if so, offer to remove
     const existing = getLibertyDay(date);
@@ -882,6 +928,29 @@ export default function RosterPage() {
             </svg>
             Print / PDF
           </Button>
+          {/* Approve Roster Button - Unit Admin only */}
+          {isUnitAdmin && isUnitAdminView && unitAdminUnitId && (
+            rosterApproval ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-lg">
+                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm text-green-400 font-medium">Roster Approved</span>
+              </div>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setApproveModal(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Approve Roster
+              </Button>
+            )
+          )}
         </div>
       </div>
 
@@ -929,56 +998,69 @@ export default function RosterPage() {
 
       {/* Unit Admin Controls Info - only show in Unit Admin View */}
       {isUnitAdmin && isUnitAdminView && (
-        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
+        <div className={`${rosterApproval ? 'bg-blue-500/10 border-blue-500/30' : 'bg-green-500/10 border-green-500/30'} border rounded-lg p-3 space-y-2`}>
           <div className="flex items-center justify-between">
-            <p className="text-sm text-green-400">
+            <p className={`text-sm ${rosterApproval ? 'text-blue-400' : 'text-green-400'}`}>
               <strong>Unit Admin Controls:</strong>
-            </p>
-            {!isSelectingMode ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsSelectingMode(true)}
-                className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border-orange-500/30"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                </svg>
-                Block Cells Mode
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-orange-400">
-                  {selectedCells.size} cell{selectedCells.size !== 1 ? "s" : ""} selected
+              {rosterApproval && (
+                <span className="ml-2 px-2 py-0.5 bg-blue-500/20 rounded text-xs">
+                  Roster Locked
                 </span>
+              )}
+            </p>
+            {!rosterApproval && (
+              !isSelectingMode ? (
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={openBlockModal}
-                  disabled={selectedCells.size === 0}
+                  onClick={() => setIsSelectingMode(true)}
                   className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border-orange-500/30"
                 >
-                  Block Selected
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                  Block Cells Mode
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearSelection}
-                >
-                  Cancel
-                </Button>
-              </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-orange-400">
+                    {selectedCells.size} cell{selectedCells.size !== 1 ? "s" : ""} selected
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={openBlockModal}
+                    disabled={selectedCells.size === 0}
+                    className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border-orange-500/30"
+                  >
+                    Block Selected
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )
             )}
           </div>
-          <ul className="text-sm text-green-400 list-disc list-inside space-y-0.5">
-            <li>Click on a <strong>Date</strong> in the Date column to mark entire day as Holiday or Liberty</li>
-            {isSelectingMode ? (
-              <li className="text-orange-400"><strong>Click cells</strong> to select them for blocking, then click &quot;Block Selected&quot;</li>
-            ) : (
-              <li>Click <strong>&quot;Block Cells Mode&quot;</strong> to select multiple duty cells to block</li>
-            )}
-            <li>Click on a <span className="text-orange-400">blocked cell</span> to view details or remove the block</li>
-          </ul>
+          {rosterApproval ? (
+            <p className="text-sm text-blue-400">
+              This roster was approved on {new Date(rosterApproval.approved_at).toLocaleDateString()}. Duty scores have been applied to personnel.
+            </p>
+          ) : (
+            <ul className="text-sm text-green-400 list-disc list-inside space-y-0.5">
+              <li>Click on a <strong>Date</strong> in the Date column to mark entire day as Holiday or Liberty</li>
+              {isSelectingMode ? (
+                <li className="text-orange-400"><strong>Click cells</strong> to select them for blocking, then click &quot;Block Selected&quot;</li>
+              ) : (
+                <li>Click <strong>&quot;Block Cells Mode&quot;</strong> to select multiple duty cells to block</li>
+              )}
+              <li>Click on a <span className="text-orange-400">blocked cell</span> to view details or remove the block</li>
+            </ul>
+          )}
         </div>
       )}
 
@@ -1812,6 +1894,49 @@ export default function RosterPage() {
                 disabled={selectedExportDutyTypes.size === 0}
               >
                 {exportModal.mode === 'csv' ? 'Export CSV' : 'Print / PDF'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Roster Confirmation Modal */}
+      {approveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-md">
+            <div className="p-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Approve Duty Roster</h2>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p className="text-sm text-yellow-400">
+                  <strong>Warning:</strong> Approving the roster will:
+                </p>
+                <ul className="text-sm text-yellow-400 list-disc list-inside mt-2 space-y-1">
+                  <li>Lock the roster for {formatMonthYear(currentDate)}</li>
+                  <li>Apply duty points to all assigned personnel</li>
+                  <li>Update personnel duty scores permanently</li>
+                </ul>
+              </div>
+              <p className="text-sm text-foreground-muted">
+                This action cannot be easily undone. Please ensure all duty assignments are correct before approving.
+              </p>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setApproveModal(false)}
+                disabled={approving}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleApproveRoster}
+                disabled={approving}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {approving ? "Approving..." : "Approve Roster"}
               </Button>
             </div>
           </div>

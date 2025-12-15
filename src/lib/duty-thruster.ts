@@ -130,7 +130,7 @@ function meetsRequirements(personnelId: string, dutyTypeId: string): boolean {
  * Helper function to check if a value matches a filter (include/exclude)
  * Returns true if the person passes the filter check
  */
-function matchesFilter(
+export function matchesFilter(
   mode: 'include' | 'exclude' | null | undefined,
   values: string[] | null | undefined,
   personValue: string
@@ -146,7 +146,7 @@ function matchesFilter(
  * Check if a person is eligible for a duty type on a given date
  * Centralized eligibility logic used by both scheduling and preview
  */
-function isPersonnelEligibleForDuty(
+export function isPersonnelEligibleForDuty(
   person: Personnel,
   dutyType: DutyType,
   date: Date,
