@@ -3,13 +3,13 @@
     {
       "id": "0b216709-dd47-4314-af15-ac8df2ea804b",
       "duty_type_id": "cc6a9a0f-fb58-493a-990c-6cbca2b9cac8",
-      "personnel_id": "230d5744-2f5c-46d3-a380-7d4b70e00db3",
+      "personnel_id": "e0a419b3-fa98-4e6c-bd16-25f5f23c35d5",
       "date_assigned": "2025-12-01T10:00:00.000Z",
       "assigned_by": "404c4006-935f-4b7e-af4d-c21bc48ea99d",
       "duty_points_earned": 1,
       "status": "scheduled",
       "created_at": "2025-12-15T06:46:23.091Z",
-      "updated_at": "2025-12-15T07:13:07.721Z"
+      "updated_at": "2025-12-15T15:17:42.615Z"
     },
     {
       "id": "fed272b7-3bc2-443f-9a1e-5a1539949e42",
@@ -100,7 +100,7 @@
       "updated_at": "2025-12-15T07:11:55.856Z"
     }
   ],
-  "exportedAt": "2025-12-15T07:13:12.723Z",
+  "exportedAt": "2025-12-15T15:17:47.622Z",
   "version": "1.0",
   "description": "Scheduled duty assignments for this unit"
 }
