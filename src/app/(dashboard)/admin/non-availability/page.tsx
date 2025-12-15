@@ -15,6 +15,7 @@ import {
   getPersonnelByEdipi,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
+import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 
 // Manager role names
 const MANAGER_ROLES: RoleName[] = [
@@ -35,6 +36,24 @@ export default function NonAvailabilityAdminPage() {
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"self" | "scope">("self");
+  const [isAdminView, setIsAdminView] = useState(true);
+
+  // Sync with view mode from localStorage (Admin View / User View toggle)
+  useEffect(() => {
+    const checkViewMode = () => {
+      const stored = localStorage.getItem(VIEW_MODE_KEY);
+      setIsAdminView(stored !== "user");
+    };
+
+    checkViewMode();
+    window.addEventListener("storage", checkViewMode);
+    window.addEventListener(VIEW_MODE_CHANGE_EVENT, checkViewMode);
+
+    return () => {
+      window.removeEventListener("storage", checkViewMode);
+      window.removeEventListener(VIEW_MODE_CHANGE_EVENT, checkViewMode);
+    };
+  }, []);
 
   // Get the current user's personnel record
   const currentUserPersonnel = useMemo(() => {
@@ -42,45 +61,63 @@ export default function NonAvailabilityAdminPage() {
     return getPersonnelByEdipi(user.edipi) || null;
   }, [user?.edipi]);
 
-  // Determine user's approval capabilities
-  const isAdmin = user?.roles?.some((r) => r.role_name === "App Admin");
-  const isUnitAdmin = user?.roles?.some((r) => r.role_name === "Unit Admin");
+  // Determine user's role capabilities (actual role checks)
+  const isAppAdmin = user?.roles?.some((r) => r.role_name === "App Admin");
+  const hasUnitAdminRole = user?.roles?.some((r) => r.role_name === "Unit Admin");
   const isManager = user?.roles?.some((r) => MANAGER_ROLES.includes(r.role_name as RoleName));
+
+  // Effective admin status - respects Admin View/User View toggle
+  const effectiveIsAppAdmin = isAppAdmin && isAdminView;
+  const effectiveIsUnitAdmin = hasUnitAdminRole && isAdminView;
+
   const isManagerWithApproval = user?.can_approve_non_availability && isManager;
 
   // User has elevated access if admin, unit admin, or manager
-  const hasElevatedAccess = isAdmin || isUnitAdmin || isManager;
+  const hasElevatedAccess = isAppAdmin || hasUnitAdminRole || isManager;
 
-  // User can approve if admin, unit admin, or manager with approval permission
-  const canApprove = isAdmin || isUnitAdmin || isManagerWithApproval;
+  // User can approve if effective admin, effective unit admin, or manager with approval permission
+  const canApprove = effectiveIsAppAdmin || effectiveIsUnitAdmin || isManagerWithApproval;
 
-  // Get user's scoped unit IDs (for managers, they can only approve within their scope)
-  const userScopeUnitIds = user?.roles
-    ?.filter((r) =>
-      ["Unit Admin", "Unit Manager", "Company Manager", "Section Manager", "Work Section Manager"].includes(r.role_name as string)
-    )
-    .map((r) => r.scope_unit_id)
-    .filter(Boolean) as string[] || [];
+  // Get user's scoped unit ID based on view mode
+  // In User View: prioritize manager role scope
+  // In Admin View: prioritize Unit Admin scope
+  const userScopeUnitId = useMemo(() => {
+    if (!user?.roles) return null;
+
+    const unitAdminRole = user.roles.find(r =>
+      r.role_name === "Unit Admin" && r.scope_unit_id
+    );
+    const managerRole = user.roles.find(r =>
+      MANAGER_ROLES.includes(r.role_name as RoleName) && r.scope_unit_id
+    );
+
+    // In User View, prioritize manager role scope
+    if (!isAdminView && managerRole?.scope_unit_id) {
+      return managerRole.scope_unit_id;
+    }
+
+    // In Admin View or no manager role, use Unit Admin scope first
+    if (unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
+
+    // Fall back to manager role scope
+    return managerRole?.scope_unit_id || null;
+  }, [user?.roles, isAdminView]);
 
   // Check if a personnel is within user's scope
   const isInUserScope = (personnelUnitId: string): boolean => {
-    if (isAdmin) return true; // App Admin can approve all
+    if (effectiveIsAppAdmin) return true; // Effective App Admin can see all
 
-    if (userScopeUnitIds.length === 0) return false;
+    if (!userScopeUnitId) return false;
 
-    // Check if personnel's unit is in user's scope or a descendant
+    // Direct match
+    if (personnelUnitId === userScopeUnitId) return true;
+
+    // Check if personnel's unit is a descendant of the scope unit
     const allUnits = getUnitSections();
-
-    for (const scopeUnitId of userScopeUnitIds) {
-      // Direct match
-      if (personnelUnitId === scopeUnitId) return true;
-
-      // Check if personnel's unit is a descendant of the scope unit
-      let currentUnit = allUnits.find((u) => u.id === personnelUnitId);
-      while (currentUnit?.parent_id) {
-        if (currentUnit.parent_id === scopeUnitId) return true;
-        currentUnit = allUnits.find((u) => u.id === currentUnit?.parent_id);
-      }
+    let currentUnit = allUnits.find((u) => u.id === personnelUnitId);
+    while (currentUnit?.parent_id) {
+      if (currentUnit.parent_id === userScopeUnitId) return true;
+      currentUnit = allUnits.find((u) => u.id === currentUnit?.parent_id);
     }
 
     return false;
@@ -89,7 +126,7 @@ export default function NonAvailabilityAdminPage() {
   // Filter to check if user can approve this specific request
   const canApproveRequest = (request: EnrichedNonAvailability): boolean => {
     if (!canApprove) return false;
-    if (isAdmin) return true;
+    if (effectiveIsAppAdmin) return true;
     if (!request.personnel) return false;
     return isInUserScope(request.personnel.unit_section_id);
   };
@@ -212,14 +249,14 @@ export default function NonAvailabilityAdminPage() {
         return r.personnel_id === currentUserPersonnel.id;
       }
 
-      // In "scope" mode, admins see all, managers see their scope
-      if (isAdmin || isUnitAdmin) return true;
+      // In "scope" mode, effective admins see all, others see their scope
+      if (effectiveIsAppAdmin || effectiveIsUnitAdmin) return true;
 
       // For managers, only show requests within their scope
       if (!r.personnel) return false;
       return isInUserScope(r.personnel.unit_section_id);
     });
-  }, [requests, viewMode, currentUserPersonnel, isAdmin, isUnitAdmin, isInUserScope]);
+  }, [requests, viewMode, currentUserPersonnel, effectiveIsAppAdmin, effectiveIsUnitAdmin, isInUserScope]);
 
   if (loading) {
     return (
@@ -236,7 +273,7 @@ export default function NonAvailabilityAdminPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Non-Availability Requests</h1>
           <p className="text-foreground-muted mt-1">
-            {isAdmin || isUnitAdmin
+            {effectiveIsAppAdmin || effectiveIsUnitAdmin
               ? "Manage duty exemption requests from personnel"
               : hasElevatedAccess
               ? "View and manage requests within your scope"
@@ -272,7 +309,7 @@ export default function NonAvailabilityAdminPage() {
                   : "bg-surface text-foreground-muted hover:bg-surface-elevated"
               }`}
             >
-              {isAdmin || isUnitAdmin ? "All Requests" : "My Scope"}
+              {effectiveIsAppAdmin || effectiveIsUnitAdmin ? "All Requests" : "My Scope"}
             </button>
           </div>
         </div>
@@ -416,7 +453,7 @@ export default function NonAvailabilityAdminPage() {
                             </Button>
                           </>
                         )}
-                        {(isAdmin || isUnitAdmin) && (
+                        {(effectiveIsAppAdmin || effectiveIsUnitAdmin) && (
                           <Button
                             size="sm"
                             variant="ghost"
