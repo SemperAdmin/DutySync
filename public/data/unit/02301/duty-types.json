@@ -1,18 +1,6 @@
 {
   "dutyTypes": [
     {
-      "id": "c870db1e-b35c-42d3-b828-8f8230378284",
-      "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
-      "duty_name": "Any",
-      "description": null,
-      "slots_needed": 1,
-      "required_rank_min": null,
-      "required_rank_max": null,
-      "is_active": true,
-      "created_at": "2025-12-15T05:19:30.244Z",
-      "updated_at": "2025-12-15T05:19:30.244Z"
-    },
-    {
       "id": "fe97501b-65b0-43be-a28c-181d6addb3aa",
       "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
       "duty_name": "SDO",
@@ -40,23 +28,41 @@
       "slots_needed": 4,
       "required_rank_min": null,
       "required_rank_max": null,
-      "rank_filter_mode": null,
-      "rank_filter_values": null,
+      "rank_filter_mode": "include",
+      "rank_filter_values": [
+        "PVT",
+        "PFC",
+        "LCPL"
+      ],
       "section_filter_mode": null,
       "section_filter_values": null,
       "is_active": true,
       "created_at": "2025-12-15T06:46:15.340Z",
-      "updated_at": "2025-12-15T06:46:15.340Z"
+      "updated_at": "2025-12-15T07:02:11.212Z",
+      "notes": null
+    },
+    {
+      "id": "7a29a009-326d-4539-bb98-079e510b6a58",
+      "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
+      "duty_name": "DNCO",
+      "description": null,
+      "notes": null,
+      "slots_needed": 1,
+      "required_rank_min": null,
+      "required_rank_max": null,
+      "rank_filter_mode": "include",
+      "rank_filter_values": [
+        "CPL",
+        "SGT"
+      ],
+      "section_filter_mode": null,
+      "section_filter_values": null,
+      "is_active": true,
+      "created_at": "2025-12-15T07:02:35.085Z",
+      "updated_at": "2025-12-15T07:02:35.085Z"
     }
   ],
   "dutyValues": [
-    {
-      "id": "cae0e8db-6f27-4eab-b16a-d11f6c433ec1",
-      "duty_type_id": "c870db1e-b35c-42d3-b828-8f8230378284",
-      "base_weight": 1,
-      "weekend_multiplier": 1.5,
-      "holiday_multiplier": 2
-    },
     {
       "id": "7b64f908-da76-4857-a161-63fda16d2bba",
       "duty_type_id": "fe97501b-65b0-43be-a28c-181d6addb3aa",
@@ -70,10 +76,17 @@
       "base_weight": 1,
       "weekend_multiplier": 1.5,
       "holiday_multiplier": 2
+    },
+    {
+      "id": "b8ffc531-61a7-49d2-9e66-82ff4d84f759",
+      "duty_type_id": "7a29a009-326d-4539-bb98-079e510b6a58",
+      "base_weight": 1,
+      "weekend_multiplier": 1.5,
+      "holiday_multiplier": 2
     }
   ],
   "dutyRequirements": [],
-  "exportedAt": "2025-12-15T07:02:04.917Z",
+  "exportedAt": "2025-12-15T07:03:20.925Z",
   "version": "1.0",
   "description": "Duty type definitions, point values, and qualification requirements for this unit"
 }
