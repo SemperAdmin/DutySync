@@ -1,8 +1,29 @@
 {
-  "dutyTypes": [],
-  "dutyValues": [],
+  "dutyTypes": [
+    {
+      "id": "758125ec-3659-4bf1-a4d8-d0322b441df2",
+      "unit_section_id": "unit-ruc-02301",
+      "duty_name": "SDO",
+      "description": "Staff Duty Officer",
+      "slots_needed": 1,
+      "required_rank_min": "E-6",
+      "required_rank_max": "E-7",
+      "is_active": true,
+      "created_at": "2025-12-15T00:08:23.278Z",
+      "updated_at": "2025-12-15T00:08:23.278Z"
+    }
+  ],
+  "dutyValues": [
+    {
+      "id": "68853f7d-7ea5-4077-8401-9ce77ab72f97",
+      "duty_type_id": "758125ec-3659-4bf1-a4d8-d0322b441df2",
+      "base_weight": 1,
+      "weekend_multiplier": 1.5,
+      "holiday_multiplier": 2
+    }
+  ],
   "dutyRequirements": [],
+  "exportedAt": "2025-12-15T00:08:28.281Z",
   "version": "1.0",
-  "exportedAt": "2024-12-14T00:00:00.000Z",
   "description": "Duty type definitions, point values, and qualification requirements for this unit"
 }
