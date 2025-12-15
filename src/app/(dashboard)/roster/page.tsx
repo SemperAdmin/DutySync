@@ -20,6 +20,7 @@ import {
   createBlockedDuty,
   deleteBlockedDuty,
   getAllBlockedDuties,
+  getDutyValueByDutyType,
   type EnrichedSlot,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
@@ -1599,12 +1600,44 @@ export default function RosterPage() {
               </div>
 
               {/* Scheduling Info */}
-              <div>
-                <label className="text-sm text-foreground-muted">Personnel Required (Slots)</label>
-                <p className="text-foreground font-medium">
-                  {dutyTypeDetailsModal.dutyType.slots_needed}
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-foreground-muted">Personnel Required (Slots)</label>
+                  <p className="text-foreground font-medium">
+                    {dutyTypeDetailsModal.dutyType.slots_needed}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm text-foreground-muted">Base Duty Points</label>
+                  <p className="text-foreground font-medium">
+                    {getDutyValueByDutyType(dutyTypeDetailsModal.dutyType.id)?.base_weight ?? 1} pts
+                  </p>
+                </div>
               </div>
+
+              {/* Duty Point Multipliers */}
+              {(() => {
+                const dutyValue = getDutyValueByDutyType(dutyTypeDetailsModal.dutyType.id);
+                return dutyValue ? (
+                  <div className="p-3 bg-surface-elevated rounded-lg border border-border">
+                    <label className="text-sm text-foreground-muted">Point Multipliers</label>
+                    <div className="grid grid-cols-2 gap-4 mt-2">
+                      <div>
+                        <span className="text-xs text-foreground-muted">Weekend</span>
+                        <p className="text-foreground font-medium">
+                          {dutyValue.weekend_multiplier}x ({(dutyValue.base_weight * dutyValue.weekend_multiplier).toFixed(1)} pts)
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-foreground-muted">Holiday</span>
+                        <p className="text-foreground font-medium">
+                          {dutyValue.holiday_multiplier}x ({(dutyValue.base_weight * dutyValue.holiday_multiplier).toFixed(1)} pts)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
 
               {/* Rank Filters */}
               {dutyTypeDetailsModal.dutyType.rank_filter_mode &&
