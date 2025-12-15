@@ -48,11 +48,17 @@ const LIBERTY_DAYS_KEY = "duty-sync-liberty-days";
 
 interface LibertyDay {
   date: string; // YYYY-MM-DD
-  type: "holiday" | "liberty" | "blocked";
+  type: "holiday" | "liberty";
   unitId: string;
   createdBy: string;
   createdAt: string;
-  comment?: string; // Required for blocked days
+}
+
+// Cell selection key format: `${dutyTypeId}_${dateStr}`
+interface SelectedCell {
+  dutyTypeId: string;
+  date: Date;
+  dutyTypeName: string;
 }
 
 export default function RosterPage() {
@@ -72,19 +78,21 @@ export default function RosterPage() {
     startDate: Date | null;
   }>({ isOpen: false, startDate: null });
   const [libertyFormData, setLibertyFormData] = useState({
-    type: "liberty" as "holiday" | "liberty" | "blocked",
+    type: "liberty" as "holiday" | "liberty",
     days: 1,
-    comment: "",
   });
 
   // Cell-level blocked duties state
   const [blockedDuties, setBlockedDuties] = useState<BlockedDuty[]>([]);
-  const [blockCellModal, setBlockCellModal] = useState<{
+
+  // Multi-cell selection for blocking
+  const [selectedCells, setSelectedCells] = useState<Map<string, SelectedCell>>(new Map());
+  const [isSelectingMode, setIsSelectingMode] = useState(false);
+  const [blockModal, setBlockModal] = useState<{
     isOpen: boolean;
-    date: Date | null;
-    dutyType: DutyType | null;
-    existingBlock: BlockedDuty | null;
-  }>({ isOpen: false, date: null, dutyType: null, existingBlock: null });
+    cells: SelectedCell[];
+    existingBlock: BlockedDuty | null; // For viewing/removing single block
+  }>({ isOpen: false, cells: [], existingBlock: null });
   const [blockComment, setBlockComment] = useState("");
 
   // Assignment modal state
@@ -302,50 +310,105 @@ export default function RosterPage() {
     }) || null;
   }
 
-  // Open block cell modal
-  function openBlockCellModal(date: Date, dutyType: DutyType) {
-    const existingBlock = getCellBlock(date, dutyType.id);
-    setBlockCellModal({
-      isOpen: true,
-      date,
-      dutyType,
-      existingBlock,
-    });
-    setBlockComment(existingBlock?.reason || "");
+  // Get cell key for selection map
+  function getCellKey(dutyTypeId: string, date: Date): string {
+    return `${dutyTypeId}_${date.toISOString().split("T")[0]}`;
   }
 
-  // Handle block cell submission
-  function handleBlockCell() {
-    if (!blockCellModal.date || !blockCellModal.dutyType || !user) return;
+  // Toggle cell selection (for multi-select blocking)
+  function toggleCellSelection(date: Date, dutyType: DutyType) {
+    const key = getCellKey(dutyType.id, date);
+    setSelectedCells(prev => {
+      const newMap = new Map(prev);
+      if (newMap.has(key)) {
+        newMap.delete(key);
+      } else {
+        newMap.set(key, {
+          dutyTypeId: dutyType.id,
+          date: new Date(date),
+          dutyTypeName: dutyType.duty_name,
+        });
+      }
+      return newMap;
+    });
+  }
+
+  // Check if cell is selected
+  function isCellSelected(dutyTypeId: string, date: Date): boolean {
+    return selectedCells.has(getCellKey(dutyTypeId, date));
+  }
+
+  // Clear all selected cells
+  function clearSelection() {
+    setSelectedCells(new Map());
+    setIsSelectingMode(false);
+  }
+
+  // Open block modal for selected cells
+  function openBlockModal() {
+    if (selectedCells.size === 0) return;
+    setBlockModal({
+      isOpen: true,
+      cells: Array.from(selectedCells.values()),
+      existingBlock: null,
+    });
+    setBlockComment("");
+  }
+
+  // Open block modal to view/remove existing block
+  function openExistingBlockModal(date: Date, dutyType: DutyType) {
+    const existingBlock = getCellBlock(date, dutyType.id);
+    if (!existingBlock) return;
+    setBlockModal({
+      isOpen: true,
+      cells: [{
+        dutyTypeId: dutyType.id,
+        date: new Date(date),
+        dutyTypeName: dutyType.duty_name,
+      }],
+      existingBlock,
+    });
+    setBlockComment(existingBlock.reason || "");
+  }
+
+  // Handle block submission (single or multiple cells)
+  function handleBlockCells() {
+    if (blockModal.cells.length === 0 || !user) return;
     if (!blockComment.trim()) {
-      alert("Please provide a reason for blocking this duty.");
+      alert("Please provide a reason for blocking.");
       return;
     }
 
-    const effectiveUnit = selectedUnit || unitAdminUnitId || blockCellModal.dutyType.unit_section_id;
+    // Create a block for each selected cell
+    for (const cell of blockModal.cells) {
+      const dutyType = dutyTypes.find(dt => dt.id === cell.dutyTypeId);
+      const effectiveUnit = selectedUnit || unitAdminUnitId || dutyType?.unit_section_id || "";
 
-    const newBlock: BlockedDuty = {
-      id: crypto.randomUUID(),
-      duty_type_id: blockCellModal.dutyType.id,
-      unit_section_id: effectiveUnit,
-      start_date: blockCellModal.date,
-      end_date: blockCellModal.date, // Single day block
-      reason: blockComment.trim(),
-      blocked_by: user.id,
-      created_at: new Date(),
-    };
+      const newBlock: BlockedDuty = {
+        id: crypto.randomUUID(),
+        duty_type_id: cell.dutyTypeId,
+        unit_section_id: effectiveUnit,
+        start_date: cell.date,
+        end_date: cell.date, // Single day block
+        reason: blockComment.trim(),
+        blocked_by: user.id,
+        created_at: new Date(),
+      };
 
-    createBlockedDuty(newBlock);
-    setBlockCellModal({ isOpen: false, date: null, dutyType: null, existingBlock: null });
+      createBlockedDuty(newBlock);
+    }
+
+    setBlockModal({ isOpen: false, cells: [], existingBlock: null });
     setBlockComment("");
+    clearSelection();
     fetchData();
   }
 
   // Handle unblock cell
   function handleUnblockCell() {
-    if (!blockCellModal.existingBlock) return;
-    deleteBlockedDuty(blockCellModal.existingBlock.id);
-    setBlockCellModal({ isOpen: false, date: null, dutyType: null, existingBlock: null });
+    if (!blockModal.existingBlock) return;
+    deleteBlockedDuty(blockModal.existingBlock.id);
+    setBlockModal({ isOpen: false, cells: [], existingBlock: null });
     setBlockComment("");
     fetchData();
   }
@@ -433,9 +496,9 @@ export default function RosterPage() {
   function handleCellClick(date: Date, dutyType: DutyType) {
     if (!canAssignDuties) return;
 
-    // Don't allow assignment on blocked days only (liberty/holiday still need assignments)
-    const dayStatus = getLibertyDay(date);
-    if (dayStatus?.type === "blocked") return;
+    // Check if cell is blocked
+    const cellBlock = getCellBlock(date, dutyType.id);
+    if (cellBlock) return; // Can't assign to blocked cells
 
     const existingSlot = getSlotForDateAndType(date, dutyType.id);
 
@@ -470,18 +533,12 @@ export default function RosterPage() {
     }
 
     setLibertyModal({ isOpen: true, startDate: date });
-    setLibertyFormData({ type: "liberty", days: 1, comment: "" });
+    setLibertyFormData({ type: "liberty", days: 1 });
   }
 
-  // Add liberty/holiday/blocked days
+  // Add liberty/holiday days
   function handleAddLibertyDays() {
     if (!libertyModal.startDate || !user || !unitAdminUnitId) return;
-
-    // Require comment for blocked days
-    if (libertyFormData.type === "blocked" && !libertyFormData.comment.trim()) {
-      alert("Please provide a reason for blocking this day.");
-      return;
-    }
 
     const newDays: LibertyDay[] = [];
     const start = new Date(libertyModal.startDate);
@@ -500,7 +557,6 @@ export default function RosterPage() {
           unitId: unitAdminUnitId,
           createdBy: user.id,
           createdAt: new Date().toISOString(),
-          comment: libertyFormData.type === "blocked" ? libertyFormData.comment.trim() : undefined,
         });
       }
     }
@@ -698,23 +754,19 @@ export default function RosterPage() {
   const dutyStats = useMemo(() => {
     const totalDays = monthDays.length;
     const totalDutyTypes = filteredDutyTypes.length;
-    const effectiveUnit = selectedUnit || unitAdminUnitId;
 
-    // Count only BLOCKED days (not liberty/holiday - those still need duties)
-    const blockedDaysCount = monthDays.filter(date => {
-      const dateStr = date.toISOString().split("T")[0];
-      return libertyDays.some(ld =>
-        ld.date === dateStr &&
-        ld.type === "blocked" &&
-        (effectiveUnit ? ld.unitId === effectiveUnit : true)
-      );
+    // Count blocked cells (individual duty+date blocks)
+    const blockedCellsCount = blockedDuties.filter(bd => {
+      const blockDate = new Date(bd.start_date);
+      return blockDate >= startDate && blockDate <= endDate &&
+        filteredDutyTypes.some(dt => dt.id === bd.duty_type_id);
     }).length;
 
     // Total possible duties = days × duty types
     const totalPossibleDuties = totalDays * totalDutyTypes;
 
-    // Total required duties = total possible - (blocked days × duty types)
-    const totalRequiredDuties = totalPossibleDuties - (blockedDaysCount * totalDutyTypes);
+    // Total required duties = total possible - blocked cells
+    const totalRequiredDuties = totalPossibleDuties - blockedCellsCount;
 
     // Count assigned duties (from slots)
     const assignedDuties = slots.length;
@@ -725,13 +777,13 @@ export default function RosterPage() {
     return {
       totalDays,
       totalDutyTypes,
-      blockedDaysCount,
+      blockedCellsCount,
       totalPossibleDuties,
       totalRequiredDuties,
       assignedDuties,
       remainingDuties,
     };
-  }, [monthDays, filteredDutyTypes, libertyDays, selectedUnit, unitAdminUnitId, slots]);
+  }, [monthDays, filteredDutyTypes, blockedDuties, startDate, endDate, slots]);
 
   return (
     <div className="space-y-6">
@@ -803,16 +855,57 @@ export default function RosterPage() {
         </div>
       </div>
 
-      {/* Unit Admin Liberty Info */}
+      {/* Unit Admin Controls Info */}
       {isUnitAdmin && (
-        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-1">
-          <p className="text-sm text-green-400">
-            <strong>Unit Admin Controls:</strong>
-          </p>
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-green-400">
+              <strong>Unit Admin Controls:</strong>
+            </p>
+            {!isSelectingMode ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsSelectingMode(true)}
+                className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border-orange-500/30"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+                Block Cells Mode
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-orange-400">
+                  {selectedCells.size} cell{selectedCells.size !== 1 ? "s" : ""} selected
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={openBlockModal}
+                  disabled={selectedCells.size === 0}
+                  className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border-orange-500/30"
+                >
+                  Block Selected
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
           <ul className="text-sm text-green-400 list-disc list-inside space-y-0.5">
-            <li>Click on a <strong>Date</strong> in the Date column to mark entire day as Holiday, Liberty, or Blocked</li>
-            <li><strong>Right-click</strong> on any duty cell to block that specific duty on that day with a comment</li>
-            <li>Click on a blocked cell to view details or remove the block</li>
+            <li>Click on a <strong>Date</strong> in the Date column to mark entire day as Holiday or Liberty</li>
+            {isSelectingMode ? (
+              <li className="text-orange-400"><strong>Click cells</strong> to select them for blocking, then click &quot;Block Selected&quot;</li>
+            ) : (
+              <li>Click <strong>&quot;Block Cells Mode&quot;</strong> to select multiple duty cells to block</li>
+            )}
+            <li>Click on a <span className="text-orange-400">blocked cell</span> to view details or remove the block</li>
           </ul>
         </div>
       )}
@@ -864,8 +957,6 @@ export default function RosterPage() {
                     rowBg = "bg-green-500/10";
                   } else if (libertyDay?.type === "holiday") {
                     rowBg = "bg-pink-500/10";
-                  } else if (libertyDay?.type === "blocked") {
-                    rowBg = "bg-yellow-500/10";
                   } else if (dateIsToday) {
                     rowBg = "bg-primary/10";
                   } else if (dateIsWeekend) {
@@ -881,15 +972,12 @@ export default function RosterPage() {
                         className={`px-3 py-2 text-sm sticky left-0 z-10 ${
                           libertyDay?.type === "liberty" ? "bg-green-500/10" :
                           libertyDay?.type === "holiday" ? "bg-pink-500/10" :
-                          libertyDay?.type === "blocked" ? "bg-yellow-500/10" :
                           dateIsToday ? "bg-primary/10 font-bold text-primary" :
                           dateIsWeekend ? "bg-highlight/5" : "bg-surface"
                         } ${isUnitAdmin ? "cursor-pointer hover:bg-primary/20" : ""}`}
                         onClick={() => isUnitAdmin && handleDateClick(date)}
-                        title={libertyDay?.type === "blocked" && libertyDay.comment ? `Blocked: ${libertyDay.comment}` : undefined}
                       >
                         <span className={
-                          libertyDay?.type === "blocked" ? "text-yellow-400" :
                           libertyDay ? "text-green-400" :
                           dateIsToday ? "text-primary" :
                           dateIsWeekend ? "text-highlight" : "text-foreground"
@@ -899,7 +987,6 @@ export default function RosterPage() {
                         {libertyDay && (
                           <span className={`ml-1 text-xs px-1 rounded ${
                             libertyDay.type === "holiday" ? "bg-pink-500/20 text-pink-400" :
-                            libertyDay.type === "blocked" ? "bg-yellow-500/20 text-yellow-400" :
                             "bg-green-500/20 text-green-400"
                           }`}>
                             {libertyDay.type.toUpperCase()}
@@ -914,29 +1001,15 @@ export default function RosterPage() {
                       {filteredDutyTypes.map((dt) => {
                         const slot = getSlotForDateAndType(date, dt.id);
                         const cellBlock = getCellBlock(date, dt.id);
-
-                        // Full day blocked (from liberty days)
-                        if (libertyDay?.type === "blocked") {
-                          return (
-                            <td
-                              key={dt.id}
-                              className="text-center px-3 py-2 text-sm"
-                              title={libertyDay.comment || undefined}
-                            >
-                              <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400">
-                                BLOCKED
-                              </span>
-                            </td>
-                          );
-                        }
+                        const isSelected = isCellSelected(dt.id, date);
 
                         // Cell-level block (specific duty on specific day)
                         if (cellBlock) {
                           return (
                             <td
                               key={dt.id}
-                              className={`text-center px-3 py-2 text-sm ${isUnitAdmin ? "cursor-pointer hover:bg-yellow-500/10" : ""}`}
-                              onClick={() => isUnitAdmin && openBlockCellModal(date, dt)}
+                              className={`text-center px-3 py-2 text-sm ${isUnitAdmin ? "cursor-pointer hover:bg-orange-500/10" : ""}`}
+                              onClick={() => isUnitAdmin && openExistingBlockModal(date, dt)}
                               title={cellBlock.reason || "Blocked"}
                             >
                               <div className="flex flex-col items-center gap-0.5">
@@ -953,19 +1026,41 @@ export default function RosterPage() {
                           );
                         }
 
+                        // Selection mode - show selection state
+                        if (isSelectingMode && isUnitAdmin) {
+                          return (
+                            <td
+                              key={dt.id}
+                              className={`text-center px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                isSelected
+                                  ? "bg-orange-500/30 ring-2 ring-orange-500 ring-inset"
+                                  : "hover:bg-orange-500/10"
+                              }`}
+                              onClick={() => toggleCellSelection(date, dt)}
+                            >
+                              {slot ? (
+                                <div className={`px-2 py-1 rounded text-xs ${isSelected ? "opacity-50" : ""} ${getStatusColor(slot.status)}`}>
+                                  {slot.personnel ? (
+                                    <span>{slot.personnel.rank} {slot.personnel.last_name}</span>
+                                  ) : (
+                                    <span className="text-foreground-muted italic">Unassigned</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className={`text-foreground-muted/50 ${isSelected ? "text-orange-400" : ""}`}>
+                                  {isSelected ? "✓ Selected" : "Click to select"}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        }
+
                         // Normal cell - show assignment (liberty/holiday days still need people assigned)
                         return (
                           <td
                             key={dt.id}
                             className={`text-center px-3 py-2 text-sm ${canAssignDuties ? "cursor-pointer hover:bg-primary/5" : ""}`}
                             onClick={() => canAssignDuties && handleCellClick(date, dt)}
-                            onContextMenu={(e) => {
-                              // Right-click to block (Unit Admin only)
-                              if (isUnitAdmin) {
-                                e.preventDefault();
-                                openBlockCellModal(date, dt);
-                              }
-                            }}
                           >
                             {slot ? (
                               <button
@@ -1031,12 +1126,8 @@ export default function RosterPage() {
           <span className="text-foreground-muted">Holiday</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded bg-yellow-500/20 border border-yellow-500/30" />
-          <span className="text-foreground-muted">Blocked (Day)</span>
-        </div>
-        <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded bg-orange-500/20 border border-orange-500/30" />
-          <span className="text-foreground-muted">Blocked (Cell)</span>
+          <span className="text-foreground-muted">Blocked</span>
         </div>
       </div>
 
@@ -1046,7 +1137,7 @@ export default function RosterPage() {
           <div className="text-2xl font-bold text-foreground">{dutyStats.totalRequiredDuties}</div>
           <div className="text-sm text-foreground-muted">Total Duties Required</div>
           <div className="text-xs text-foreground-muted mt-1">
-            ({dutyStats.totalDays} days × {dutyStats.totalDutyTypes} types) - {dutyStats.blockedDaysCount} blocked
+            ({dutyStats.totalDays} days × {dutyStats.totalDutyTypes} types) - {dutyStats.blockedCellsCount} blocked
           </div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
@@ -1064,8 +1155,8 @@ export default function RosterPage() {
           <div className="text-sm text-foreground-muted">Completed</div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
-          <div className="text-2xl font-bold text-red-400">{dutyStats.blockedDaysCount}</div>
-          <div className="text-sm text-foreground-muted">Blocked Days</div>
+          <div className="text-2xl font-bold text-orange-400">{dutyStats.blockedCellsCount}</div>
+          <div className="text-sm text-foreground-muted">Blocked Cells</div>
         </div>
       </div>
 
@@ -1256,12 +1347,11 @@ export default function RosterPage() {
                 <label className="block text-sm font-medium text-foreground mb-1">Type</label>
                 <select
                   value={libertyFormData.type}
-                  onChange={(e) => setLibertyFormData(prev => ({ ...prev, type: e.target.value as "holiday" | "liberty" | "blocked" }))}
+                  onChange={(e) => setLibertyFormData(prev => ({ ...prev, type: e.target.value as "holiday" | "liberty" }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
                 >
                   <option value="liberty">Liberty (Regular Days Off)</option>
                   <option value="holiday">Holiday (Federal/Training Holiday)</option>
-                  <option value="blocked">Blocked (No Duty Needed)</option>
                 </select>
               </div>
 
@@ -1279,27 +1369,9 @@ export default function RosterPage() {
                 />
               </div>
 
-              {libertyFormData.type === "blocked" && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    Reason <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={libertyFormData.comment}
-                    onChange={(e) => setLibertyFormData(prev => ({ ...prev, comment: e.target.value }))}
-                    placeholder="e.g., Training exercise, Field op, Unit function..."
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
-                  />
-                  <p className="text-xs text-foreground-muted mt-1">
-                    Required: Explain why no duty is needed on this day
-                  </p>
-                </div>
-              )}
-
               <p className="text-xs text-foreground-muted">
                 This will mark {libertyFormData.days} consecutive day(s) starting from {formatDate(libertyModal.startDate)} as {libertyFormData.type}.
-                No duties will be assigned on these days.
+                Duties may still need to be assigned on these days.
               </p>
             </div>
 
@@ -1318,16 +1390,19 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Block Cell Modal */}
-      {blockCellModal.isOpen && blockCellModal.date && blockCellModal.dutyType && (
+      {/* Block Cells Modal (multi-select) */}
+      {blockModal.isOpen && blockModal.cells.length > 0 && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-lg border border-border w-full max-w-md">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-lg">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">
-                {blockCellModal.existingBlock ? "Manage Blocked Duty" : "Block Duty"}
+                {blockModal.existingBlock ? "Manage Blocked Duty" : `Block ${blockModal.cells.length} Duty Cell${blockModal.cells.length > 1 ? "s" : ""}`}
               </h2>
               <button
-                onClick={() => setBlockCellModal({ isOpen: false, date: null, dutyType: null, existingBlock: null })}
+                onClick={() => {
+                  setBlockModal({ isOpen: false, cells: [], existingBlock: null });
+                  setBlockComment("");
+                }}
                 className="text-foreground-muted hover:text-foreground"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1337,18 +1412,27 @@ export default function RosterPage() {
             </div>
 
             <div className="p-4 space-y-4">
+              {/* Show selected cells */}
               <div className="p-3 bg-surface-elevated rounded-lg border border-border">
-                <div className="text-sm text-foreground-muted mb-1">Blocking:</div>
-                <div className="font-medium text-foreground">{blockCellModal.dutyType.duty_name}</div>
-                <div className="text-sm text-foreground-muted">{formatDate(blockCellModal.date)}</div>
+                <div className="text-sm text-foreground-muted mb-2">
+                  {blockModal.existingBlock ? "Blocked Cell:" : "Selected Cells to Block:"}
+                </div>
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {blockModal.cells.map((cell, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-foreground">{cell.dutyTypeName}</span>
+                      <span className="text-foreground-muted">{formatDate(cell.date)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {blockCellModal.existingBlock ? (
+              {blockModal.existingBlock ? (
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">Current Reason</label>
                     <p className="text-foreground p-2 bg-orange-500/10 rounded-lg border border-orange-500/20">
-                      {blockCellModal.existingBlock.reason || "No reason provided"}
+                      {blockModal.existingBlock.reason || "No reason provided"}
                     </p>
                   </div>
                   <p className="text-xs text-foreground-muted">
@@ -1368,7 +1452,7 @@ export default function RosterPage() {
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
                   />
                   <p className="text-xs text-foreground-muted mt-1">
-                    Explain why this specific duty cannot be filled on this day
+                    This reason will be applied to all {blockModal.cells.length} selected cell{blockModal.cells.length > 1 ? "s" : ""}
                   </p>
                 </div>
               )}
@@ -1377,17 +1461,20 @@ export default function RosterPage() {
             <div className="p-4 border-t border-border flex justify-end gap-2">
               <Button
                 variant="ghost"
-                onClick={() => setBlockCellModal({ isOpen: false, date: null, dutyType: null, existingBlock: null })}
+                onClick={() => {
+                  setBlockModal({ isOpen: false, cells: [], existingBlock: null });
+                  setBlockComment("");
+                }}
               >
                 Cancel
               </Button>
-              {blockCellModal.existingBlock ? (
+              {blockModal.existingBlock ? (
                 <Button variant="secondary" onClick={handleUnblockCell}>
                   Remove Block
                 </Button>
               ) : (
-                <Button onClick={handleBlockCell}>
-                  Block Duty
+                <Button onClick={handleBlockCells}>
+                  Block {blockModal.cells.length} Cell{blockModal.cells.length > 1 ? "s" : ""}
                 </Button>
               )}
             </div>
