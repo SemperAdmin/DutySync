@@ -846,6 +846,14 @@ export function getDutySlotsByDate(date: Date): DutySlot[] {
   });
 }
 
+export function getDutySlotsByDateAndType(date: Date, dutyTypeId: string): DutySlot[] {
+  const dateStr = date.toISOString().split("T")[0];
+  return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
+    const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+    return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
+  });
+}
+
 export function createDutySlot(slot: DutySlot): DutySlot {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   slots.push(slot);
