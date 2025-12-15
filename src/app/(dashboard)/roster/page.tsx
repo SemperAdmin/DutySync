@@ -24,6 +24,7 @@ import {
   getDutyValueByDutyType,
   isRosterApproved,
   approveRoster,
+  getDutySlotsByDateAndType,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -712,7 +713,26 @@ export default function RosterPage() {
     setAssigning(true);
 
     try {
-      // Always create a new slot (for multi-slot support)
+      const slotsNeeded = assignmentModal.dutyType.slots_needed || 1;
+
+      // Re-check actual slot count from localStorage before creating (prevents over-assignment)
+      const actualSlots = getDutySlotsByDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
+      const actualFilled = actualSlots.filter(s => s.personnel_id).length;
+
+      if (actualFilled >= slotsNeeded) {
+        alert(`All ${slotsNeeded} slots are already filled for this duty.`);
+        fetchData();
+        setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
+        return;
+      }
+
+      // Check if person is already assigned
+      if (actualSlots.some(s => s.personnel_id === personnelId)) {
+        alert("This person is already assigned to this duty on this date.");
+        return;
+      }
+
+      // Create new slot
       const newSlot = {
         id: crypto.randomUUID(),
         duty_type_id: assignmentModal.dutyType.id,
@@ -726,20 +746,20 @@ export default function RosterPage() {
       };
       createDutySlot(newSlot);
 
-      // Check if we've filled all slots - if so, close modal
-      const slotsNeeded = assignmentModal.dutyType.slots_needed || 1;
-      const currentFilled = assignmentModal.existingSlots.filter(s => s.personnel_id).length;
+      // Re-fetch to get updated count
+      const updatedSlots = getDutySlotsByDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
+      const newFilled = updatedSlots.filter(s => s.personnel_id).length;
 
-      if (currentFilled + 1 >= slotsNeeded) {
+      if (newFilled >= slotsNeeded) {
         // All slots filled, close modal
         fetchData();
         setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
       } else {
         // More slots available - refresh and keep modal open
         fetchData();
-        // Update the existing slots in the modal state
-        const updatedSlots = getSlotsForDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
-        setAssignmentModal(prev => ({ ...prev, existingSlots: updatedSlots }));
+        // Enrich the slots for modal display
+        const enrichedSlots = getSlotsForDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
+        setAssignmentModal(prev => ({ ...prev, existingSlots: enrichedSlots }));
       }
     } catch (err) {
       console.error("Error assigning duty:", err);
@@ -754,13 +774,20 @@ export default function RosterPage() {
 
     setAssigning(true);
     try {
-      // Delete the slot
-      deleteDutySlot(slotId);
+      // Delete the slot from localStorage
+      const deleted = deleteDutySlot(slotId);
 
-      fetchData();
-      // Update the existing slots in the modal state
-      const updatedSlots = getSlotsForDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
-      setAssignmentModal(prev => ({ ...prev, existingSlots: updatedSlots }));
+      if (deleted) {
+        // Update modal state by filtering out the deleted slot
+        // (Don't rely on fetchData which updates React state asynchronously)
+        setAssignmentModal(prev => ({
+          ...prev,
+          existingSlots: prev.existingSlots.filter(s => s.id !== slotId)
+        }));
+
+        // Refresh the main data display
+        fetchData();
+      }
     } catch (err) {
       console.error("Error removing assignment:", err);
     } finally {
