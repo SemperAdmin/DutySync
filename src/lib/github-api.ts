@@ -328,7 +328,7 @@ export async function pushAllUnitSeedFiles(
 // Push a single unit seed file
 export async function pushUnitSeedFile(
   ruc: string,
-  fileType: "duty-types" | "duty-roster" | "non-availability" | "qualifications",
+  fileType: "duty-types" | "duty-roster" | "non-availability" | "qualifications" | "duty-change-requests",
   data: object
 ): Promise<GitHubUpdateResult> {
   const settings = getGitHubSettings();

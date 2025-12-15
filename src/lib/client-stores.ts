@@ -284,16 +284,17 @@ export async function loadSeedDataIfNeeded(): Promise<{
   dutySlotsLoaded: number;
   nonAvailabilityLoaded: number;
   qualificationsLoaded: number;
+  dutyChangeRequestsLoaded: number;
   alreadyLoaded: boolean;
 }> {
   if (typeof window === "undefined") {
-    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: false };
+    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: false };
   }
 
   // Check if seed data was already loaded
   const seedLoaded = localStorage.getItem(KEYS.seedDataLoaded);
   if (seedLoaded === "true") {
-    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: true };
+    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: true };
   }
 
   // Check if there's existing data
@@ -303,7 +304,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
   if (existingUnits.length > 0 || existingPersonnel.length > 0) {
     // Mark as loaded since data exists
     localStorage.setItem(KEYS.seedDataLoaded, "true");
-    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: true };
+    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: true };
   }
 
   // Collect all data before saving (atomic operation)
@@ -315,6 +316,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
   const allDutySlots: DutySlot[] = [];
   const allNonAvailability: NonAvailability[] = [];
   const allQualifications: Qualification[] = [];
+  const allDutyChangeRequests: DutyChangeRequest[] = [];
 
   try {
     // Load units index to get available RUCs
@@ -322,7 +324,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
 
     if (availableRucs.length === 0) {
       console.warn("No RUCs found in units index");
-      return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: false };
+      return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: false };
     }
 
     // Fetch all data in parallel for each RUC
@@ -339,6 +341,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
       const dutyRosterResponse = await fetch(`${basePath}/duty-roster.json`).catch(() => null);
       const nonAvailabilityResponse = await fetch(`${basePath}/non-availability.json`).catch(() => null);
       const qualificationsResponse = await fetch(`${basePath}/qualifications.json`).catch(() => null);
+      const dutyChangeRequestsResponse = await fetch(`${basePath}/duty-change-requests.json`).catch(() => null);
 
       // Both required fetches must succeed for this RUC
       if (!unitResponse.ok) {
@@ -356,6 +359,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
       const dutyRosterData = dutyRosterResponse?.ok ? await dutyRosterResponse.json() : null;
       const nonAvailabilityData = nonAvailabilityResponse?.ok ? await nonAvailabilityResponse.json() : null;
       const qualificationsData = qualificationsResponse?.ok ? await qualificationsResponse.json() : null;
+      const dutyChangeRequestsData = dutyChangeRequestsResponse?.ok ? await dutyChangeRequestsResponse.json() : null;
 
       // Validate required data structure
       if (!unitData.units || !Array.isArray(unitData.units)) {
@@ -365,14 +369,14 @@ export async function loadSeedDataIfNeeded(): Promise<{
         throw new Error(`Invalid personnel data for RUC ${ruc}: missing personnel array`);
       }
 
-      return { ruc, unitData, personnelData, dutyTypesData, dutyRosterData, nonAvailabilityData, qualificationsData };
+      return { ruc, unitData, personnelData, dutyTypesData, dutyRosterData, nonAvailabilityData, qualificationsData, dutyChangeRequestsData };
     });
 
     // Wait for all fetches to complete
     const results = await Promise.all(fetchPromises);
 
     // Process all results after successful fetch
-    for (const { unitData, personnelData, dutyTypesData, dutyRosterData, nonAvailabilityData, qualificationsData } of results) {
+    for (const { unitData, personnelData, dutyTypesData, dutyRosterData, nonAvailabilityData, qualificationsData, dutyChangeRequestsData } of results) {
       // Add units
       allUnits.push(...unitData.units);
 
@@ -414,6 +418,11 @@ export async function loadSeedDataIfNeeded(): Promise<{
       if (qualificationsData?.qualifications && Array.isArray(qualificationsData.qualifications)) {
         allQualifications.push(...qualificationsData.qualifications);
       }
+
+      // Add duty change requests if present
+      if (dutyChangeRequestsData?.dutyChangeRequests && Array.isArray(dutyChangeRequestsData.dutyChangeRequests)) {
+        allDutyChangeRequests.push(...dutyChangeRequestsData.dutyChangeRequests);
+      }
     }
 
     // All data fetched and validated - now save atomically
@@ -425,11 +434,12 @@ export async function loadSeedDataIfNeeded(): Promise<{
     saveToStorage(KEYS.dutySlots, allDutySlots);
     saveToStorage(KEYS.nonAvailability, allNonAvailability);
     saveToStorage(KEYS.qualifications, allQualifications);
+    saveToStorage(KEYS.dutyChangeRequests, allDutyChangeRequests);
 
     // Only mark as loaded after all data is successfully saved
     localStorage.setItem(KEYS.seedDataLoaded, "true");
 
-    console.log(`Seed data loaded: ${allUnits.length} units, ${allPersonnel.length} personnel, ${allDutyTypes.length} duty types, ${allDutySlots.length} duty slots, ${allNonAvailability.length} non-availability, ${allQualifications.length} qualifications`);
+    console.log(`Seed data loaded: ${allUnits.length} units, ${allPersonnel.length} personnel, ${allDutyTypes.length} duty types, ${allDutySlots.length} duty slots, ${allNonAvailability.length} non-availability, ${allQualifications.length} qualifications, ${allDutyChangeRequests.length} duty change requests`);
     return {
       unitsLoaded: allUnits.length,
       personnelLoaded: allPersonnel.length,
@@ -437,6 +447,7 @@ export async function loadSeedDataIfNeeded(): Promise<{
       dutySlotsLoaded: allDutySlots.length,
       nonAvailabilityLoaded: allNonAvailability.length,
       qualificationsLoaded: allQualifications.length,
+      dutyChangeRequestsLoaded: allDutyChangeRequests.length,
       alreadyLoaded: false
     };
   } catch (error) {
@@ -448,10 +459,11 @@ export async function loadSeedDataIfNeeded(): Promise<{
     localStorage.removeItem(KEYS.dutyRequirements);
     localStorage.removeItem(KEYS.dutySlots);
     localStorage.removeItem(KEYS.nonAvailability);
+    localStorage.removeItem(KEYS.dutyChangeRequests);
     localStorage.removeItem(KEYS.qualifications);
     // Do NOT set seedDataLoaded - allow retry on next page load
     console.error("Failed to load seed data (atomic rollback):", error);
-    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, alreadyLoaded: false };
+    return { unitsLoaded: 0, personnelLoaded: 0, dutyTypesLoaded: 0, dutySlotsLoaded: 0, nonAvailabilityLoaded: 0, qualificationsLoaded: 0, dutyChangeRequestsLoaded: 0, alreadyLoaded: false };
   }
 }
 
@@ -2854,6 +2866,34 @@ export function exportQualifications(unitId?: string): {
     exportedAt: new Date().toISOString(),
     version: "1.0",
     description: "Personnel qualifications and certifications for this unit",
+  };
+}
+
+// Export duty change requests in seed file format (for public/data/unit/{ruc}/duty-change-requests.json)
+export function exportDutyChangeRequests(unitId?: string): {
+  dutyChangeRequests: DutyChangeRequest[];
+  exportedAt: string;
+  version: string;
+  description: string;
+} {
+  let requests = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
+
+  // Filter by unit if specified (via personnel's unit_section_id)
+  if (unitId) {
+    const unitPersonnel = getFromStorage<Personnel>(KEYS.personnel)
+      .filter(p => p.unit_section_id === unitId);
+    const unitPersonnelIds = new Set(unitPersonnel.map(p => p.id));
+    requests = requests.filter(r =>
+      unitPersonnelIds.has(r.original_personnel_id) ||
+      unitPersonnelIds.has(r.target_personnel_id)
+    );
+  }
+
+  return {
+    dutyChangeRequests: requests,
+    exportedAt: new Date().toISOString(),
+    version: "1.0",
+    description: "Duty swap/change requests for personnel in this unit",
   };
 }
 

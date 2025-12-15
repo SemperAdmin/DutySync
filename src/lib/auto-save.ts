@@ -18,6 +18,7 @@ import {
   exportQualifications,
   exportUnitStructure,
   exportUnitMembers,
+  exportDutyChangeRequests,
   setAutoSaveNotifier,
 } from './client-stores';
 
@@ -34,7 +35,8 @@ export type SaveableDataType =
   | 'nonAvailability'
   | 'qualifications'
   | 'unitStructure'
-  | 'unitMembers';
+  | 'unitMembers'
+  | 'dutyChangeRequests';
 
 // Auto-save status
 export type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -57,6 +59,7 @@ const dirtyFlags: Record<SaveableDataType, boolean> = {
   qualifications: false,
   unitStructure: false,
   unitMembers: false,
+  dutyChangeRequests: false,
 };
 
 // Current configuration
@@ -263,6 +266,10 @@ async function saveDataType(dataType: SaveableDataType): Promise<{ success: bool
           : `${result.structureResult.message}, ${result.membersResult.message}`,
       };
     }
+    case 'dutyChangeRequests': {
+      const data = exportDutyChangeRequests();
+      return pushUnitSeedFile(ruc, 'duty-change-requests', data);
+    }
     default:
       return { success: false, message: `Unknown data type: ${dataType}` };
   }
@@ -301,7 +308,7 @@ export function initAutoSave(ruc: string, options?: Partial<AutoSaveConfig>): vo
  * Check if a string is a valid SaveableDataType
  */
 function isSaveableDataType(value: string): value is SaveableDataType {
-  return ['dutyTypes', 'dutyRoster', 'nonAvailability', 'qualifications', 'unitStructure', 'unitMembers'].includes(value);
+  return ['dutyTypes', 'dutyRoster', 'nonAvailability', 'qualifications', 'unitStructure', 'unitMembers', 'dutyChangeRequests'].includes(value);
 }
 
 /**
