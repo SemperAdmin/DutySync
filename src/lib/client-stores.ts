@@ -1544,6 +1544,7 @@ export function importManpowerData(
             end_date: endDate,
             reason: `${record.category}: ${record.dutyStatus} - ${record.location}`,
             status: "approved",
+            recommended_by: null,
             approved_by: null,
             created_at: new Date(),
           };

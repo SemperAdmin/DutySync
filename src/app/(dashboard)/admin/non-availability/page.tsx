@@ -297,6 +297,7 @@ export default function NonAvailabilityAdminPage() {
         reason: formData.reason,
         // Default to pending, only approve if user has permission AND checked the box
         status: shouldApprove ? "approved" : "pending",
+        recommended_by: null, // New requests are not recommended yet
         approved_by: shouldApprove ? (user?.id || "admin") : null,
         created_at: new Date(),
       };
