@@ -29,6 +29,7 @@ import {
   testGitHubConnection,
   type GitHubSettings,
 } from "@/lib/github-api";
+import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 
 // Manager role names - defines who can see personnel within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -52,6 +53,7 @@ export default function PersonnelPage() {
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"self" | "scope">("self");
+  const [isAdminView, setIsAdminView] = useState(true);
 
   const fetchData = useCallback(() => {
     try {
@@ -70,6 +72,30 @@ export default function PersonnelPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Load and listen for Admin View/User View toggle changes
+  useEffect(() => {
+    // Load initial value from localStorage
+    const stored = localStorage.getItem(VIEW_MODE_KEY);
+    if (stored !== null) {
+      setIsAdminView(stored === "admin");
+    }
+
+    // Listen for changes from the header toggle
+    const handleViewModeChange = () => {
+      const stored = localStorage.getItem(VIEW_MODE_KEY);
+      setIsAdminView(stored === "admin");
+    };
+
+    window.addEventListener(VIEW_MODE_CHANGE_EVENT, handleViewModeChange);
+    // Also listen for storage events from other tabs
+    window.addEventListener("storage", handleViewModeChange);
+
+    return () => {
+      window.removeEventListener(VIEW_MODE_CHANGE_EVENT, handleViewModeChange);
+      window.removeEventListener("storage", handleViewModeChange);
+    };
+  }, []);
 
   // Create a Map of units for O(1) lookups
   const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
@@ -93,11 +119,15 @@ export default function PersonnelPage() {
     return getPersonnelByEdipi(user.edipi) || null;
   }, [user?.edipi]);
 
-  // Check if user is App Admin (can see ALL personnel across all units)
+  // Check if user is App Admin (actual role check)
   const isAppAdmin = useMemo(() => {
     if (!user?.roles) return false;
     return user.roles.some(r => r.role_name === "App Admin");
   }, [user?.roles]);
+
+  // Effective App Admin status - respects the Admin View/User View toggle
+  // When in "User View" mode, App Admins should see things from their manager role perspective
+  const effectiveIsAppAdmin = isAppAdmin && isAdminView;
 
   // Get the user's scope unit ID from their highest scoped role (Unit Admin > Managers)
   const userScopeUnitId = useMemo(() => {
@@ -116,13 +146,13 @@ export default function PersonnelPage() {
     return managerRole?.scope_unit_id || null;
   }, [user?.roles]);
 
-  // Determine if user has elevated access (app admin or has a scoped role)
-  const hasElevatedAccess = isAppAdmin || !!userScopeUnitId;
+  // Determine if user has elevated access (effective app admin or has a scoped role)
+  const hasElevatedAccess = effectiveIsAppAdmin || !!userScopeUnitId;
 
   // Get all descendant unit IDs for the user's scope
   const scopeUnitIds = useMemo(() => {
-    if (isAppAdmin) {
-      // App Admins can see all units
+    if (effectiveIsAppAdmin) {
+      // Effective App Admins (in admin view) can see all units
       return new Set(units.map(u => u.id));
     }
     if (!userScopeUnitId) return new Set<string>();
@@ -142,7 +172,7 @@ export default function PersonnelPage() {
     }
 
     return ids;
-  }, [isAppAdmin, userScopeUnitId, childrenMap, units]);
+  }, [effectiveIsAppAdmin, userScopeUnitId, childrenMap, units]);
 
   // Get units within the user's scope for the filter dropdown, sorted by hierarchy
   const unitsInScope = useMemo(() => {
@@ -154,7 +184,7 @@ export default function PersonnelPage() {
     };
 
     let scopedUnits: typeof units;
-    if (isAppAdmin) {
+    if (effectiveIsAppAdmin) {
       scopedUnits = units;
     } else if (scopeUnitIds.size === 0) {
       scopedUnits = [];
@@ -168,7 +198,7 @@ export default function PersonnelPage() {
       if (levelDiff !== 0) return levelDiff;
       return a.unit_name.localeCompare(b.unit_name);
     });
-  }, [isAppAdmin, units, scopeUnitIds]);
+  }, [effectiveIsAppAdmin, units, scopeUnitIds]);
 
   // Get hierarchy level display label
   const getHierarchyLabel = (level: string): string => {
@@ -249,7 +279,7 @@ export default function PersonnelPage() {
 
       // In "scope" mode, filter by scope and unit filter
       // First check if personnel is within the user's scope
-      if (!isAppAdmin && !scopeUnitIds.has(p.unit_section_id)) {
+      if (!effectiveIsAppAdmin && !scopeUnitIds.has(p.unit_section_id)) {
         return false;
       }
 
@@ -263,7 +293,7 @@ export default function PersonnelPage() {
         p.rank.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesUnit && matchesSearch;
     });
-  }, [personnel, viewMode, currentUserPersonnel, isAppAdmin, scopeUnitIds, filterUnit, searchTerm, isUnitInFilterPath]);
+  }, [personnel, viewMode, currentUserPersonnel, effectiveIsAppAdmin, scopeUnitIds, filterUnit, searchTerm, isUnitInFilterPath]);
 
   if (isLoading) {
     return (
@@ -280,15 +310,15 @@ export default function PersonnelPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Personnel</h1>
           <p className="text-foreground-muted mt-1">
-            {isAppAdmin
+            {effectiveIsAppAdmin
               ? "Manage service members and import roster data"
               : hasElevatedAccess
               ? "View personnel within your scope"
               : "View your personnel record"}
           </p>
         </div>
-        {/* Only show admin buttons for App Admins */}
-        {isAppAdmin && (
+        {/* Only show admin buttons for App Admins in Admin View mode */}
+        {effectiveIsAppAdmin && (
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setShowImportModal(true)}>
               <svg
@@ -390,7 +420,7 @@ export default function PersonnelPage() {
                         : "bg-surface text-foreground-muted hover:bg-surface-elevated"
                     }`}
                   >
-                    {isAppAdmin ? "All Personnel" : "My Scope"}
+                    {effectiveIsAppAdmin ? "All Personnel" : "My Scope"}
                   </button>
                 </div>
               </div>
@@ -412,7 +442,7 @@ export default function PersonnelPage() {
                     value={filterUnit}
                     onChange={(e) => setFilterUnit(e.target.value)}
                   >
-                    <option value="">{isAppAdmin ? "All Sections" : "All in My Scope"}</option>
+                    <option value="">{effectiveIsAppAdmin ? "All Sections" : "All in My Scope"}</option>
                     {unitsInScope.map((unit) => {
                       const indent = unit.hierarchy_level === "section" ? "↳ " :
                                      unit.hierarchy_level === "work_section" ? "  ↳ " : "";
