@@ -34,8 +34,8 @@ import {
 const MANAGER_ROLES: RoleName[] = [
   "Unit Manager",
   "Company Manager",
-  "Platoon Manager",
   "Section Manager",
+  "Work Section Manager",
 ];
 
 // Admin roles that can see all personnel

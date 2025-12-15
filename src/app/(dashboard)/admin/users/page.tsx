@@ -104,8 +104,8 @@ export default function UsersPage() {
         return "bg-primary/20 text-blue-400 border-primary/30";
       case "Unit Manager":
       case "Company Manager":
-      case "Platoon Manager":
       case "Section Manager":
+      case "Work Section Manager":
         return "bg-success/20 text-success border-success/30";
       default:
         return "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30";
@@ -118,8 +118,8 @@ export default function UsersPage() {
       "Unit Admin",
       "Unit Manager",
       "Company Manager",
-      "Platoon Manager",
-      "Section Manager"
+      "Section Manager",
+      "Work Section Manager"
     ].includes(r.role_name) && r.scope_unit_id);
   };
 
@@ -360,8 +360,8 @@ function RoleAssignmentModal({
       "Unit Admin",
       "Unit Manager",
       "Company Manager",
-      "Platoon Manager",
       "Section Manager",
+      "Work Section Manager",
     ].includes(role);
   };
 
@@ -582,8 +582,8 @@ function RoleAssignmentModal({
                   <option value="Standard User">Standard User</option>
                   <option value="Unit Manager">Unit Manager</option>
                   <option value="Company Manager">Company Manager</option>
-                  <option value="Platoon Manager">Platoon Manager</option>
                   <option value="Section Manager">Section Manager</option>
+                  <option value="Work Section Manager">Work Section Manager</option>
                   <option value="Unit Admin">Unit Admin</option>
                   <option value="App Admin">App Admin</option>
                 </select>
