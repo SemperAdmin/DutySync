@@ -12,6 +12,7 @@ import {
   deleteDutyChangeRequest,
   determineApproverLevel,
   canApproveChangeRequest,
+  getApproverLevelName,
   type EnrichedDutyChangeRequest,
   getUnitSections,
   getPersonnelByEdipi,
@@ -52,18 +53,6 @@ function formatDate(date: Date | string): string {
     day: "numeric",
     year: "numeric",
   });
-}
-
-// Get approver level display name
-function getApproverLevelName(level: 'work_section' | 'section' | 'company'): string {
-  switch (level) {
-    case 'work_section': return 'Work Section Manager';
-    case 'section': return 'Section Manager';
-    case 'company': return 'Company Manager';
-    default:
-      // This should not be reachable with the current types, but ensures future safety.
-      return 'Unknown Approver';
-  }
 }
 
 export default function DutySwapsPage() {
