@@ -63,6 +63,9 @@ export interface UserRole {
   created_at: Date;
 }
 
+// Filter mode for duty type filters
+export type FilterMode = 'include' | 'exclude';
+
 // Duty Type
 export interface DutyType {
   id: UUID;
@@ -73,6 +76,11 @@ export interface DutyType {
   required_rank_min: string | null;
   required_rank_max: string | null;
   is_active: boolean;
+  // Personnel filtering options
+  rank_filter_mode: FilterMode | null;
+  rank_filter_values: string[] | null;
+  section_filter_mode: FilterMode | null;
+  section_filter_values: string[] | null;
   created_at: Date;
   updated_at: Date;
 }
