@@ -11,6 +11,7 @@ import {
   getSeedUserByEdipi,
   seedUserExists,
   encryptEdipi,
+  deduplicateLocalStorageData,
 } from "@/lib/client-stores";
 import { startSyncPolling, stopSyncPolling } from "@/lib/sync-service";
 
@@ -272,6 +273,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initializeApp = async () => {
+      // Clean up any duplicate data in localStorage (one-time fix for merge issues)
+      deduplicateLocalStorageData();
+
       // Load seed data from JSON files if this is a fresh install
       await loadSeedDataIfNeeded();
 

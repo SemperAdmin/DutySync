@@ -115,14 +115,41 @@ function hasDataChanged(localData: unknown[], remoteData: unknown[]): boolean {
   if (localData.length !== remoteData.length) return true;
 
   // Compare stringified versions (handles deep comparison)
-  const localStr = JSON.stringify(localData.sort((a, b) =>
+  // Use slice() to avoid mutating original arrays
+  const localStr = JSON.stringify([...localData].sort((a, b) =>
     JSON.stringify(a).localeCompare(JSON.stringify(b))
   ));
-  const remoteStr = JSON.stringify(remoteData.sort((a, b) =>
+  const remoteStr = JSON.stringify([...remoteData].sort((a, b) =>
     JSON.stringify(a).localeCompare(JSON.stringify(b))
   ));
 
   return localStr !== remoteStr;
+}
+
+/**
+ * Merge arrays by ID - remote data takes precedence
+ * Removes items from local that exist in remote (by ID), then adds all remote items
+ */
+function mergeById<T extends { id: string }>(
+  localData: T[],
+  remoteData: T[],
+  filterFn?: (item: T) => boolean
+): T[] {
+  const remoteIds = new Set(remoteData.map((item) => item.id));
+
+  // Keep local items that:
+  // 1. Don't exist in remote data (by ID)
+  // 2. Don't match the filter (if provided) - these are from other RUCs
+  const filteredLocal = localData.filter((item) => {
+    // If item exists in remote, remove it (will be replaced)
+    if (remoteIds.has(item.id)) return false;
+    // If filter provided and item matches, remove it (it's from this RUC but not in remote)
+    if (filterFn && filterFn(item)) return false;
+    // Keep item (it's from another RUC)
+    return true;
+  });
+
+  return [...filteredLocal, ...remoteData];
 }
 
 /**
@@ -155,16 +182,16 @@ async function syncUnitStructure(ruc: string): Promise<boolean> {
   );
   if (!data || !(data as { units?: unknown[] }).units) return false;
 
-  const remoteUnits = (data as { units: unknown[] }).units;
-  const localUnits = getLocalData<{ ruc?: string }>(KEYS.units);
+  const remoteUnits = (data as { units: { id: string; ruc?: string }[] }).units;
+  const localUnits = getLocalData<{ id: string; ruc?: string }>(KEYS.units);
 
   // Filter to only compare units from this RUC
   const localRucUnits = localUnits.filter((u) => u.ruc === ruc);
 
   if (hasDataChanged(localRucUnits, remoteUnits as unknown[])) {
-    // Merge: remove old RUC units, add new ones
-    const otherUnits = localUnits.filter((u) => u.ruc !== ruc);
-    saveLocalData(KEYS.units, [...otherUnits, ...remoteUnits]);
+    // Merge by ID: remote data for this RUC replaces local
+    const merged = mergeById(localUnits, remoteUnits, (u) => u.ruc === ruc);
+    saveLocalData(KEYS.units, merged);
     return true;
   }
   return false;
@@ -179,8 +206,8 @@ async function syncUnitMembers(ruc: string): Promise<boolean> {
   );
   if (!data || !(data as { personnel?: unknown[] }).personnel) return false;
 
-  const remotePersonnel = (data as { personnel: unknown[] }).personnel;
-  const localPersonnel = getLocalData<{ unit_section_id?: string }>(KEYS.personnel);
+  const remotePersonnel = (data as { personnel: { id: string; unit_section_id?: string }[] }).personnel;
+  const localPersonnel = getLocalData<{ id: string; unit_section_id?: string }>(KEYS.personnel);
 
   // Get unit IDs for this RUC to filter personnel
   const localUnits = getLocalData<{ id: string; ruc?: string }>(KEYS.units);
@@ -194,11 +221,13 @@ async function syncUnitMembers(ruc: string): Promise<boolean> {
   );
 
   if (hasDataChanged(localRucPersonnel, remotePersonnel as unknown[])) {
-    // Merge: remove old RUC personnel, add new ones
-    const otherPersonnel = localPersonnel.filter(
-      (p) => !p.unit_section_id || !rucUnitIds.has(p.unit_section_id)
+    // Merge by ID: remote data for this RUC replaces local
+    const merged = mergeById(
+      localPersonnel,
+      remotePersonnel,
+      (p) => p.unit_section_id != null && rucUnitIds.has(p.unit_section_id)
     );
-    saveLocalData(KEYS.personnel, [...otherPersonnel, ...remotePersonnel]);
+    saveLocalData(KEYS.personnel, merged);
     return true;
   }
   return false;
