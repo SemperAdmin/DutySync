@@ -28,6 +28,7 @@ import {
   createDutyChangeRequest,
   determineApproverLevel,
   getApproverLevelName,
+  buildSwapApprovals,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -860,6 +861,12 @@ export default function RosterPage() {
         swapModal.targetSlot.personnel_id!
       );
 
+      // Build the multi-level approval workflow
+      const approvals = buildSwapApprovals(
+        swapModal.originalSlot.personnel_id!,
+        swapModal.targetSlot.personnel_id!
+      );
+
       // Create the swap request
       const request: DutyChangeRequest = {
         id: crypto.randomUUID(),
@@ -879,6 +886,7 @@ export default function RosterPage() {
         reason: swapModal.reason.trim(),
         status: 'pending',
         required_approver_level: approverLevel,
+        approvals: approvals,
         approved_by: null,
         approved_at: null,
         rejection_reason: null,
@@ -888,7 +896,7 @@ export default function RosterPage() {
 
       createDutyChangeRequest(request);
 
-      alert("Swap request submitted successfully! You can track its status on the Duty Swaps page.");
+      alert("Swap request submitted successfully! The target person and chain of command will need to approve.");
 
       // Close the modal
       setSwapModal({ isOpen: false, originalSlot: null, step: 'select', targetSlot: null, reason: '' });

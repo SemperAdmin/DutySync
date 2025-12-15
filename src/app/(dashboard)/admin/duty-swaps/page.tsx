@@ -13,6 +13,8 @@ import {
   determineApproverLevel,
   canApproveChangeRequest,
   getApproverLevelName,
+  meetsAllDutyRequirements,
+  buildSwapApprovals,
   type EnrichedDutyChangeRequest,
   getUnitSections,
   getPersonnelByEdipi,
@@ -331,18 +333,35 @@ export default function DutySwapsPage() {
 
   // Get available slots for swap (excluding the original slot's personnel)
   const availableSlotsForSwap = useMemo(() => {
-    if (!swapModal.originalSlot) return [];
+    if (!swapModal.originalSlot || !swapModal.selectedPersonnel) return [];
 
-    return allSlots.filter(slot => {
-      // Must be assigned to someone else
-      if (!slot.personnel_id || slot.personnel_id === swapModal.originalSlot?.personnel_id) return false;
-      // Must not be the same slot
-      if (slot.id === swapModal.originalSlot?.id) return false;
-      // Must have personnel info
-      if (!slot.personnel) return false;
-      return true;
-    });
-  }, [allSlots, swapModal.originalSlot]);
+    const originalPersonnelId = swapModal.selectedPersonnel.id;
+    const originalDutyTypeId = swapModal.originalSlot.duty_type_id;
+
+    return allSlots
+      .filter(slot => {
+        // Must be assigned to someone else
+        if (!slot.personnel_id || slot.personnel_id === swapModal.originalSlot?.personnel_id) return false;
+        // Must not be the same slot
+        if (slot.id === swapModal.originalSlot?.id) return false;
+        // Must have personnel info
+        if (!slot.personnel) return false;
+
+        // Check qualifications - original person must be qualified for target duty
+        if (!meetsAllDutyRequirements(originalPersonnelId, slot.duty_type_id)) return false;
+
+        // Check qualifications - target person must be qualified for original duty
+        if (!meetsAllDutyRequirements(slot.personnel_id, originalDutyTypeId)) return false;
+
+        return true;
+      })
+      // Sort by date (earliest first)
+      .sort((a, b) => {
+        const dateA = new Date(a.date_assigned).getTime();
+        const dateB = new Date(b.date_assigned).getTime();
+        return dateA - dateB;
+      });
+  }, [allSlots, swapModal.originalSlot, swapModal.selectedPersonnel]);
 
   // Handle opening the swap modal
   function openSwapModal() {
@@ -412,6 +431,12 @@ export default function DutySwapsPage() {
         swapModal.targetSlot.personnel_id!
       );
 
+      // Build the multi-level approval workflow
+      const approvals = buildSwapApprovals(
+        swapModal.originalSlot.personnel_id!,
+        swapModal.targetSlot.personnel_id!
+      );
+
       const request: DutyChangeRequest = {
         id: crypto.randomUUID(),
         requester_id: user.id,
@@ -430,6 +455,7 @@ export default function DutySwapsPage() {
         reason: swapModal.reason.trim(),
         status: 'pending',
         required_approver_level: approverLevel,
+        approvals: approvals,
         approved_by: null,
         approved_at: null,
         rejection_reason: null,
@@ -441,7 +467,7 @@ export default function DutySwapsPage() {
 
       refreshRequests();
 
-      alert("Swap request submitted successfully!");
+      alert("Swap request submitted successfully! The target person and chain of command will need to approve.");
 
       closeSwapModal();
     } catch (err) {
