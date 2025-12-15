@@ -115,10 +115,24 @@ export default function UsersPage() {
     ].includes(r.role_name) && r.scope_unit_id);
   };
 
+  // Build the full unit hierarchy path (e.g., "02301 > H Company > S1DV > MPHQ")
+  const buildUnitPath = (unitId: string, allUnits: UnitSection[]): string => {
+    const path: string[] = [];
+    let currentUnit = allUnits.find(u => u.id === unitId);
+
+    while (currentUnit) {
+      path.unshift(currentUnit.unit_name);
+      currentUnit = currentUnit.parent_id
+        ? allUnits.find(u => u.id === currentUnit?.parent_id)
+        : undefined;
+    }
+
+    return path.join(" > ");
+  };
+
   const getUnitName = (unitId: string | null) => {
     if (!unitId) return null;
-    const unit = units.find((u) => u.id === unitId);
-    return unit?.unit_name || "Unknown";
+    return buildUnitPath(unitId, units) || "Unknown Unit";
   };
 
   if (isLoading) {

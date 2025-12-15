@@ -807,6 +807,26 @@ function UsersTab() {
     return rucNameMap[rucCode] || rucCode;
   };
 
+  // Build the full unit hierarchy path (e.g., "02301 > H Company > S1DV > MPHQ")
+  const buildUnitPath = (unitId: string): string => {
+    const path: string[] = [];
+    let currentUnit = units.find(u => u.id === unitId);
+
+    while (currentUnit) {
+      path.unshift(currentUnit.unit_name);
+      currentUnit = currentUnit.parent_id
+        ? units.find(u => u.id === currentUnit?.parent_id)
+        : undefined;
+    }
+
+    return path.join(" > ");
+  };
+
+  const getUnitDisplayName = (unitId: string | null) => {
+    if (!unitId) return null;
+    return buildUnitPath(unitId) || "Unknown Unit";
+  };
+
   // Filter users based on search query (EDIPI, name, or email)
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
@@ -948,7 +968,7 @@ function UsersTab() {
                             {user.roles.map((role, idx) => (
                               <span key={role.id ?? `${idx}-${role.role_name}`} className={`px-2 py-0.5 text-xs font-medium rounded border ${getRoleColor(role.role_name)}`}>
                                 {role.role_name}
-                                {role.scope_unit_id && <span className="ml-1 opacity-75">({getRucDisplayName(role.scope_unit_id)})</span>}
+                                {role.scope_unit_id && <span className="ml-1 opacity-75">({getUnitDisplayName(role.scope_unit_id)})</span>}
                               </span>
                             ))}
                           </div>
@@ -1187,6 +1207,26 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     return ruc?.name ? `${rucCode} - ${ruc.name}` : rucCode;
   };
 
+  // Build the full unit hierarchy path (e.g., "02301 > H Company > S1DV > MPHQ")
+  const buildUnitPath = (unitId: string): string => {
+    const path: string[] = [];
+    let currentUnit = units.find(u => u.id === unitId);
+
+    while (currentUnit) {
+      path.unshift(currentUnit.unit_name);
+      currentUnit = currentUnit.parent_id
+        ? units.find(u => u.id === currentUnit?.parent_id)
+        : undefined;
+    }
+
+    return path.join(" > ");
+  };
+
+  const getUnitDisplayName = (unitId: string | null) => {
+    if (!unitId) return null;
+    return buildUnitPath(unitId) || "Unknown Unit";
+  };
+
   // Check if a role is a pending addition
   const isPendingAdd = (roleName: string, scopeUnitId: string | null) => {
     return pendingAdds.some(pa => pa.role_name === roleName && pa.scope_unit_id === scopeUnitId);
@@ -1217,7 +1257,7 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
                     <span>
                       {role.role_name}
                       {role.scope_unit_id && (
-                        <span className="ml-1 opacity-75 text-xs">({getRucDisplayName(role.scope_unit_id)})</span>
+                        <span className="ml-1 opacity-75 text-xs">({getUnitDisplayName(role.scope_unit_id)})</span>
                       )}
                       {pending && <span className="ml-1 text-xs text-warning">(new)</span>}
                     </span>
