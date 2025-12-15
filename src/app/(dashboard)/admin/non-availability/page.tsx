@@ -43,7 +43,7 @@ export default function NonAvailabilityAdminPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"self" | "scope">("self");
+  const [viewMode, setViewMode] = useState<"self" | "scope">("scope"); // Default to scope for managers/admins
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
 
   // Sync with view mode from localStorage
