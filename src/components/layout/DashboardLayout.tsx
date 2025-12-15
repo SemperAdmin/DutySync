@@ -432,7 +432,15 @@ export default function DashboardLayout({
                 {user?.displayName || user?.edipi || user?.email}
               </p>
               <p className="text-xs text-foreground-muted">
-                {user?.roles?.[0]?.role_name || "Standard User"}
+                {(() => {
+                  if (!user?.roles || user.roles.length === 0) return "Standard User";
+                  // Show all roles, prioritizing manager roles for clarity
+                  const roleNames = user.roles
+                    .map(r => r.role_name)
+                    .filter(name => name !== "Standard User");
+                  if (roleNames.length === 0) return "Standard User";
+                  return roleNames.join(", ");
+                })()}
               </p>
             </div>
             <Button
