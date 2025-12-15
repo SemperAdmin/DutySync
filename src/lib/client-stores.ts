@@ -1281,7 +1281,14 @@ export function importManpowerData(
     return result;
   }
 
-  // Clear all existing units and personnel for fresh import
+  // Load existing units to preserve IDs when units match by name
+  const existingUnits = getFromStorage<UnitSection>(KEYS.units);
+  const existingUnitsByName = new Map<string, UnitSection>();
+  existingUnits.forEach(u => {
+    existingUnitsByName.set(u.unit_name, u);
+  });
+
+  // Will store the final units and personnel
   const units: UnitSection[] = [];
   const newPersonnel: Personnel[] = [];
   const newNonAvailList: NonAvailability[] = [];
@@ -1323,15 +1330,18 @@ export function importManpowerData(
     result.ruc = Array.from(topUnitSet)[0];
   }
 
-  // Create top-level Unit
+  // Create top-level Unit (reuse existing ID if unit exists by name)
   for (const unitName of topUnitSet) {
     if (!unitMap.has(unitName)) {
+      const existingUnit = existingUnitsByName.get(unitName);
       const newUnit: UnitSection = {
-        id: crypto.randomUUID(),
+        id: existingUnit?.id || crypto.randomUUID(),
         parent_id: null,
         unit_name: unitName,
+        unit_code: existingUnit?.unit_code || unitName,
         hierarchy_level: "unit",
-        created_at: new Date(),
+        description: existingUnit?.description || unitName,
+        created_at: existingUnit?.created_at || new Date(),
         updated_at: new Date(),
       };
       units.push(newUnit);
@@ -1340,17 +1350,20 @@ export function importManpowerData(
     }
   }
 
-  // Create Company units under their Unit
+  // Create Company units under their Unit (reuse existing ID if unit exists by name)
   for (const combo of companySet) {
     const [topUnit, companyName] = combo.split("|");
     if (!unitMap.has(companyName)) {
       const parentId = unitMap.get(topUnit);
+      const existingUnit = existingUnitsByName.get(companyName);
       const newUnit: UnitSection = {
-        id: crypto.randomUUID(),
+        id: existingUnit?.id || crypto.randomUUID(),
         parent_id: parentId || null,
         unit_name: companyName,
+        unit_code: existingUnit?.unit_code || companyName,
         hierarchy_level: "company",
-        created_at: new Date(),
+        description: existingUnit?.description || companyName,
+        created_at: existingUnit?.created_at || new Date(),
         updated_at: new Date(),
       };
       units.push(newUnit);
@@ -1359,17 +1372,20 @@ export function importManpowerData(
     }
   }
 
-  // Create Section units under their Company
+  // Create Section units under their Company (reuse existing ID if unit exists by name)
   for (const combo of sectionSet) {
     const [, companyName, sectionCode] = combo.split("|");
     if (!unitMap.has(sectionCode)) {
       const parentId = unitMap.get(companyName);
+      const existingUnit = existingUnitsByName.get(sectionCode);
       const newUnit: UnitSection = {
-        id: crypto.randomUUID(),
+        id: existingUnit?.id || crypto.randomUUID(),
         parent_id: parentId || null,
         unit_name: sectionCode,
+        unit_code: existingUnit?.unit_code || sectionCode,
         hierarchy_level: "section",
-        created_at: new Date(),
+        description: existingUnit?.description || sectionCode,
+        created_at: existingUnit?.created_at || new Date(),
         updated_at: new Date(),
       };
       units.push(newUnit);
@@ -1378,17 +1394,20 @@ export function importManpowerData(
     }
   }
 
-  // Create Work Section units under their Section
+  // Create Work Section units under their Section (reuse existing ID if unit exists by name)
   for (const combo of workSectionSet) {
     const [, , sectionCode, workSectionCode] = combo.split("|");
     if (!unitMap.has(workSectionCode)) {
       const parentId = unitMap.get(sectionCode);
+      const existingUnit = existingUnitsByName.get(workSectionCode);
       const newUnit: UnitSection = {
-        id: crypto.randomUUID(),
+        id: existingUnit?.id || crypto.randomUUID(),
         parent_id: parentId || null,
         unit_name: workSectionCode,
+        unit_code: existingUnit?.unit_code || workSectionCode,
         hierarchy_level: "work_section",
-        created_at: new Date(),
+        description: existingUnit?.description || workSectionCode,
+        created_at: existingUnit?.created_at || new Date(),
         updated_at: new Date(),
       };
       units.push(newUnit);
