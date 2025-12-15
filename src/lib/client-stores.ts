@@ -14,6 +14,48 @@ import type {
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 
+// ============ Federal Holidays ============
+// US Federal Holidays for score calculation
+const FEDERAL_HOLIDAYS_2024 = [
+  "2024-01-01", // New Year's Day
+  "2024-01-15", // MLK Day
+  "2024-02-19", // Presidents Day
+  "2024-05-27", // Memorial Day
+  "2024-06-19", // Juneteenth
+  "2024-07-04", // Independence Day
+  "2024-09-02", // Labor Day
+  "2024-10-14", // Columbus Day
+  "2024-11-11", // Veterans Day
+  "2024-11-28", // Thanksgiving
+  "2024-12-25", // Christmas
+];
+
+const FEDERAL_HOLIDAYS_2025 = [
+  "2025-01-01", // New Year's Day
+  "2025-01-20", // MLK Day
+  "2025-02-17", // Presidents Day
+  "2025-05-26", // Memorial Day
+  "2025-06-19", // Juneteenth
+  "2025-07-04", // Independence Day
+  "2025-09-01", // Labor Day
+  "2025-10-13", // Columbus Day
+  "2025-11-11", // Veterans Day
+  "2025-11-27", // Thanksgiving
+  "2025-12-25", // Christmas
+];
+
+const FEDERAL_HOLIDAYS = new Set([...FEDERAL_HOLIDAYS_2024, ...FEDERAL_HOLIDAYS_2025]);
+
+function isHoliday(date: Date): boolean {
+  const dateStr = date.toISOString().split("T")[0];
+  return FEDERAL_HOLIDAYS.has(dateStr);
+}
+
+function isWeekend(date: Date): boolean {
+  const dayOfWeek = date.getDay();
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
 // Auto-save notification function (lazy import to avoid circular dependency)
 let notifyAutoSave: ((dataType: string) => void) | null = null;
 
@@ -948,11 +990,12 @@ export function approveRoster(
   const startDate = new Date(year, month, 1);
   const endDate = new Date(year, month + 1, 0); // Last day of month
 
-  // Get all duty slots for this month and unit
+  // Get all duty slots for this month and unit (including descendant units)
   const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
   const dutyTypes = getAllDutyTypes();
+  const allUnitIdsInScope = getAllDescendantUnitIds(unitId);
   const unitDutyTypeIds = new Set(
-    dutyTypes.filter((dt) => dt.unit_section_id === unitId).map((dt) => dt.id)
+    dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map((dt) => dt.id)
   );
 
   const monthSlots = allSlots.filter((slot) => {
@@ -973,16 +1016,18 @@ export function approveRoster(
     // Get duty value for this duty type
     const dutyValue = getDutyValueByDutyType(slot.duty_type_id);
     const baseWeight = dutyValue?.base_weight ?? 1;
+    const weekendMultiplier = dutyValue?.weekend_multiplier ?? 1.5;
+    const holidayMultiplier = dutyValue?.holiday_multiplier ?? 2.0;
 
-    // Check if this is a weekend or holiday (simplified - just checking weekends)
+    // Check if this is a weekend or holiday
     const slotDate = new Date(slot.date_assigned);
-    const dayOfWeek = slotDate.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    // Calculate points (use weekend multiplier if weekend)
+    // Calculate points (holiday takes precedence over weekend)
     let points = baseWeight;
-    if (isWeekend && dutyValue) {
-      points = baseWeight * dutyValue.weekend_multiplier;
+    if (isHoliday(slotDate)) {
+      points = baseWeight * holidayMultiplier;
+    } else if (isWeekend(slotDate)) {
+      points = baseWeight * weekendMultiplier;
     }
 
     // Add to personnel's total

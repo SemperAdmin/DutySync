@@ -555,6 +555,10 @@ export default function RosterPage() {
       } else {
         newSet.add(dutyTypeId);
       }
+      // If all items are now selected, revert to the 'show all' state (empty set)
+      if (newSet.size === availableDutyTypes.length) {
+        return new Set();
+      }
       return newSet;
     });
   }
@@ -562,11 +566,6 @@ export default function RosterPage() {
   // Clear all filters (show all)
   function clearDutyTypeFilter() {
     setDutyTypeFilter(new Set());
-  }
-
-  // Select specific duty types
-  function selectDutyTypeFilter(ids: string[]) {
-    setDutyTypeFilter(new Set(ids));
   }
 
   // Get the current user's personnel record
@@ -721,15 +720,16 @@ export default function RosterPage() {
 
   // Handle personnel assignment
   function handleAssign(personnelId: string) {
-    if (!assignmentModal.date || !assignmentModal.dutyType || !user) return;
+    const { date, dutyType, existingSlots } = assignmentModal;
+    if (!date || !dutyType || !user) return;
 
     setAssigning(true);
 
     try {
-      const slotsNeeded = assignmentModal.dutyType.slots_needed || 1;
+      const slotsNeeded = dutyType.slots_needed || 1;
 
       // Re-check actual slot count from localStorage before creating (prevents over-assignment)
-      const actualSlots = getDutySlotsByDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
+      const actualSlots = getDutySlotsByDateAndType(date, dutyType.id);
       const actualFilled = actualSlots.filter(s => s.personnel_id).length;
 
       if (actualFilled >= slotsNeeded) {
@@ -748,9 +748,9 @@ export default function RosterPage() {
       // Create new slot
       const newSlot = {
         id: crypto.randomUUID(),
-        duty_type_id: assignmentModal.dutyType.id,
+        duty_type_id: dutyType.id,
         personnel_id: personnelId,
-        date_assigned: assignmentModal.date,
+        date_assigned: date,
         assigned_by: user.id,
         duty_points_earned: 1.0,
         status: "scheduled" as const,
@@ -759,21 +759,28 @@ export default function RosterPage() {
       };
       createDutySlot(newSlot);
 
-      // Re-fetch to get updated count
-      const updatedSlots = getDutySlotsByDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
-      const newFilled = updatedSlots.filter(s => s.personnel_id).length;
+      // Optimistically update UI
+      const allPersonnelData = getAllPersonnel();
+      const assignedPerson = allPersonnelData.find(p => p.id === personnelId);
+      const newEnrichedSlot: EnrichedSlot = {
+        ...newSlot,
+        duty_type: { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id },
+        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank } : null,
+      };
 
-      if (newFilled >= slotsNeeded) {
+      const updatedSlots = [...existingSlots, newEnrichedSlot];
+      const filledCount = updatedSlots.filter(s => s.personnel_id).length;
+
+      if (filledCount >= slotsNeeded) {
         // All slots filled, close modal
-        fetchData();
         setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
       } else {
-        // More slots available - refresh and keep modal open
-        fetchData();
-        // Enrich the slots for modal display
-        const enrichedSlots = getSlotsForDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
-        setAssignmentModal(prev => ({ ...prev, existingSlots: enrichedSlots }));
+        // More slots available - update modal state optimistically
+        setAssignmentModal(prev => ({ ...prev, existingSlots: updatedSlots }));
       }
+
+      // Fetch in background to sync with source of truth
+      fetchData();
     } catch (err) {
       console.error("Error assigning duty:", err);
     } finally {
@@ -1203,20 +1210,12 @@ export default function RosterPage() {
                 <div className="absolute top-full left-0 mt-1 w-64 bg-surface border border-border rounded-lg shadow-lg z-20 max-h-64 overflow-y-auto">
                   <div className="p-2 border-b border-border flex justify-between items-center">
                     <span className="text-xs text-foreground-muted">Select duty types to show</span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => selectDutyTypeFilter(availableDutyTypes.map(dt => dt.id))}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        All
-                      </button>
-                      <button
-                        onClick={clearDutyTypeFilter}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        Clear
-                      </button>
-                    </div>
+                    <button
+                      onClick={clearDutyTypeFilter}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Show All
+                    </button>
                   </div>
                   <div className="p-1">
                     {availableDutyTypes.length === 0 ? (
@@ -1232,8 +1231,11 @@ export default function RosterPage() {
                             checked={dutyTypeFilter.size === 0 || dutyTypeFilter.has(dt.id)}
                             onChange={() => {
                               if (dutyTypeFilter.size === 0) {
-                                // First selection - select only this one
-                                selectDutyTypeFilter([dt.id]);
+                                // From "show all", unchecking one item means selecting all except that one
+                                const nextFilterIds = availableDutyTypes
+                                  .filter(d => d.id !== dt.id)
+                                  .map(d => d.id);
+                                setDutyTypeFilter(new Set(nextFilterIds));
                               } else {
                                 toggleDutyTypeFilter(dt.id);
                               }
