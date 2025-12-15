@@ -12,7 +12,6 @@ import {
   createDutyValue,
   updateDutyValue,
   getDutyValueByDutyType,
-  addDutyRequirement,
   clearDutyRequirements,
   getAllPersonnel,
   getChildUnits,
@@ -23,19 +22,37 @@ import {
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
 
-// Common qualifications that can be required for duties
-const COMMON_QUALIFICATIONS = [
-  "NCO",
-  "Officer",
-  "E-5 or above",
-  "E-6 or above",
-  "CQ Certified",
-  "Arms Room",
-  "Guard Force",
-  "Staff Duty Trained",
-  "Driver Licensed",
-  "Secret Clearance",
-  "Top Secret Clearance",
+// USMC rank order for sorting (E1-E9, W1-W5, O1-O10)
+const RANK_ORDER = [
+  // Enlisted (E1-E9)
+  "PVT",    // E-1
+  "PFC",    // E-2
+  "LCPL",   // E-3
+  "CPL",    // E-4
+  "SGT",    // E-5
+  "SSGT",   // E-6
+  "GYSGT",  // E-7
+  "MSGT",   // E-8
+  "1STSGT", // E-8
+  "MGYSGT", // E-9
+  "SGTMAJ", // E-9
+  // Warrant Officers (W1-W5)
+  "WO",     // W-1
+  "CWO2",   // W-2
+  "CWO3",   // W-3
+  "CWO4",   // W-4
+  "CWO5",   // W-5
+  // Officers (O1-O10)
+  "2NDLT",  // O-1
+  "1STLT",  // O-2
+  "CAPT",   // O-3
+  "MAJ",    // O-4
+  "LTCOL",  // O-5
+  "COL",    // O-6
+  "BGEN",   // O-7
+  "MAJGEN", // O-8
+  "LTGEN",  // O-9
+  "GEN",    // O-10
 ];
 
 type FilterMode = 'include' | 'exclude' | null;
@@ -76,7 +93,7 @@ export default function DutyTypesPage() {
     rank_filter_values: [] as string[],
     section_filter_mode: null as FilterMode,
     section_filter_values: [] as string[],
-    requirements: [] as string[],
+    notes: "",
     base_weight: "1.0",
     weekend_multiplier: "1.5",
     holiday_multiplier: "2.0",
@@ -140,17 +157,10 @@ export default function DutyTypesPage() {
       }
     });
 
-    // Sort ranks in military order
-    const rankOrder = ["PVT", "PV2", "PFC", "SPC", "CPL", "SGT", "SSG", "SFC", "MSG", "1SG", "SGM", "CSM",
-                       "WO1", "CW2", "CW3", "CW4", "CW5",
-                       "2LT", "1LT", "CPT", "MAJ", "LTC", "COL", "BG", "MG", "LTG", "GEN",
-                       "E-1", "E-2", "E-3", "E-4", "E-5", "E-6", "E-7", "E-8", "E-9",
-                       "W-1", "W-2", "W-3", "W-4", "W-5",
-                       "O-1", "O-2", "O-3", "O-4", "O-5", "O-6", "O-7", "O-8", "O-9", "O-10"];
-
+    // Sort ranks in military order using RANK_ORDER constant
     return Array.from(ranks).sort((a, b) => {
-      const aIdx = rankOrder.indexOf(a);
-      const bIdx = rankOrder.indexOf(b);
+      const aIdx = RANK_ORDER.indexOf(a);
+      const bIdx = RANK_ORDER.indexOf(b);
       if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
       if (aIdx === -1) return 1;
       if (bIdx === -1) return -1;
@@ -182,7 +192,7 @@ export default function DutyTypesPage() {
       rank_filter_values: [],
       section_filter_mode: null,
       section_filter_values: [],
-      requirements: [],
+      notes: "",
       base_weight: "1.0",
       weekend_multiplier: "1.5",
       holiday_multiplier: "2.0",
@@ -206,7 +216,7 @@ export default function DutyTypesPage() {
       rank_filter_values: dutyType.rank_filter_values || [],
       section_filter_mode: dutyType.section_filter_mode || null,
       section_filter_values: dutyType.section_filter_values || [],
-      requirements: dutyType.requirements.map((r) => r.required_qual_name),
+      notes: dutyType.notes || "",
       base_weight: dutyType.duty_value?.base_weight.toString() || "1.0",
       weekend_multiplier: dutyType.duty_value?.weekend_multiplier.toString() || "1.5",
       holiday_multiplier: dutyType.duty_value?.holiday_multiplier.toString() || "2.0",
@@ -335,6 +345,7 @@ export default function DutyTypesPage() {
         unit_section_id: formData.unit_section_id,
         duty_name: formData.duty_name,
         description: formData.description || null,
+        notes: formData.notes || null,
         slots_needed: parseInt(formData.slots_needed),
         required_rank_min: null,  // Deprecated
         required_rank_max: null,  // Deprecated
@@ -358,11 +369,6 @@ export default function DutyTypesPage() {
       };
       createDutyValue(newDutyValue);
 
-      // Create requirements
-      for (const qual of formData.requirements) {
-        addDutyRequirement(newDutyType.id, qual);
-      }
-
       setIsAddModalOpen(false);
       fetchData();
     } catch (err) {
@@ -384,6 +390,7 @@ export default function DutyTypesPage() {
       updateDutyType(editingDutyType.id, {
         duty_name: formData.duty_name,
         description: formData.description || null,
+        notes: formData.notes || null,
         slots_needed: parseInt(formData.slots_needed),
         rank_filter_mode: formData.rank_filter_values.length > 0 ? formData.rank_filter_mode : null,
         rank_filter_values: formData.rank_filter_values.length > 0 ? formData.rank_filter_values : null,
@@ -408,12 +415,6 @@ export default function DutyTypesPage() {
           holiday_multiplier: parseFloat(formData.holiday_multiplier),
         };
         createDutyValue(newDutyValue);
-      }
-
-      // Update requirements - clear and re-add
-      clearDutyRequirements(editingDutyType.id);
-      for (const qual of formData.requirements) {
-        addDutyRequirement(editingDutyType.id, qual);
       }
 
       setIsEditModalOpen(false);
@@ -443,15 +444,6 @@ export default function DutyTypesPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function toggleRequirement(qual: string) {
-    setFormData((prev) => ({
-      ...prev,
-      requirements: prev.requirements.includes(qual)
-        ? prev.requirements.filter((r) => r !== qual)
-        : [...prev.requirements, qual],
-    }));
   }
 
   function toggleRank(rank: string) {
@@ -698,20 +690,11 @@ export default function DutyTypesPage() {
                   </div>
                 )}
 
-                {/* Requirements */}
-                {dutyType.requirements.length > 0 && (
+                {/* Notes */}
+                {dutyType.notes && (
                   <div className="pt-2 border-t border-border">
-                    <p className="text-xs text-foreground-muted mb-1">Requirements</p>
-                    <div className="flex flex-wrap gap-1">
-                      {dutyType.requirements.map((req) => (
-                        <span
-                          key={req.required_qual_name}
-                          className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full"
-                        >
-                          {req.required_qual_name}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-xs text-foreground-muted mb-1">Notes</p>
+                    <p className="text-xs text-foreground">{dutyType.notes}</p>
                   </div>
                 )}
 
@@ -983,27 +966,18 @@ export default function DutyTypesPage() {
                 </div>
               </div>
 
-              {/* Requirements */}
+              {/* Duty Type Notes */}
               <div className="border-t border-border pt-4">
-                <h3 className="text-sm font-medium text-foreground mb-3">
-                  Required Qualifications
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {COMMON_QUALIFICATIONS.map((qual) => (
-                    <button
-                      key={qual}
-                      type="button"
-                      onClick={() => toggleRequirement(qual)}
-                      className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                        formData.requirements.includes(qual)
-                          ? "bg-primary text-white border-primary"
-                          : "bg-background text-foreground-muted border-border hover:border-primary"
-                      }`}
-                    >
-                      {qual}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Duty Type Notes
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Optional notes about this duty type (e.g., special instructions, requirements, etc.)"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
@@ -1258,27 +1232,18 @@ export default function DutyTypesPage() {
                 </div>
               </div>
 
-              {/* Requirements */}
+              {/* Duty Type Notes */}
               <div className="border-t border-border pt-4">
-                <h3 className="text-sm font-medium text-foreground mb-3">
-                  Required Qualifications
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {COMMON_QUALIFICATIONS.map((qual) => (
-                    <button
-                      key={qual}
-                      type="button"
-                      onClick={() => toggleRequirement(qual)}
-                      className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                        formData.requirements.includes(qual)
-                          ? "bg-primary text-white border-primary"
-                          : "bg-background text-foreground-muted border-border hover:border-primary"
-                      }`}
-                    >
-                      {qual}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Duty Type Notes
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Optional notes about this duty type (e.g., special instructions, requirements, etc.)"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
