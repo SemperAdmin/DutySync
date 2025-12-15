@@ -36,10 +36,11 @@ const LIBERTY_DAYS_KEY = "duty-sync-liberty-days";
 
 interface LibertyDay {
   date: string; // YYYY-MM-DD
-  type: "holiday" | "liberty";
+  type: "holiday" | "liberty" | "blocked";
   unitId: string;
   createdBy: string;
   createdAt: string;
+  comment?: string; // Required for blocked days
 }
 
 export default function RosterPage() {
@@ -59,8 +60,9 @@ export default function RosterPage() {
     startDate: Date | null;
   }>({ isOpen: false, startDate: null });
   const [libertyFormData, setLibertyFormData] = useState({
-    type: "liberty" as "holiday" | "liberty",
+    type: "liberty" as "holiday" | "liberty" | "blocked",
     days: 1,
+    comment: "",
   });
 
   // Assignment modal state
@@ -286,8 +288,9 @@ export default function RosterPage() {
   function handleCellClick(date: Date, dutyType: DutyType) {
     if (!canAssignDuties) return;
 
-    // Don't allow assignment on liberty/holiday days
-    if (getLibertyDay(date)) return;
+    // Don't allow assignment on blocked days only (liberty/holiday still need assignments)
+    const dayStatus = getLibertyDay(date);
+    if (dayStatus?.type === "blocked") return;
 
     const existingSlot = getSlotForDateAndType(date, dutyType.id);
     setAssignmentModal({
@@ -313,12 +316,18 @@ export default function RosterPage() {
     }
 
     setLibertyModal({ isOpen: true, startDate: date });
-    setLibertyFormData({ type: "liberty", days: 1 });
+    setLibertyFormData({ type: "liberty", days: 1, comment: "" });
   }
 
-  // Add liberty/holiday days
+  // Add liberty/holiday/blocked days
   function handleAddLibertyDays() {
     if (!libertyModal.startDate || !user || !unitAdminUnitId) return;
+
+    // Require comment for blocked days
+    if (libertyFormData.type === "blocked" && !libertyFormData.comment.trim()) {
+      alert("Please provide a reason for blocking this day.");
+      return;
+    }
 
     const newDays: LibertyDay[] = [];
     const start = new Date(libertyModal.startDate);
@@ -337,6 +346,7 @@ export default function RosterPage() {
           unitId: unitAdminUnitId,
           createdBy: user.id,
           createdAt: new Date().toISOString(),
+          comment: libertyFormData.type === "blocked" ? libertyFormData.comment.trim() : undefined,
         });
       }
     }
@@ -530,6 +540,45 @@ export default function RosterPage() {
     return getEligiblePersonnel(assignmentModal.dutyType, assignmentModal.date);
   }, [assignmentModal.isOpen, assignmentModal.date, assignmentModal.dutyType]);
 
+  // Calculate duty statistics
+  const dutyStats = useMemo(() => {
+    const totalDays = monthDays.length;
+    const totalDutyTypes = filteredDutyTypes.length;
+    const effectiveUnit = selectedUnit || unitAdminUnitId;
+
+    // Count only BLOCKED days (not liberty/holiday - those still need duties)
+    const blockedDaysCount = monthDays.filter(date => {
+      const dateStr = date.toISOString().split("T")[0];
+      return libertyDays.some(ld =>
+        ld.date === dateStr &&
+        ld.type === "blocked" &&
+        (effectiveUnit ? ld.unitId === effectiveUnit : true)
+      );
+    }).length;
+
+    // Total possible duties = days × duty types
+    const totalPossibleDuties = totalDays * totalDutyTypes;
+
+    // Total required duties = total possible - (blocked days × duty types)
+    const totalRequiredDuties = totalPossibleDuties - (blockedDaysCount * totalDutyTypes);
+
+    // Count assigned duties (from slots)
+    const assignedDuties = slots.length;
+
+    // Remaining to assign
+    const remainingDuties = Math.max(0, totalRequiredDuties - assignedDuties);
+
+    return {
+      totalDays,
+      totalDutyTypes,
+      blockedDaysCount,
+      totalPossibleDuties,
+      totalRequiredDuties,
+      assignedDuties,
+      remainingDuties,
+    };
+  }, [monthDays, filteredDutyTypes, libertyDays, selectedUnit, unitAdminUnitId, slots]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -604,8 +653,8 @@ export default function RosterPage() {
       {isUnitAdmin && (
         <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
           <p className="text-sm text-green-400">
-            <strong>Unit Admin:</strong> Click on a date in the Date column to mark it as a Holiday or Liberty day (up to 4 consecutive days).
-            Click again to remove.
+            <strong>Unit Admin:</strong> Click on a date in the Date column to mark it as Holiday, Liberty, or Blocked (no duty needed).
+            Blocked days require a reason. Click again to remove.
           </p>
         </div>
       )}
@@ -657,6 +706,8 @@ export default function RosterPage() {
                     rowBg = "bg-green-500/10";
                   } else if (libertyDay?.type === "holiday") {
                     rowBg = "bg-pink-500/10";
+                  } else if (libertyDay?.type === "blocked") {
+                    rowBg = "bg-yellow-500/10";
                   } else if (dateIsToday) {
                     rowBg = "bg-primary/10";
                   } else if (dateIsWeekend) {
@@ -672,12 +723,15 @@ export default function RosterPage() {
                         className={`px-3 py-2 text-sm sticky left-0 z-10 ${
                           libertyDay?.type === "liberty" ? "bg-green-500/10" :
                           libertyDay?.type === "holiday" ? "bg-pink-500/10" :
+                          libertyDay?.type === "blocked" ? "bg-yellow-500/10" :
                           dateIsToday ? "bg-primary/10 font-bold text-primary" :
                           dateIsWeekend ? "bg-highlight/5" : "bg-surface"
                         } ${isUnitAdmin ? "cursor-pointer hover:bg-primary/20" : ""}`}
                         onClick={() => isUnitAdmin && handleDateClick(date)}
+                        title={libertyDay?.type === "blocked" && libertyDay.comment ? `Blocked: ${libertyDay.comment}` : undefined}
                       >
                         <span className={
+                          libertyDay?.type === "blocked" ? "text-yellow-400" :
                           libertyDay ? "text-green-400" :
                           dateIsToday ? "text-primary" :
                           dateIsWeekend ? "text-highlight" : "text-foreground"
@@ -686,7 +740,9 @@ export default function RosterPage() {
                         </span>
                         {libertyDay && (
                           <span className={`ml-1 text-xs px-1 rounded ${
-                            libertyDay.type === "holiday" ? "bg-pink-500/20 text-pink-400" : "bg-green-500/20 text-green-400"
+                            libertyDay.type === "holiday" ? "bg-pink-500/20 text-pink-400" :
+                            libertyDay.type === "blocked" ? "bg-yellow-500/20 text-yellow-400" :
+                            "bg-green-500/20 text-green-400"
                           }`}>
                             {libertyDay.type.toUpperCase()}
                           </span>
@@ -700,19 +756,23 @@ export default function RosterPage() {
                       {filteredDutyTypes.map((dt) => {
                         const slot = getSlotForDateAndType(date, dt.id);
 
-                        // If liberty/holiday day, show that instead of assignments
-                        if (libertyDay) {
+                        // Only blocked days show the blocked label - liberty/holiday still need assignments
+                        if (libertyDay?.type === "blocked") {
                           return (
-                            <td key={dt.id} className="text-center px-3 py-2 text-sm">
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                libertyDay.type === "holiday" ? "bg-pink-500/20 text-pink-400" : "bg-green-500/20 text-green-400"
-                              }`}>
-                                {libertyDay.type.toUpperCase()}
+                            <td
+                              key={dt.id}
+                              className="text-center px-3 py-2 text-sm"
+                              title={libertyDay.comment || undefined}
+                            >
+                              <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400">
+                                BLOCKED
                               </span>
                             </td>
                           );
                         }
 
+                        // Normal cell - show assignment (liberty/holiday days still need people assigned)
+                        // At this point, libertyDay is either liberty, holiday, or null (blocked case handled above)
                         return (
                           <td
                             key={dt.id}
@@ -782,19 +842,28 @@ export default function RosterPage() {
           <span className="w-3 h-3 rounded bg-pink-500/20 border border-pink-500/30" />
           <span className="text-foreground-muted">Holiday</span>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded bg-yellow-500/20 border border-yellow-500/30" />
+          <span className="text-foreground-muted">Blocked</span>
+        </div>
       </div>
 
       {/* Stats Summary */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <div className="bg-surface rounded-lg border border-border p-4">
-          <div className="text-2xl font-bold text-foreground">{slots.length}</div>
-          <div className="text-sm text-foreground-muted">Total Duties</div>
+          <div className="text-2xl font-bold text-foreground">{dutyStats.totalRequiredDuties}</div>
+          <div className="text-sm text-foreground-muted">Total Duties Required</div>
+          <div className="text-xs text-foreground-muted mt-1">
+            ({dutyStats.totalDays} days × {dutyStats.totalDutyTypes} types) - {dutyStats.blockedDaysCount} blocked
+          </div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
-          <div className="text-2xl font-bold text-foreground">
-            {slots.filter((s) => s.status === "scheduled").length}
-          </div>
-          <div className="text-sm text-foreground-muted">Scheduled</div>
+          <div className="text-2xl font-bold text-primary">{dutyStats.assignedDuties}</div>
+          <div className="text-sm text-foreground-muted">Assigned</div>
+        </div>
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-yellow-400">{dutyStats.remainingDuties}</div>
+          <div className="text-sm text-foreground-muted">Remaining</div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
           <div className="text-2xl font-bold text-green-400">
@@ -803,10 +872,8 @@ export default function RosterPage() {
           <div className="text-sm text-foreground-muted">Completed</div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
-          <div className="text-2xl font-bold text-red-400">
-            {slots.filter((s) => s.status === "cancelled").length}
-          </div>
-          <div className="text-sm text-foreground-muted">Cancelled</div>
+          <div className="text-2xl font-bold text-red-400">{dutyStats.blockedDaysCount}</div>
+          <div className="text-sm text-foreground-muted">Blocked Days</div>
         </div>
       </div>
 
@@ -995,11 +1062,12 @@ export default function RosterPage() {
                 <label className="block text-sm font-medium text-foreground mb-1">Type</label>
                 <select
                   value={libertyFormData.type}
-                  onChange={(e) => setLibertyFormData(prev => ({ ...prev, type: e.target.value as "holiday" | "liberty" }))}
+                  onChange={(e) => setLibertyFormData(prev => ({ ...prev, type: e.target.value as "holiday" | "liberty" | "blocked" }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
                 >
                   <option value="liberty">Liberty (Regular Days Off)</option>
                   <option value="holiday">Holiday (Federal/Training Holiday)</option>
+                  <option value="blocked">Blocked (No Duty Needed)</option>
                 </select>
               </div>
 
@@ -1016,6 +1084,24 @@ export default function RosterPage() {
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
                 />
               </div>
+
+              {libertyFormData.type === "blocked" && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Reason <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={libertyFormData.comment}
+                    onChange={(e) => setLibertyFormData(prev => ({ ...prev, comment: e.target.value }))}
+                    placeholder="e.g., Training exercise, Field op, Unit function..."
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground"
+                  />
+                  <p className="text-xs text-foreground-muted mt-1">
+                    Required: Explain why no duty is needed on this day
+                  </p>
+                </div>
+              )}
 
               <p className="text-xs text-foreground-muted">
                 This will mark {libertyFormData.days} consecutive day(s) starting from {formatDate(libertyModal.startDate)} as {libertyFormData.type}.
