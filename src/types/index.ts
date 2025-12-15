@@ -128,7 +128,8 @@ export interface NonAvailability {
   start_date: Date;
   end_date: Date;
   reason: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'recommended' | 'approved' | 'rejected';
+  recommended_by: UUID | null; // Manager who recommended (for chain of command)
   approved_by: UUID | null;
   created_at: Date;
 }

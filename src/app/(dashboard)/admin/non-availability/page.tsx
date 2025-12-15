@@ -95,6 +95,9 @@ export default function NonAvailabilityAdminPage() {
   // User can approve if effective admin, effective unit admin, or manager with approval permission
   const canApprove = effectiveIsAppAdmin || effectiveIsUnitAdmin || isManagerWithApproval;
 
+  // Managers can recommend (chain of command) - this is separate from approve
+  const canRecommend = isManager && !effectiveIsAppAdmin && !effectiveIsUnitAdmin;
+
   // Get user's scoped unit ID based on view mode
   const userScopeUnitId = useMemo(() => {
     if (!user?.roles) return null;
@@ -179,6 +182,13 @@ export default function NonAvailabilityAdminPage() {
     return isInUserScope(request.personnel.unit_section_id);
   };
 
+  // Filter to check if user can recommend this specific request
+  const canRecommendRequest = (request: EnrichedNonAvailability): boolean => {
+    if (!canRecommend) return false;
+    if (!request.personnel) return false;
+    return isInUserScope(request.personnel.unit_section_id);
+  };
+
   // Add request modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -217,10 +227,29 @@ export default function NonAvailabilityAdminPage() {
     setProcessingId(requestId);
 
     try {
-      updateNonAvailability(requestId, { status: newStatus });
+      updateNonAvailability(requestId, {
+        status: newStatus,
+        approved_by: newStatus === "approved" ? (user?.id || "admin") : null,
+      });
       fetchData();
     } catch (err) {
       console.error("Error updating request:", err);
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  function handleRecommend(requestId: string) {
+    setProcessingId(requestId);
+
+    try {
+      updateNonAvailability(requestId, {
+        status: "recommended",
+        recommended_by: user?.id || null,
+      });
+      fetchData();
+    } catch (err) {
+      console.error("Error recommending request:", err);
     } finally {
       setProcessingId(null);
     }
@@ -296,6 +325,8 @@ export default function NonAvailabilityAdminPage() {
     switch (status) {
       case "approved":
         return "bg-green-500/20 text-green-400";
+      case "recommended":
+        return "bg-blue-500/20 text-blue-400";
       case "rejected":
         return "bg-red-500/20 text-red-400";
       default:
@@ -384,10 +415,10 @@ export default function NonAvailabilityAdminPage() {
 
       {/* Status Filters - only show in scope mode for managers/admins */}
       {(viewMode === "scope" || !hasElevatedAccess) && (
-        <div className="flex gap-4 items-center">
+        <div className="flex gap-4 items-center flex-wrap">
           <label className="text-sm text-foreground-muted">Filter by status:</label>
-          <div className="flex gap-2">
-            {["pending", "approved", "rejected", ""].map((status) => (
+          <div className="flex gap-2 flex-wrap">
+            {["pending", "recommended", "approved", "rejected", ""].map((status) => (
               <button
                 key={status || "all"}
                 onClick={() => setStatusFilter(status)}
@@ -397,7 +428,7 @@ export default function NonAvailabilityAdminPage() {
                     : "bg-surface border border-border text-foreground-muted hover:text-foreground"
                 }`}
               >
-                {status || "All"}
+                {status ? status.charAt(0).toUpperCase() + status.slice(1) : "All"}
               </button>
             ))}
           </div>
@@ -405,12 +436,18 @@ export default function NonAvailabilityAdminPage() {
       )}
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <div className="bg-surface rounded-lg border border-border p-4">
           <div className="text-2xl font-bold text-yellow-400">
             {filteredRequests.filter((r) => r.status === "pending").length}
           </div>
           <div className="text-sm text-foreground-muted">Pending</div>
+        </div>
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-blue-400">
+            {filteredRequests.filter((r) => r.status === "recommended").length}
+          </div>
+          <div className="text-sm text-foreground-muted">Recommended</div>
         </div>
         <div className="bg-surface rounded-lg border border-border p-4">
           <div className="text-2xl font-bold text-green-400">
@@ -500,7 +537,47 @@ export default function NonAvailabilityAdminPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
-                        {request.status === "pending" && canApproveRequest(request) && (
+                        {/* Pending requests - show recommend/reject for managers, approve for those with permission */}
+                        {request.status === "pending" && (
+                          <>
+                            {/* Approve button - only for admins or managers with approval permission */}
+                            {canApproveRequest(request) && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleStatusChange(request.id, "approved")}
+                                disabled={processingId === request.id}
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            {/* Recommend button - for managers in chain of command */}
+                            {canRecommendRequest(request) && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleRecommend(request.id)}
+                                disabled={processingId === request.id}
+                                className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border-blue-500/30"
+                              >
+                                Recommend
+                              </Button>
+                            )}
+                            {/* Reject button - for managers and approvers */}
+                            {(canApproveRequest(request) || canRecommendRequest(request)) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleStatusChange(request.id, "rejected")}
+                                disabled={processingId === request.id}
+                              >
+                                Reject
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {/* Recommended requests - only approvers can approve/reject */}
+                        {request.status === "recommended" && canApproveRequest(request) && (
                           <>
                             <Button
                               size="sm"
