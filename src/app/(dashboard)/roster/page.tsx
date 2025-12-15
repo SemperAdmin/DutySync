@@ -15,6 +15,7 @@ import {
   getActiveNonAvailability,
   updateDutySlot,
   createDutySlot,
+  getPersonnelByEdipi,
   type EnrichedSlot,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
@@ -74,11 +75,16 @@ export default function RosterPage() {
   }>({ isOpen: false, date: null, dutyType: null, existingSlot: null });
   const [assigning, setAssigning] = useState(false);
 
-  // Check if user can assign duties (managers, not app admin)
-  const canAssignDuties = useMemo(() => {
+  // Check if user is a manager who can assign others
+  const isManager = useMemo(() => {
     if (!user?.roles) return false;
     return user.roles.some(r => MANAGER_ROLES.includes(r.role_name as RoleName));
   }, [user?.roles]);
+
+  // All logged-in users can click to assign (self or others based on role)
+  const canAssignDuties = useMemo(() => {
+    return !!user; // Any logged-in user can assign duties
+  }, [user]);
 
   // Check if user is Unit Admin (can mark liberty days)
   const isUnitAdmin = useMemo(() => {
@@ -255,17 +261,30 @@ export default function RosterPage() {
     return dutyTypes.filter(dt => dt.is_active && dt.unit_section_id === selectedUnit);
   }, [dutyTypes, selectedUnit]);
 
+  // Get the current user's personnel record
+  const currentUserPersonnel = useMemo(() => {
+    if (!user?.edipi) return null;
+    return getPersonnelByEdipi(user.edipi) || null;
+  }, [user?.edipi]);
+
   // Get eligible personnel for a duty type on a specific date
-  // Only includes personnel within the manager's scope
+  // For regular users: only themselves
+  // For managers: personnel within their scope
   function getEligiblePersonnel(dutyType: DutyType, date: Date): Personnel[] {
-    // Get all personnel within the manager's scope
     const allPersonnel = getAllPersonnel();
     const requirements = getDutyRequirements(dutyType.id);
 
     return allPersonnel.filter(person => {
-      // Only include personnel within the manager's scope
-      if (scopeUnitIds.length > 0 && !scopeUnitIds.includes(person.unit_section_id)) {
-        return false;
+      // Regular users can only assign themselves
+      if (!isManager) {
+        if (!currentUserPersonnel || person.id !== currentUserPersonnel.id) {
+          return false;
+        }
+      } else {
+        // Managers: only include personnel within their scope
+        if (scopeUnitIds.length > 0 && !scopeUnitIds.includes(person.unit_section_id)) {
+          return false;
+        }
       }
 
       // Check if person is available (not on non-availability)
@@ -293,6 +312,15 @@ export default function RosterPage() {
     if (dayStatus?.type === "blocked") return;
 
     const existingSlot = getSlotForDateAndType(date, dutyType.id);
+
+    // Regular users can only assign themselves to empty slots, not swap others
+    if (!isManager && existingSlot?.personnel_id) {
+      // Regular user trying to click on an already-assigned slot
+      // Just show the details modal instead
+      setSelectedSlot(existingSlot);
+      return;
+    }
+
     setAssignmentModal({
       isOpen: true,
       date,
@@ -586,9 +614,9 @@ export default function RosterPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Duty Roster</h1>
           <p className="text-foreground-muted mt-1">
-            {canAssignDuties
-              ? "View and assign duty assignments by date and type"
-              : "View duty assignments by date and type"}
+            {isManager
+              ? "View and assign duty assignments for personnel in your scope"
+              : "View duty roster and assign yourself to available slots"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -953,7 +981,9 @@ export default function RosterPage() {
             <div className="p-4 border-b border-border flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  {assignmentModal.existingSlot ? "Swap Duty Assignment" : "Assign Duty"}
+                  {isManager
+                    ? (assignmentModal.existingSlot ? "Swap Duty Assignment" : "Assign Duty")
+                    : "Assign Yourself"}
                 </h2>
                 <p className="text-sm text-foreground-muted mt-1">
                   {assignmentModal.dutyType.duty_name} - {formatDate(assignmentModal.date)}

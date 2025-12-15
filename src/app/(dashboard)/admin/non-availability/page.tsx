@@ -13,6 +13,7 @@ import {
   getUnitSectionById,
   getUnitSections,
   getPersonnelByEdipi,
+  getChildUnits,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
 import {
@@ -142,6 +143,33 @@ export default function NonAvailabilityAdminPage() {
 
     return false;
   };
+
+  // Get all unit IDs within scope (recursive)
+  const getUnitsInScope = (scopeUnitId: string): string[] => {
+    const result: string[] = [scopeUnitId];
+    const children = getChildUnits(scopeUnitId);
+    for (const child of children) {
+      result.push(...getUnitsInScope(child.id));
+    }
+    return result;
+  };
+
+  // Get personnel filtered by scope (for managers) or all (for admins)
+  const scopeFilteredPersonnel = useMemo(() => {
+    // App Admins and Unit Admins (when in admin views) can see all personnel
+    if (effectiveIsAppAdmin || effectiveIsUnitAdmin) {
+      return personnel;
+    }
+
+    // Managers can only see personnel in their scope
+    if (isManager && userScopeUnitId) {
+      const scopeUnitIds = getUnitsInScope(userScopeUnitId);
+      return personnel.filter(p => scopeUnitIds.includes(p.unit_section_id));
+    }
+
+    // Regular users can only submit for themselves (handled separately)
+    return [];
+  }, [personnel, effectiveIsAppAdmin, effectiveIsUnitAdmin, isManager, userScopeUnitId]);
 
   // Filter to check if user can approve this specific request
   const canApproveRequest = (request: EnrichedNonAvailability): boolean => {
@@ -521,7 +549,7 @@ export default function NonAvailabilityAdminPage() {
                 <div className="p-3 bg-accent/20 text-accent rounded-lg text-sm">{error}</div>
               )}
 
-              {/* Only show personnel dropdown for elevated users */}
+              {/* Only show personnel dropdown for managers/admins (filtered by scope) */}
               {hasElevatedAccess ? (
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">
@@ -536,7 +564,7 @@ export default function NonAvailabilityAdminPage() {
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">Select Personnel</option>
-                    {personnel.map((p) => (
+                    {scopeFilteredPersonnel.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.rank} {p.last_name}, {p.first_name}
                       </option>
