@@ -93,34 +93,42 @@ export default function PersonnelPage() {
     return getPersonnelByEdipi(user.edipi) || null;
   }, [user?.edipi]);
 
-  // Check if user is an admin (can see all personnel)
-  const isAdmin = useMemo(() => {
+  // Check if user is App Admin (can see ALL personnel across all units)
+  const isAppAdmin = useMemo(() => {
     if (!user?.roles) return false;
-    return user.roles.some(r => ADMIN_ROLES.includes(r.role_name as RoleName));
+    return user.roles.some(r => r.role_name === "App Admin");
   }, [user?.roles]);
 
-  // Get the manager's scope unit ID from their role
-  const managerScopeUnitId = useMemo(() => {
+  // Get the user's scope unit ID from their highest scoped role (Unit Admin > Managers)
+  const userScopeUnitId = useMemo(() => {
     if (!user?.roles) return null;
+
+    // First check for Unit Admin with scope
+    const unitAdminRole = user.roles.find(r =>
+      r.role_name === "Unit Admin" && r.scope_unit_id
+    );
+    if (unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
+
+    // Then check for any manager role with scope
     const managerRole = user.roles.find(r =>
       MANAGER_ROLES.includes(r.role_name as RoleName) && r.scope_unit_id
     );
     return managerRole?.scope_unit_id || null;
   }, [user?.roles]);
 
-  // Determine if user has elevated access (admin or manager)
-  const hasElevatedAccess = isAdmin || !!managerScopeUnitId;
+  // Determine if user has elevated access (app admin or has a scoped role)
+  const hasElevatedAccess = isAppAdmin || !!userScopeUnitId;
 
-  // Get all descendant unit IDs for the manager's scope
+  // Get all descendant unit IDs for the user's scope
   const scopeUnitIds = useMemo(() => {
-    if (isAdmin) {
-      // Admins can see all units
+    if (isAppAdmin) {
+      // App Admins can see all units
       return new Set(units.map(u => u.id));
     }
-    if (!managerScopeUnitId) return new Set<string>();
+    if (!userScopeUnitId) return new Set<string>();
 
-    const ids = new Set<string>([managerScopeUnitId]);
-    const queue = [managerScopeUnitId];
+    const ids = new Set<string>([userScopeUnitId]);
+    const queue = [userScopeUnitId];
 
     for (let i = 0; i < queue.length; i++) {
       const currentId = queue[i];
@@ -134,7 +142,7 @@ export default function PersonnelPage() {
     }
 
     return ids;
-  }, [isAdmin, managerScopeUnitId, childrenMap, units]);
+  }, [isAppAdmin, userScopeUnitId, childrenMap, units]);
 
   // Get units within the user's scope for the filter dropdown, sorted by hierarchy
   const unitsInScope = useMemo(() => {
@@ -146,7 +154,7 @@ export default function PersonnelPage() {
     };
 
     let scopedUnits: typeof units;
-    if (isAdmin) {
+    if (isAppAdmin) {
       scopedUnits = units;
     } else if (scopeUnitIds.size === 0) {
       scopedUnits = [];
@@ -160,7 +168,7 @@ export default function PersonnelPage() {
       if (levelDiff !== 0) return levelDiff;
       return a.unit_name.localeCompare(b.unit_name);
     });
-  }, [isAdmin, units, scopeUnitIds]);
+  }, [isAppAdmin, units, scopeUnitIds]);
 
   // Get hierarchy level display label
   const getHierarchyLabel = (level: string): string => {
@@ -241,7 +249,7 @@ export default function PersonnelPage() {
 
       // In "scope" mode, filter by scope and unit filter
       // First check if personnel is within the user's scope
-      if (!isAdmin && !scopeUnitIds.has(p.unit_section_id)) {
+      if (!isAppAdmin && !scopeUnitIds.has(p.unit_section_id)) {
         return false;
       }
 
@@ -255,7 +263,7 @@ export default function PersonnelPage() {
         p.rank.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesUnit && matchesSearch;
     });
-  }, [personnel, viewMode, currentUserPersonnel, isAdmin, scopeUnitIds, filterUnit, searchTerm, isUnitInFilterPath]);
+  }, [personnel, viewMode, currentUserPersonnel, isAppAdmin, scopeUnitIds, filterUnit, searchTerm, isUnitInFilterPath]);
 
   if (isLoading) {
     return (
@@ -272,15 +280,15 @@ export default function PersonnelPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Personnel</h1>
           <p className="text-foreground-muted mt-1">
-            {isAdmin
+            {isAppAdmin
               ? "Manage service members and import roster data"
               : hasElevatedAccess
               ? "View personnel within your scope"
               : "View your personnel record"}
           </p>
         </div>
-        {/* Only show admin buttons for admins */}
-        {isAdmin && (
+        {/* Only show admin buttons for App Admins */}
+        {isAppAdmin && (
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setShowImportModal(true)}>
               <svg
@@ -382,7 +390,7 @@ export default function PersonnelPage() {
                         : "bg-surface text-foreground-muted hover:bg-surface-elevated"
                     }`}
                   >
-                    {isAdmin ? "All Personnel" : "My Scope"}
+                    {isAppAdmin ? "All Personnel" : "My Scope"}
                   </button>
                 </div>
               </div>
@@ -404,7 +412,7 @@ export default function PersonnelPage() {
                     value={filterUnit}
                     onChange={(e) => setFilterUnit(e.target.value)}
                   >
-                    <option value="">{isAdmin ? "All Sections" : "All in My Scope"}</option>
+                    <option value="">{isAppAdmin ? "All Sections" : "All in My Scope"}</option>
                     {unitsInScope.map((unit) => {
                       const indent = unit.hierarchy_level === "section" ? "↳ " :
                                      unit.hierarchy_level === "work_section" ? "  ↳ " : "";
