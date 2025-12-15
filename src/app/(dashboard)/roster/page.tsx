@@ -288,8 +288,9 @@ export default function RosterPage() {
   function handleCellClick(date: Date, dutyType: DutyType) {
     if (!canAssignDuties) return;
 
-    // Don't allow assignment on liberty/holiday days
-    if (getLibertyDay(date)) return;
+    // Don't allow assignment on blocked days only (liberty/holiday still need assignments)
+    const dayStatus = getLibertyDay(date);
+    if (dayStatus?.type === "blocked") return;
 
     const existingSlot = getSlotForDateAndType(date, dutyType.id);
     setAssignmentModal({
@@ -545,11 +546,12 @@ export default function RosterPage() {
     const totalDutyTypes = filteredDutyTypes.length;
     const effectiveUnit = selectedUnit || unitAdminUnitId;
 
-    // Count blocked days for this month and unit
+    // Count only BLOCKED days (not liberty/holiday - those still need duties)
     const blockedDaysCount = monthDays.filter(date => {
       const dateStr = date.toISOString().split("T")[0];
       return libertyDays.some(ld =>
         ld.date === dateStr &&
+        ld.type === "blocked" &&
         (effectiveUnit ? ld.unitId === effectiveUnit : true)
       );
     }).length;
@@ -754,25 +756,23 @@ export default function RosterPage() {
                       {filteredDutyTypes.map((dt) => {
                         const slot = getSlotForDateAndType(date, dt.id);
 
-                        // If liberty/holiday/blocked day, show that instead of assignments
-                        if (libertyDay) {
+                        // Only blocked days show the blocked label - liberty/holiday still need assignments
+                        if (libertyDay?.type === "blocked") {
                           return (
                             <td
                               key={dt.id}
                               className="text-center px-3 py-2 text-sm"
-                              title={libertyDay.type === "blocked" && libertyDay.comment ? libertyDay.comment : undefined}
+                              title={libertyDay.comment || undefined}
                             >
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                libertyDay.type === "holiday" ? "bg-pink-500/20 text-pink-400" :
-                                libertyDay.type === "blocked" ? "bg-yellow-500/20 text-yellow-400" :
-                                "bg-green-500/20 text-green-400"
-                              }`}>
-                                {libertyDay.type.toUpperCase()}
+                              <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400">
+                                BLOCKED
                               </span>
                             </td>
                           );
                         }
 
+                        // Normal cell - show assignment (liberty/holiday days still need people assigned)
+                        // At this point, libertyDay is either liberty, holiday, or null (blocked case handled above)
                         return (
                           <td
                             key={dt.id}
