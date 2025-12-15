@@ -1,48 +1,29 @@
 {
   "dutyTypes": [
     {
-      "id": "758125ec-3659-4bf1-a4d8-d0322b441df2",
+      "id": "c870db1e-b35c-42d3-b828-8f8230378284",
       "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
-      "duty_name": "SDO",
-      "description": "Staff Duty Officer",
-      "slots_needed": 1,
-      "required_rank_min": "E-6",
-      "required_rank_max": "E-7",
-      "is_active": true,
-      "created_at": "2025-12-15T00:08:23.278Z",
-      "updated_at": "2025-12-15T00:08:23.278Z"
-    },
-    {
-      "id": "7b84777a-b98c-4329-a87d-9f37efa145c7",
-      "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
-      "duty_name": "Anyone",
+      "duty_name": "Any",
       "description": null,
       "slots_needed": 1,
       "required_rank_min": null,
       "required_rank_max": null,
       "is_active": true,
-      "created_at": "2025-12-15T02:35:21.638Z",
-      "updated_at": "2025-12-15T02:35:21.638Z"
+      "created_at": "2025-12-15T05:19:30.244Z",
+      "updated_at": "2025-12-15T05:19:30.244Z"
     }
   ],
   "dutyValues": [
     {
-      "id": "68853f7d-7ea5-4077-8401-9ce77ab72f97",
-      "duty_type_id": "758125ec-3659-4bf1-a4d8-d0322b441df2",
-      "base_weight": 1,
-      "weekend_multiplier": 1.5,
-      "holiday_multiplier": 2
-    },
-    {
-      "id": "35a80347-f30d-4a2f-b530-5ac637181ba8",
-      "duty_type_id": "7b84777a-b98c-4329-a87d-9f37efa145c7",
+      "id": "cae0e8db-6f27-4eab-b16a-d11f6c433ec1",
+      "duty_type_id": "c870db1e-b35c-42d3-b828-8f8230378284",
       "base_weight": 1,
       "weekend_multiplier": 1.5,
       "holiday_multiplier": 2
     }
   ],
   "dutyRequirements": [],
-  "exportedAt": "2025-12-15T02:35:26.641Z",
+  "exportedAt": "2025-12-15T05:19:35.245Z",
   "version": "1.0",
   "description": "Duty type definitions, point values, and qualification requirements for this unit"
 }
