@@ -30,6 +30,22 @@
       ],
       "section_filter_mode": null,
       "section_filter_values": null
+    },
+    {
+      "id": "cc6a9a0f-fb58-493a-990c-6cbca2b9cac8",
+      "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
+      "duty_name": "Firewatch",
+      "description": null,
+      "slots_needed": 4,
+      "required_rank_min": null,
+      "required_rank_max": null,
+      "rank_filter_mode": null,
+      "rank_filter_values": null,
+      "section_filter_mode": null,
+      "section_filter_values": null,
+      "is_active": true,
+      "created_at": "2025-12-15T06:46:15.340Z",
+      "updated_at": "2025-12-15T06:46:15.340Z"
     }
   ],
   "dutyValues": [
@@ -46,10 +62,17 @@
       "base_weight": 1,
       "weekend_multiplier": 1.5,
       "holiday_multiplier": 2
+    },
+    {
+      "id": "63f5b55a-15c4-4b35-bbbc-f9ddba37d162",
+      "duty_type_id": "cc6a9a0f-fb58-493a-990c-6cbca2b9cac8",
+      "base_weight": 1,
+      "weekend_multiplier": 1.5,
+      "holiday_multiplier": 2
     }
   ],
   "dutyRequirements": [],
-  "exportedAt": "2025-12-15T05:30:46.548Z",
+  "exportedAt": "2025-12-15T06:46:20.342Z",
   "version": "1.0",
   "description": "Duty type definitions, point values, and qualification requirements for this unit"
 }
