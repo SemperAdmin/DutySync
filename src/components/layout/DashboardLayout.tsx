@@ -95,9 +95,10 @@ export default function DashboardLayout({
   // Effective admin status based on view mode (for filtering nav items)
   const isAdmin = actuallyIsAdmin && isAdminView;
 
-  // Navigation items with adminOnly flag for view mode filtering
+  // Navigation items with view mode flags
   interface ExtendedNavItem extends NavItem {
     adminOnly?: boolean; // Only show in Admin View for App Admins
+    userOnly?: boolean; // Only show in User View (hide from Admin View)
   }
 
   const navItems: ExtendedNavItem[] = [
@@ -167,7 +168,7 @@ export default function DashboardLayout({
       href: "/admin/duty-types",
       label: "Duty Types",
       allowedRoles: ADMIN_ROLES,
-      adminOnly: true, // Only show in Admin View
+      userOnly: true, // Only show in User View (accessible via dashboard links in Admin View)
       icon: (
         <svg
           className="w-5 h-5"
@@ -188,7 +189,7 @@ export default function DashboardLayout({
       href: "/admin/scheduler",
       label: "Scheduler",
       allowedRoles: ADMIN_ROLES,
-      adminOnly: true, // Only show in Admin View
+      userOnly: true, // Only show in User View (accessible via dashboard links in Admin View)
       icon: (
         <svg
           className="w-5 h-5"
@@ -209,6 +210,7 @@ export default function DashboardLayout({
       href: "/admin/personnel",
       label: "Personnel",
       allowedRoles: PERSONNEL_ACCESS_ROLES,
+      userOnly: true, // Only show in User View
       icon: (
         <svg
           className="w-5 h-5"
@@ -229,6 +231,7 @@ export default function DashboardLayout({
       href: "/admin/non-availability",
       label: "Non-Availability",
       allowedRoles: PERSONNEL_ACCESS_ROLES,
+      userOnly: true, // Only show in User View
       icon: (
         <svg
           className="w-5 h-5"
@@ -248,7 +251,7 @@ export default function DashboardLayout({
     {
       href: "/roster",
       label: "Duty Roster",
-      // All roles can access duty roster
+      userOnly: true, // Only show in User View
       icon: (
         <svg
           className="w-5 h-5"
@@ -296,6 +299,11 @@ export default function DashboardLayout({
       }
       // App Admin in Admin View - show these items
       return true;
+    }
+
+    // If item is marked userOnly, hide it when App Admin is in Admin View
+    if (item.userOnly && actuallyIsAdmin && isAdminView) {
+      return false;
     }
 
     // If no allowedRoles specified, all users can access
