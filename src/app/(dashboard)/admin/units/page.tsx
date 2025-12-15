@@ -448,9 +448,39 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
   const fetchData = useCallback(() => {
     try {
       const unitsData = getUnitSections();
-      // Filter to only units within this RUC scope
-      const scopedUnits = unitsData.filter(u => u.ruc === scopeRuc);
-      setUnits(scopedUnits);
+
+      // Find the top-level unit for this RUC scope
+      const topUnit = unitsData.find(u => u.unit_code === scopeRuc && u.hierarchy_level === "battalion");
+
+      if (!topUnit) {
+        // If no battalion found, try to find any unit with this code
+        const anyUnit = unitsData.find(u => u.unit_code === scopeRuc);
+        if (anyUnit) {
+          // Get all descendants of this unit
+          const getDescendants = (parentId: string): UnitSection[] => {
+            const children = unitsData.filter(u => u.parent_id === parentId);
+            return [
+              ...children,
+              ...children.flatMap(child => getDescendants(child.id))
+            ];
+          };
+          const scopedUnits = [anyUnit, ...getDescendants(anyUnit.id)];
+          setUnits(scopedUnits);
+        } else {
+          setUnits([]);
+        }
+      } else {
+        // Get all descendants of the top-level unit
+        const getDescendants = (parentId: string): UnitSection[] => {
+          const children = unitsData.filter(u => u.parent_id === parentId);
+          return [
+            ...children,
+            ...children.flatMap(child => getDescendants(child.id))
+          ];
+        };
+        const scopedUnits = [topUnit, ...getDescendants(topUnit.id)];
+        setUnits(scopedUnits);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -465,6 +495,8 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
   // Group units by hierarchy level
   const unitsByLevel = useMemo(() => {
     const grouped: Record<HierarchyLevel, UnitSection[]> = {
+      unit: [],
+      ruc: [],
       battalion: [],
       company: [],
       section: [],
@@ -515,7 +547,6 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
         const newUnit: UnitSection = {
           id: crypto.randomUUID(),
           ...data,
-          ruc: scopeRuc,
           created_at: new Date(),
           updated_at: new Date(),
         };
