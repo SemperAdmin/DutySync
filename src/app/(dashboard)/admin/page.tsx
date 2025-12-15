@@ -808,14 +808,16 @@ function UsersTab() {
   };
 
   // Build the full unit hierarchy path (e.g., "02301 > H Company > S1DV > MPHQ")
+  // Note: Uses getUnitSections() directly to ensure we have latest data
   const buildUnitPath = (unitId: string): string => {
+    const allUnits = getUnitSections();
     const path: string[] = [];
-    let currentUnit = units.find(u => u.id === unitId);
+    let currentUnit = allUnits.find(u => u.id === unitId);
 
     while (currentUnit) {
       path.unshift(currentUnit.unit_name);
       currentUnit = currentUnit.parent_id
-        ? units.find(u => u.id === currentUnit?.parent_id)
+        ? allUnits.find(u => u.id === currentUnit?.parent_id)
         : undefined;
     }
 
@@ -1208,14 +1210,16 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
   };
 
   // Build the full unit hierarchy path (e.g., "02301 > H Company > S1DV > MPHQ")
+  // Note: Uses getUnitSections() directly to ensure we have latest data
   const buildUnitPath = (unitId: string): string => {
+    const allUnits = getUnitSections();
     const path: string[] = [];
-    let currentUnit = units.find(u => u.id === unitId);
+    let currentUnit = allUnits.find(u => u.id === unitId);
 
     while (currentUnit) {
       path.unshift(currentUnit.unit_name);
       currentUnit = currentUnit.parent_id
-        ? units.find(u => u.id === currentUnit?.parent_id)
+        ? allUnits.find(u => u.id === currentUnit?.parent_id)
         : undefined;
     }
 

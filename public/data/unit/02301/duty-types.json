@@ -11,6 +11,25 @@
       "is_active": true,
       "created_at": "2025-12-15T05:19:30.244Z",
       "updated_at": "2025-12-15T05:19:30.244Z"
+    },
+    {
+      "id": "fe97501b-65b0-43be-a28c-181d6addb3aa",
+      "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
+      "duty_name": "SDO",
+      "description": null,
+      "slots_needed": 1,
+      "required_rank_min": "E-6",
+      "required_rank_max": "E-7",
+      "is_active": true,
+      "created_at": "2025-12-15T05:20:14.982Z",
+      "updated_at": "2025-12-15T05:30:41.541Z",
+      "rank_filter_mode": "include",
+      "rank_filter_values": [
+        "SSGT",
+        "SGT"
+      ],
+      "section_filter_mode": null,
+      "section_filter_values": null
     }
   ],
   "dutyValues": [
@@ -20,10 +39,17 @@
       "base_weight": 1,
       "weekend_multiplier": 1.5,
       "holiday_multiplier": 2
+    },
+    {
+      "id": "7b64f908-da76-4857-a161-63fda16d2bba",
+      "duty_type_id": "fe97501b-65b0-43be-a28c-181d6addb3aa",
+      "base_weight": 1,
+      "weekend_multiplier": 1.5,
+      "holiday_multiplier": 2
     }
   ],
   "dutyRequirements": [],
-  "exportedAt": "2025-12-15T05:19:35.245Z",
+  "exportedAt": "2025-12-15T05:30:46.548Z",
   "version": "1.0",
   "description": "Duty type definitions, point values, and qualification requirements for this unit"
 }

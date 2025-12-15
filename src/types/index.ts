@@ -73,8 +73,14 @@ export interface DutyType {
   duty_name: string;
   description: string | null;
   slots_needed: number;
-  required_rank_min: string | null;
-  required_rank_max: string | null;
+  required_rank_min: string | null;  // Deprecated - kept for backwards compatibility
+  required_rank_max: string | null;  // Deprecated - kept for backwards compatibility
+  // New rank filter fields
+  rank_filter_mode: 'include' | 'exclude' | null;  // null = any rank
+  rank_filter_values: string[] | null;  // Selected ranks
+  // Section filter fields
+  section_filter_mode: 'include' | 'exclude' | null;  // null = any section
+  section_filter_values: string[] | null;  // Selected section IDs
   is_active: boolean;
   // Personnel filtering options
   rank_filter_mode: FilterMode | null;

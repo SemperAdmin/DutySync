@@ -617,6 +617,15 @@ export default function DutyTypesPage() {
                       </span>
                     </div>
                   </div>
+                  <span
+                    className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                      dutyType.is_active
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-gray-500/20 text-gray-400"
+                    }`}
+                  >
+                    {dutyType.is_active ? "Active" : "Inactive"}
+                  </span>
                 </div>
 
                 {/* Blocked status indicator */}
