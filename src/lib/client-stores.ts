@@ -1558,7 +1558,13 @@ export function assignUserRole(
   };
   user.roles.push(newRole);
 
-  console.warn("Role assigned in memory cache. To persist, update seed data files and re-export.");
+  // Save to localStorage cache for persistence across page refresh
+  saveUserUpdateToCache(userId, user.roles, user.can_approve_non_availability);
+
+  // Update the EDIPI cache map as well
+  seedUsersByEdipiCache.set(user.edipi, user);
+
+  console.log("[assignUserRole] Role assigned and cached to localStorage.");
   return true;
 }
 
@@ -1589,7 +1595,13 @@ export function removeUserRole(
   console.log("[removeUserRole] After filter:", user.roles.length, "roles. Removed:", removed);
 
   if (removed) {
-    console.log("[removeUserRole] Role removed from memory cache.");
+    // Save to localStorage cache for persistence across page refresh
+    saveUserUpdateToCache(userId, user.roles, user.can_approve_non_availability);
+
+    // Update the EDIPI cache map as well
+    seedUsersByEdipiCache.set(user.edipi, user);
+
+    console.log("[removeUserRole] Role removed and cached to localStorage.");
   }
   return removed;
 }
@@ -1599,13 +1611,18 @@ export function updateUserApprovalPermission(
   userId: string,
   canApprove: boolean
 ): boolean {
-  // Note: This only updates memory cache. To persist, use GitHub workflow.
   const user = seedUsersCache.find((u) => u.id === userId);
   if (!user) return false;
 
   user.can_approve_non_availability = canApprove;
 
-  console.warn("Approval permission updated in memory cache. To persist, use the update workflow.");
+  // Save to localStorage cache for persistence across page refresh
+  saveUserUpdateToCache(userId, user.roles || [], canApprove);
+
+  // Update the EDIPI cache map as well
+  seedUsersByEdipiCache.set(user.edipi, user);
+
+  console.log("[updateUserApprovalPermission] Permission updated and cached to localStorage.");
   return true;
 }
 
@@ -1643,7 +1660,57 @@ interface SeedUserRecord {
 
 // ============ In-Memory Seed Users Cache ============
 // Seed users are loaded from public/data/user/ and cached in memory
-// No localStorage is used for user storage - only seed data files
+// localStorage is used to cache local updates until they're deployed
+
+// localStorage key for user updates cache
+const USER_UPDATES_CACHE_KEY = "dutysync_user_updates";
+
+interface UserUpdateCache {
+  [userId: string]: {
+    roles: Array<{
+      id?: string;
+      role_name: string;
+      scope_unit_id: string | null;
+    }>;
+    can_approve_non_availability?: boolean;
+    updatedAt: string;
+  };
+}
+
+// Get cached user updates from localStorage
+function getUserUpdatesCache(): UserUpdateCache {
+  if (typeof window === "undefined") return {};
+  try {
+    const cached = localStorage.getItem(USER_UPDATES_CACHE_KEY);
+    return cached ? JSON.parse(cached) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Save user update to localStorage cache
+function saveUserUpdateToCache(userId: string, roles: Array<{ id?: string; role_name: string; scope_unit_id: string | null }>, canApproveNA?: boolean) {
+  if (typeof window === "undefined") return;
+  const cache = getUserUpdatesCache();
+  cache[userId] = {
+    roles,
+    can_approve_non_availability: canApproveNA,
+    updatedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(USER_UPDATES_CACHE_KEY, JSON.stringify(cache));
+}
+
+// Remove a user from the updates cache (e.g., after successful deployment)
+export function clearUserUpdateCache(userId?: string) {
+  if (typeof window === "undefined") return;
+  if (userId) {
+    const cache = getUserUpdatesCache();
+    delete cache[userId];
+    localStorage.setItem(USER_UPDATES_CACHE_KEY, JSON.stringify(cache));
+  } else {
+    localStorage.removeItem(USER_UPDATES_CACHE_KEY);
+  }
+}
 
 interface SeedUserWithPassword extends StoredUser {
   password_hash?: string; // Optional password hash from seed data
@@ -1739,6 +1806,19 @@ export async function loadSeedUsers(forceReload = false): Promise<{ usersLoaded:
         password_hash: userData.password_hash,
       };
       loadedUsers.push(user);
+    }
+
+    // Apply any cached updates from localStorage (for changes not yet deployed)
+    const cachedUpdates = getUserUpdatesCache();
+    for (const user of loadedUsers) {
+      const cachedUpdate = cachedUpdates[user.id];
+      if (cachedUpdate) {
+        console.log(`[loadSeedUsers] Applying cached update for user ${user.id}`);
+        user.roles = cachedUpdate.roles;
+        if (cachedUpdate.can_approve_non_availability !== undefined) {
+          user.can_approve_non_availability = cachedUpdate.can_approve_non_availability;
+        }
+      }
     }
 
     // Populate the in-memory cache

@@ -24,6 +24,7 @@ interface AuthContextType {
   login: (edipi: string, password: string) => Promise<boolean>;
   logout: () => void;
   signup: (edipi: string, email: string, password: string) => Promise<SignupResult>;
+  refreshSession: () => void; // Refresh current user's session from seed data
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -436,8 +437,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("dutysync_user");
   };
 
+  // Refresh current user's session from seed data (call after role changes)
+  const refreshSession = () => {
+    if (!user) return;
+
+    const seedUser = getSeedUserByEdipi(user.edipi);
+    if (seedUser) {
+      const updatedUser: SessionUser = {
+        ...user,
+        roles: buildUserRoles(seedUser),
+        can_approve_non_availability: seedUser.can_approve_non_availability || false,
+      };
+      setUser(updatedUser);
+      localStorage.setItem("dutysync_user", JSON.stringify(updatedUser));
+      console.log("[refreshSession] Session refreshed with updated roles");
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, signup }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, signup, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );
