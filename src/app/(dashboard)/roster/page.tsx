@@ -27,6 +27,7 @@ import {
   getDutySlotsByDateAndType,
   createDutyChangeRequest,
   determineApproverLevel,
+  getApproverLevelName,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -1794,12 +1795,7 @@ export default function RosterPage() {
                       <div className="p-3 bg-yellow-500/10 rounded-lg text-sm">
                         <p className="text-yellow-400 font-medium">Approval Required:</p>
                         <p className="text-foreground-muted">
-                          {(() => {
-                            const level = determineApproverLevel(swapModal.originalSlot.personnel_id!, swapModal.targetSlot.personnel_id!);
-                            if (level === 'work_section') return 'Work Section Manager';
-                            if (level === 'section') return 'Section Manager';
-                            return 'Company Manager';
-                          })()}
+                          {getApproverLevelName(determineApproverLevel(swapModal.originalSlot.personnel_id!, swapModal.targetSlot.personnel_id!))}
                         </p>
                       </div>
                     )}

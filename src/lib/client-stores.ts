@@ -71,10 +71,11 @@ const FEDERAL_HOLIDAYS_2027 = [
   "2027-11-11", // Veterans Day
   "2027-11-25", // Thanksgiving (4th Thursday of November)
   "2027-12-24", // Christmas (observed, Dec 25 is Saturday)
+  "2027-12-31", // New Year's Day 2028 (observed, Jan 1 2028 is Saturday)
 ];
 
 const FEDERAL_HOLIDAYS_2028 = [
-  "2028-01-01", // New Year's Day (observed, falls on Saturday but observed Friday Dec 31 2027)
+  // New Year's Day 2028 is observed on Dec 31, 2027 (in FEDERAL_HOLIDAYS_2027)
   "2028-01-17", // MLK Day (3rd Monday of January)
   "2028-02-21", // Presidents Day (3rd Monday of February)
   "2028-05-29", // Memorial Day (Last Monday of May)
@@ -1236,6 +1237,19 @@ export function determineApproverLevel(
 
   // Different sections - company manager needed
   return 'company';
+}
+
+/**
+ * Get the display name for an approver level
+ */
+export function getApproverLevelName(level: 'work_section' | 'section' | 'company'): string {
+  switch (level) {
+    case 'work_section': return 'Work Section Manager';
+    case 'section': return 'Section Manager';
+    case 'company': return 'Company Manager';
+    default:
+      return 'Unknown Approver';
+  }
 }
 
 /**
