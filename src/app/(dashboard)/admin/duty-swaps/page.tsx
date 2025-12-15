@@ -84,21 +84,23 @@ export default function DutySwapsPage() {
   }>({ isOpen: false, requestId: null, reason: "" });
 
   // Swap request modal state
-  const [swapModal, setSwapModal] = useState<{
+  type SwapModalState = {
     isOpen: boolean;
     step: 'select-person' | 'select-original' | 'select-target' | 'confirm';
-    selectedPersonnel: Personnel | null;  // For managers selecting on behalf
+    selectedPersonnel: Personnel | null;
     originalSlot: EnrichedSlot | null;
     targetSlot: EnrichedSlot | null;
     reason: string;
-  }>({
+  };
+  const initialSwapModalState: SwapModalState = {
     isOpen: false,
     step: 'select-person',
     selectedPersonnel: null,
     originalSlot: null,
     targetSlot: null,
     reason: ''
-  });
+  };
+  const [swapModal, setSwapModal] = useState<SwapModalState>(initialSwapModalState);
   const [submittingSwap, setSubmittingSwap] = useState(false);
   const [allSlots, setAllSlots] = useState<EnrichedSlot[]>([]);
 
@@ -171,11 +173,11 @@ export default function DutySwapsPage() {
         const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
         setRequests(requestsData);
 
-        // Fetch slots for the current month (for swap requests)
+        // Fetch slots for current and next month (for swap requests)
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        const slotsData = getEnrichedSlots(startOfMonth, endOfMonth);
+        const endOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+        const slotsData = getEnrichedSlots(startOfMonth, endOfNextMonth);
         setAllSlots(slotsData);
       } catch (err) {
         console.error("Error fetching duty swap data:", err);
@@ -313,12 +315,15 @@ export default function DutySwapsPage() {
   const personnelWithDutiesInScope = useMemo(() => {
     if (!isManager || userScopeUnitIds.size === 0) return [];
 
+    // Create a Map for O(1) personnel lookups
+    const personnelMap = new Map(personnel.map(p => [p.id, p]));
+
     // Get unique personnel IDs from slots that are in scope
     const personnelIdsWithDuties = new Set<string>();
     for (const slot of allSlots) {
       if (slot.personnel_id) {
         // Look up the full personnel record to get unit_section_id
-        const person = personnel.find(p => p.id === slot.personnel_id);
+        const person = personnelMap.get(slot.personnel_id);
         if (person && userScopeUnitIds.has(person.unit_section_id)) {
           personnelIdsWithDuties.add(slot.personnel_id);
         }
@@ -328,6 +333,12 @@ export default function DutySwapsPage() {
     // Return personnel objects
     return personnel.filter(p => personnelIdsWithDuties.has(p.id));
   }, [allSlots, personnel, isManager, userScopeUnitIds]);
+
+  // Get slots for the selected personnel in swap modal
+  const selectedPersonnelSlots = useMemo(() => {
+    if (!swapModal.selectedPersonnel) return [];
+    return getPersonnelSlots(swapModal.selectedPersonnel.id);
+  }, [allSlots, swapModal.selectedPersonnel]);
 
   // Get available slots for swap (excluding the original slot's personnel)
   const availableSlotsForSwap = useMemo(() => {
@@ -348,14 +359,7 @@ export default function DutySwapsPage() {
   function openSwapModal() {
     if (isManager) {
       // Manager flow: start with selecting personnel
-      setSwapModal({
-        isOpen: true,
-        step: 'select-person',
-        selectedPersonnel: null,
-        originalSlot: null,
-        targetSlot: null,
-        reason: ''
-      });
+      setSwapModal({ ...initialSwapModalState, isOpen: true });
     } else {
       // Regular user flow: check if they have any assigned duties
       if (myDutySlots.length === 0) {
@@ -364,12 +368,10 @@ export default function DutySwapsPage() {
       }
       // Skip to select original duty
       setSwapModal({
+        ...initialSwapModalState,
         isOpen: true,
         step: 'select-original',
         selectedPersonnel: currentUserPersonnel,
-        originalSlot: null,
-        targetSlot: null,
-        reason: ''
       });
     }
   }
@@ -452,15 +454,7 @@ export default function DutySwapsPage() {
 
       alert("Swap request submitted successfully!");
 
-      // Close modal
-      setSwapModal({
-        isOpen: false,
-        step: 'select-person',
-        selectedPersonnel: null,
-        originalSlot: null,
-        targetSlot: null,
-        reason: ''
-      });
+      closeSwapModal();
     } catch (err) {
       console.error("Error submitting swap request:", err);
       alert("Failed to submit swap request. Please try again.");
@@ -471,14 +465,14 @@ export default function DutySwapsPage() {
 
   // Close swap modal
   function closeSwapModal() {
-    setSwapModal({
-      isOpen: false,
-      step: 'select-person',
-      selectedPersonnel: null,
-      originalSlot: null,
-      targetSlot: null,
-      reason: ''
-    });
+    setSwapModal(initialSwapModalState);
+  }
+
+  // Check if back button should be shown in swap modal
+  function shouldShowBackButton(): boolean {
+    if (swapModal.step === 'select-person') return false;
+    if (!isManager && swapModal.step === 'select-original') return false;
+    return true;
   }
 
   // Go back in swap modal
@@ -782,38 +776,35 @@ export default function DutySwapsPage() {
                     Select the duty to swap away:
                   </p>
 
-                  {(() => {
-                    const slots = getPersonnelSlots(swapModal.selectedPersonnel.id);
-                    return slots.length === 0 ? (
-                      <div className="text-center py-8 text-foreground-muted">
-                        <p>No assigned duties found.</p>
-                      </div>
-                    ) : (
-                      <div className="max-h-64 overflow-y-auto space-y-2 border border-border rounded-lg p-2">
-                        {slots.map((slot) => (
-                          <button
-                            key={slot.id}
-                            onClick={() => handleSelectOriginalSlot(slot)}
-                            className="w-full text-left p-3 rounded-lg border border-border hover:bg-primary/10 hover:border-primary transition-colors"
-                          >
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  {slot.duty_type?.duty_name}
-                                </p>
-                                <p className="text-sm text-foreground-muted">
-                                  {formatDate(slot.date_assigned)}
-                                </p>
-                              </div>
-                              <svg className="w-4 h-4 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
+                  {selectedPersonnelSlots.length === 0 ? (
+                    <div className="text-center py-8 text-foreground-muted">
+                      <p>No assigned duties found.</p>
+                    </div>
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto space-y-2 border border-border rounded-lg p-2">
+                      {selectedPersonnelSlots.map((slot) => (
+                        <button
+                          key={slot.id}
+                          onClick={() => handleSelectOriginalSlot(slot)}
+                          className="w-full text-left p-3 rounded-lg border border-border hover:bg-primary/10 hover:border-primary transition-colors"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {slot.duty_type?.duty_name}
+                              </p>
+                              <p className="text-sm text-foreground-muted">
+                                {formatDate(slot.date_assigned)}
+                              </p>
                             </div>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                            <svg className="w-4 h-4 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -930,7 +921,7 @@ export default function DutySwapsPage() {
             </div>
 
             <div className="p-4 border-t border-border flex justify-between">
-              {swapModal.step !== 'select-person' && (isManager || swapModal.step !== 'select-original') ? (
+              {shouldShowBackButton() ? (
                 <Button variant="ghost" onClick={goBackInSwapModal}>
                   Back
                 </Button>

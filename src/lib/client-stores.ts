@@ -13,6 +13,7 @@ import type {
   DutyChangeRequest,
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
+import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
 
 // ============ Federal Holidays ============
 // US Federal Holidays for score calculation
@@ -125,7 +126,10 @@ const FEDERAL_HOLIDAYS = new Set([
 ]);
 
 function isHoliday(date: Date): boolean {
-  const dateStr = date.toISOString().split("T")[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
   return FEDERAL_HOLIDAYS.has(dateStr);
 }
 
@@ -1069,8 +1073,8 @@ export function approveRoster(
     // Get duty value for this duty type
     const dutyValue = getDutyValueByDutyType(slot.duty_type_id);
     const baseWeight = dutyValue?.base_weight ?? 1;
-    const weekendMultiplier = dutyValue?.weekend_multiplier ?? 1.5;
-    const holidayMultiplier = dutyValue?.holiday_multiplier ?? 2.0;
+    const weekendMultiplier = dutyValue?.weekend_multiplier ?? DEFAULT_WEEKEND_MULTIPLIER;
+    const holidayMultiplier = dutyValue?.holiday_multiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
 
     // Check if this is a weekend or holiday
     const slotDate = new Date(slot.date_assigned);
