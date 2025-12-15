@@ -1198,6 +1198,90 @@ export function canApproveChangeRequest(
   return false;
 }
 
+/**
+ * Check if a user can recommend (but not approve) a duty change request
+ * Returns true if the user is a manager but not in the direct approval chain
+ */
+export function canRecommendChangeRequest(
+  userRoles: { name: string; scope_unit_id?: string | null }[],
+  personnel1Id: string,
+  personnel2Id: string
+): boolean {
+  // Must be a manager of some kind
+  const managerRoles = ['Work Section Manager', 'Section Manager', 'Company Manager', 'Unit Manager'];
+  const hasManagerRole = userRoles.some(r => managerRoles.includes(r.name));
+  if (!hasManagerRole) return false;
+
+  const personnel1 = getPersonnelById(personnel1Id);
+  const personnel2 = getPersonnelById(personnel2Id);
+  if (!personnel1 || !personnel2) return false;
+
+  // Check if user has authority over either personnel (if so, they should approve, not recommend)
+  const unitIds = new Set([personnel1.unit_section_id, personnel2.unit_section_id]);
+
+  for (const role of userRoles) {
+    if (!role.scope_unit_id) continue;
+    if (!managerRoles.includes(role.name)) continue;
+
+    const scopeUnitIds = getAllDescendantUnitIds(role.scope_unit_id);
+    const scopeSet = new Set(scopeUnitIds);
+
+    // If BOTH personnel are in scope, user should approve not recommend
+    const bothInScope = [...unitIds].every(id => scopeSet.has(id));
+    if (bothInScope) return false;
+
+    // If at least one personnel is in scope, user is in approval chain - should approve
+    const anyInScope = [...unitIds].some(id => scopeSet.has(id));
+    if (anyInScope) return false;
+  }
+
+  // User is a manager but neither personnel is in their scope - they can recommend
+  return true;
+}
+
+/**
+ * Add a recommendation to a duty change request
+ */
+export function addRecommendation(
+  requestId: string,
+  userId: string,
+  userName: string,
+  roleName: string,
+  recommendation: 'recommend' | 'not_recommend',
+  comment: string
+): DutyChangeRequest | null {
+  const request = getDutyChangeRequestById(requestId);
+  if (!request) return null;
+  if (request.status !== 'pending') return null;
+
+  // Initialize recommendations array if not present (backwards compatibility)
+  const recommendations = request.recommendations || [];
+
+  // Check if user already recommended
+  const existingIdx = recommendations.findIndex(r => r.recommender_id === userId);
+  if (existingIdx >= 0) {
+    // Update existing recommendation
+    recommendations[existingIdx] = {
+      ...recommendations[existingIdx],
+      recommendation,
+      comment,
+      created_at: new Date(),
+    };
+  } else {
+    // Add new recommendation
+    recommendations.push({
+      recommender_id: userId,
+      recommender_name: userName,
+      role_name: roleName,
+      recommendation,
+      comment,
+      created_at: new Date(),
+    });
+  }
+
+  return updateDutyChangeRequest(requestId, { recommendations });
+}
+
 export function getAllDutyChangeRequests(): DutyChangeRequest[] {
   return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

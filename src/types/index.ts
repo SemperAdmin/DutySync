@@ -167,6 +167,16 @@ export interface SwapApproval {
   rejection_reason: string | null;
 }
 
+// Recommendation from managers not in the direct approval chain
+export interface SwapRecommendation {
+  recommender_id: string; // User ID of the recommender
+  recommender_name: string; // Display name
+  role_name: string; // Their role (e.g., "Work Section Manager")
+  recommendation: 'recommend' | 'not_recommend';
+  comment: string;
+  created_at: Date;
+}
+
 export interface DutyChangeRequest {
   id: UUID;
   // The requester (could be duty holder or manager acting on their behalf)
@@ -192,6 +202,7 @@ export interface DutyChangeRequest {
   // Multi-level approval tracking
   required_approver_level: 'work_section' | 'section' | 'company'; // Highest common level needed
   approvals: SwapApproval[]; // All required approvals for this swap
+  recommendations: SwapRecommendation[]; // Recommendations from managers not in approval chain
 
   // Legacy fields for backwards compatibility
   approved_by: UUID | null;
