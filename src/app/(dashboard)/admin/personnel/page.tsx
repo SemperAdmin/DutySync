@@ -29,7 +29,14 @@ import {
   testGitHubConnection,
   type GitHubSettings,
 } from "@/lib/github-api";
-import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
+import {
+  VIEW_MODE_KEY,
+  VIEW_MODE_CHANGE_EVENT,
+  VIEW_MODE_ADMIN,
+  VIEW_MODE_UNIT_ADMIN,
+  VIEW_MODE_USER,
+  type ViewMode,
+} from "@/lib/constants";
 
 // Manager role names - defines who can see personnel within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -53,7 +60,7 @@ export default function PersonnelPage() {
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"self" | "scope">("self");
-  const [isAdminView, setIsAdminView] = useState(true);
+  const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
 
   const fetchData = useCallback(() => {
     try {
@@ -73,18 +80,20 @@ export default function PersonnelPage() {
     fetchData();
   }, [fetchData]);
 
-  // Load and listen for Admin View/User View toggle changes
+  // Load and listen for view mode toggle changes
   useEffect(() => {
     // Load initial value from localStorage
-    const stored = localStorage.getItem(VIEW_MODE_KEY);
-    if (stored !== null) {
-      setIsAdminView(stored === "admin");
+    const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+    if (stored && [VIEW_MODE_ADMIN, VIEW_MODE_UNIT_ADMIN, VIEW_MODE_USER].includes(stored)) {
+      setCurrentViewMode(stored);
     }
 
     // Listen for changes from the header toggle
     const handleViewModeChange = () => {
-      const stored = localStorage.getItem(VIEW_MODE_KEY);
-      setIsAdminView(stored === "admin");
+      const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+      if (stored && [VIEW_MODE_ADMIN, VIEW_MODE_UNIT_ADMIN, VIEW_MODE_USER].includes(stored)) {
+        setCurrentViewMode(stored);
+      }
     };
 
     window.addEventListener(VIEW_MODE_CHANGE_EVENT, handleViewModeChange);
@@ -96,6 +105,10 @@ export default function PersonnelPage() {
       window.removeEventListener("storage", handleViewModeChange);
     };
   }, []);
+
+  // Computed view mode booleans
+  const isAdminView = currentViewMode === VIEW_MODE_ADMIN;
+  const isUnitAdminView = currentViewMode === VIEW_MODE_UNIT_ADMIN;
 
   // Create a Map of units for O(1) lookups
   const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
@@ -119,19 +132,25 @@ export default function PersonnelPage() {
     return getPersonnelByEdipi(user.edipi) || null;
   }, [user?.edipi]);
 
-  // Check if user is App Admin (actual role check)
+  // Check actual role status (not affected by view mode)
   const isAppAdmin = useMemo(() => {
     if (!user?.roles) return false;
     return user.roles.some(r => r.role_name === "App Admin");
   }, [user?.roles]);
 
-  // Effective App Admin status - respects the Admin View/User View toggle
-  // When in "User View" mode, App Admins should see things from their manager role perspective
+  const hasUnitAdminRole = useMemo(() => {
+    if (!user?.roles) return false;
+    return user.roles.some(r => r.role_name === "Unit Admin");
+  }, [user?.roles]);
+
+  // Effective admin status - respects the view mode toggle
+  // Admin View: App Admin sees everything
+  // Unit Admin View: Unit Admin sees their unit scope
+  // User View: Manager role scope applies
   const effectiveIsAppAdmin = isAppAdmin && isAdminView;
+  const effectiveIsUnitAdmin = hasUnitAdminRole && isUnitAdminView;
 
   // Get the user's scope unit ID based on their role and view mode
-  // In User View: Manager role scope takes priority (more limited view)
-  // In Admin View: Unit Admin scope takes priority (broader access)
   const userScopeUnitId = useMemo(() => {
     if (!user?.roles) return null;
 
@@ -143,21 +162,26 @@ export default function PersonnelPage() {
       MANAGER_ROLES.includes(r.role_name as RoleName) && r.scope_unit_id
     );
 
+    // In Admin View, App Admin sees everything (handled by effectiveIsAppAdmin)
+    // In Unit Admin View, use Unit Admin scope
+    if (isUnitAdminView && unitAdminRole?.scope_unit_id) {
+      return unitAdminRole.scope_unit_id;
+    }
+
     // In User View, prioritize manager role scope for user experience
-    // This allows users with both Unit Admin and Manager roles to see their manager scope
-    if (!isAdminView && managerRole?.scope_unit_id) {
+    if (!isAdminView && !isUnitAdminView && managerRole?.scope_unit_id) {
       return managerRole.scope_unit_id;
     }
 
-    // In Admin View or when no manager role, use Unit Admin scope first
-    if (unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
+    // Fall back: Unit Admin scope if in Admin View with Unit Admin role
+    if (isAdminView && unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
 
-    // Fall back to manager role scope
+    // Final fall back to manager role scope
     return managerRole?.scope_unit_id || null;
-  }, [user?.roles, isAdminView]);
+  }, [user?.roles, isAdminView, isUnitAdminView]);
 
-  // Determine if user has elevated access (effective app admin or has a scoped role)
-  const hasElevatedAccess = effectiveIsAppAdmin || !!userScopeUnitId;
+  // Determine if user has elevated access (effective admin or has a scoped role)
+  const hasElevatedAccess = effectiveIsAppAdmin || effectiveIsUnitAdmin || !!userScopeUnitId;
 
   // Get all descendant unit IDs for the user's scope
   const scopeUnitIds = useMemo(() => {
