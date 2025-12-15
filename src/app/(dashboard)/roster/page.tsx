@@ -887,6 +887,7 @@ export default function RosterPage() {
         status: 'pending',
         required_approver_level: approverLevel,
         approvals: approvals,
+        recommendations: [],
         approved_by: null,
         approved_at: null,
         rejection_reason: null,

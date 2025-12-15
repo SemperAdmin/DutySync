@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Button from "@/components/ui/Button";
-import type { Personnel, RoleName, DutyType, DutyChangeRequest } from "@/types";
+import type { Personnel, RoleName, DutyType, DutyChangeRequest, SwapRecommendation } from "@/types";
 import {
   getAllPersonnel,
   getEnrichedDutyChangeRequests,
@@ -12,6 +12,8 @@ import {
   deleteDutyChangeRequest,
   determineApproverLevel,
   canApproveChangeRequest,
+  canRecommendChangeRequest,
+  addRecommendation,
   getApproverLevelName,
   meetsAllDutyRequirements,
   buildSwapApprovals,
@@ -73,6 +75,14 @@ export default function DutySwapsPage() {
     requestId: string | null;
     reason: string;
   }>({ isOpen: false, requestId: null, reason: "" });
+
+  // Recommendation modal
+  const [recommendModal, setRecommendModal] = useState<{
+    isOpen: boolean;
+    requestId: string | null;
+    recommendation: 'recommend' | 'not_recommend';
+    comment: string;
+  }>({ isOpen: false, requestId: null, recommendation: 'recommend', comment: "" });
 
   // Swap request modal state
   type SwapModalState = {
@@ -193,6 +203,27 @@ export default function DutySwapsPage() {
     );
   };
 
+  // Check if user can recommend (but not approve) a specific request
+  const canRecommendRequest = (request: EnrichedDutyChangeRequest): boolean => {
+    if (!user?.roles) return false;
+    // Admins should approve, not recommend
+    if (effectiveIsAppAdmin) return false;
+    // If user can approve, they should approve not recommend
+    if (canApproveRequest(request)) return false;
+
+    return canRecommendChangeRequest(
+      user.roles.map(r => ({ name: r.role_name, scope_unit_id: r.scope_unit_id })),
+      request.original_personnel_id,
+      request.target_personnel_id
+    );
+  };
+
+  // Check if user has already recommended this request
+  const hasRecommended = (request: EnrichedDutyChangeRequest): SwapRecommendation | undefined => {
+    if (!user?.id) return undefined;
+    return request.recommendations?.find(r => r.recommender_id === user.id);
+  };
+
   // Filter requests based on user's scope
   const filteredRequests = useMemo(() => {
     if (effectiveIsAppAdmin) return requests;
@@ -208,6 +239,8 @@ export default function DutySwapsPage() {
       )) return true;
       // User can approve this request
       if (canApproveRequest(r)) return true;
+      // User can recommend this request
+      if (canRecommendRequest(r)) return true;
       return false;
     });
 
@@ -257,6 +290,43 @@ export default function DutySwapsPage() {
       setRejectModal({ isOpen: false, requestId: null, reason: "" });
     } catch (err) {
       console.error("Error rejecting request:", err);
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  // Handle opening recommendation modal
+  function handleRecommend(requestId: string, type: 'recommend' | 'not_recommend') {
+    setRecommendModal({ isOpen: true, requestId, recommendation: type, comment: "" });
+  }
+
+  // Confirm recommendation
+  function confirmRecommend() {
+    if (!recommendModal.requestId || !user || !recommendModal.comment.trim()) {
+      alert("Please provide a comment for your recommendation");
+      return;
+    }
+
+    // Get user's manager role name
+    const managerRoles = ['Work Section Manager', 'Section Manager', 'Company Manager', 'Unit Manager'];
+    const userManagerRole = user.roles?.find(r => managerRoles.includes(r.role_name));
+    const roleName = userManagerRole?.role_name || 'Manager';
+    const userName = user.displayName || user.email || 'Unknown';
+
+    setProcessingId(recommendModal.requestId);
+    try {
+      addRecommendation(
+        recommendModal.requestId,
+        user.id,
+        userName,
+        roleName,
+        recommendModal.recommendation,
+        recommendModal.comment
+      );
+      refreshRequests();
+      setRecommendModal({ isOpen: false, requestId: null, recommendation: 'recommend', comment: "" });
+    } catch (err) {
+      console.error("Error adding recommendation:", err);
     } finally {
       setProcessingId(null);
     }
@@ -456,6 +526,7 @@ export default function DutySwapsPage() {
         status: 'pending',
         required_approver_level: approverLevel,
         approvals: approvals,
+        recommendations: [],
         approved_by: null,
         approved_at: null,
         rejection_reason: null,
@@ -636,34 +707,72 @@ export default function DutySwapsPage() {
                       {formatDate(request.created_at)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {request.status === "pending" && canApproveRequest(request) && (
-                          <>
-                            <button
-                              onClick={() => handleApprove(request.id)}
-                              disabled={processingId !== null}
-                              className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
-                            >
-                              {processingId === request.id ? "..." : "Approve"}
-                            </button>
-                            <button
-                              onClick={() => handleReject(request.id)}
-                              disabled={processingId !== null}
-                              className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 disabled:opacity-50"
-                            >
-                              Reject
-                            </button>
-                          </>
+                      <div className="flex flex-col gap-2">
+                        {/* Show recommendations if any */}
+                        {request.recommendations && request.recommendations.length > 0 && (
+                          <div className="text-xs space-y-1">
+                            {request.recommendations.map((rec, idx) => (
+                              <div key={idx} className={rec.recommendation === 'recommend' ? 'text-blue-300' : 'text-orange-300'}>
+                                {rec.recommendation === 'recommend' ? '👍' : '👎'} {rec.recommender_name} ({rec.role_name})
+                              </div>
+                            ))}
+                          </div>
                         )}
-                        {request.status === "pending" && request.requester_id === user?.id && (
-                          <button
-                            onClick={() => handleDelete(request.id)}
-                            disabled={processingId !== null}
-                            className="px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded hover:bg-gray-500/30 disabled:opacity-50"
-                          >
-                            {processingId === request.id ? "..." : "Cancel"}
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {request.status === "pending" && canApproveRequest(request) && (
+                            <>
+                              <button
+                                onClick={() => handleApprove(request.id)}
+                                disabled={processingId !== null}
+                                className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
+                              >
+                                {processingId === request.id ? "..." : "Approve"}
+                              </button>
+                              <button
+                                onClick={() => handleReject(request.id)}
+                                disabled={processingId !== null}
+                                className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 disabled:opacity-50"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {request.status === "pending" && canRecommendRequest(request) && (
+                            <>
+                              {hasRecommended(request) ? (
+                                <span className="text-xs text-foreground-muted">
+                                  {hasRecommended(request)?.recommendation === 'recommend' ? '✓ Recommended' : '✗ Not Recommended'}
+                                </span>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleRecommend(request.id, 'recommend')}
+                                    disabled={processingId !== null}
+                                    className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded hover:bg-blue-500/30 disabled:opacity-50"
+                                  >
+                                    Recommend
+                                  </button>
+                                  <button
+                                    onClick={() => handleRecommend(request.id, 'not_recommend')}
+                                    disabled={processingId !== null}
+                                    className="px-2 py-1 text-xs bg-orange-500/20 text-orange-300 rounded hover:bg-orange-500/30 disabled:opacity-50"
+                                  >
+                                    Not Recommend
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+                          {request.status === "pending" && request.requester_id === user?.id && (
+                            <button
+                              onClick={() => handleDelete(request.id)}
+                              disabled={processingId !== null}
+                              className="px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded hover:bg-gray-500/30 disabled:opacity-50"
+                            >
+                              {processingId === request.id ? "..." : "Cancel"}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -708,6 +817,54 @@ export default function DutySwapsPage() {
                 disabled={!rejectModal.reason.trim()}
               >
                 Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recommendation Modal */}
+      {recommendModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-md">
+            <div className="p-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">
+                {recommendModal.recommendation === 'recommend' ? 'Recommend' : 'Not Recommend'} Request
+              </h2>
+              <p className="text-sm text-foreground-muted mt-1">
+                As a manager outside the direct chain of command, your recommendation will be recorded for the approvers to consider.
+              </p>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-1">
+                  Comment *
+                </label>
+                <textarea
+                  value={recommendModal.comment}
+                  onChange={(e) => setRecommendModal(prev => ({ ...prev, comment: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-foreground-muted"
+                  placeholder={recommendModal.recommendation === 'recommend'
+                    ? "Why do you recommend this swap?"
+                    : "Why do you not recommend this swap?"
+                  }
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setRecommendModal({ isOpen: false, requestId: null, recommendation: 'recommend', comment: "" })}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmRecommend}
+                disabled={!recommendModal.comment.trim()}
+              >
+                Submit {recommendModal.recommendation === 'recommend' ? 'Recommendation' : 'Non-Recommendation'}
               </Button>
             </div>
           </div>
