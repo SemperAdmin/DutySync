@@ -72,6 +72,7 @@ export interface DutyType {
   unit_section_id: UUID;
   duty_name: string;
   description: string | null;
+  notes: string | null;  // Free-form notes about this duty type
   slots_needed: number;
   required_rank_min: string | null;  // Deprecated - kept for backwards compatibility
   required_rank_max: string | null;  // Deprecated - kept for backwards compatibility
