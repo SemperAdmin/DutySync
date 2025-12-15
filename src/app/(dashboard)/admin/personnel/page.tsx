@@ -136,12 +136,41 @@ export default function PersonnelPage() {
     return ids;
   }, [isAdmin, managerScopeUnitId, childrenMap, units]);
 
-  // Get units within the user's scope for the filter dropdown
+  // Get units within the user's scope for the filter dropdown, sorted by hierarchy
   const unitsInScope = useMemo(() => {
-    if (isAdmin) return units;
-    if (scopeUnitIds.size === 0) return [];
-    return units.filter(u => scopeUnitIds.has(u.id));
+    const levelOrder: Record<string, number> = {
+      ruc: 0, battalion: 0, unit: 0,
+      company: 1,
+      section: 2,
+      work_section: 3,
+    };
+
+    let scopedUnits: typeof units;
+    if (isAdmin) {
+      scopedUnits = units;
+    } else if (scopeUnitIds.size === 0) {
+      scopedUnits = [];
+    } else {
+      scopedUnits = units.filter(u => scopeUnitIds.has(u.id));
+    }
+
+    // Sort by hierarchy level then by name
+    return scopedUnits.sort((a, b) => {
+      const levelDiff = (levelOrder[a.hierarchy_level] ?? 99) - (levelOrder[b.hierarchy_level] ?? 99);
+      if (levelDiff !== 0) return levelDiff;
+      return a.unit_name.localeCompare(b.unit_name);
+    });
   }, [isAdmin, units, scopeUnitIds]);
+
+  // Get hierarchy level display label
+  const getHierarchyLabel = (level: string): string => {
+    switch (level) {
+      case "company": return "Company";
+      case "section": return "Section";
+      case "work_section": return "Work Section";
+      default: return "";
+    }
+  };
 
   const getUnitName = (unitId: string) => {
     const unit = unitMap.get(unitId);
@@ -376,11 +405,16 @@ export default function PersonnelPage() {
                     onChange={(e) => setFilterUnit(e.target.value)}
                   >
                     <option value="">{isAdmin ? "All Sections" : "All in My Scope"}</option>
-                    {unitsInScope.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.unit_name}
-                      </option>
-                    ))}
+                    {unitsInScope.map((unit) => {
+                      const indent = unit.hierarchy_level === "section" ? "↳ " :
+                                     unit.hierarchy_level === "work_section" ? "  ↳ " : "";
+                      const label = getHierarchyLabel(unit.hierarchy_level);
+                      return (
+                        <option key={unit.id} value={unit.id}>
+                          {indent}{unit.unit_name}{label ? ` (${label})` : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
