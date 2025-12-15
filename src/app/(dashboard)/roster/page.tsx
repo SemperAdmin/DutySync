@@ -15,6 +15,7 @@ import {
   getActiveNonAvailability,
   updateDutySlot,
   createDutySlot,
+  deleteDutySlot,
   getPersonnelByEdipi,
   isDutyBlockedOnDate,
   createBlockedDuty,
@@ -116,13 +117,13 @@ export default function RosterPage() {
   const [dutyTypeFilter, setDutyTypeFilter] = useState<Set<string>>(new Set()); // Empty = show all
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
 
-  // Assignment modal state
+  // Assignment modal state (supports multi-slot duties)
   const [assignmentModal, setAssignmentModal] = useState<{
     isOpen: boolean;
     date: Date | null;
     dutyType: DutyType | null;
-    existingSlot: EnrichedSlot | null;
-  }>({ isOpen: false, date: null, dutyType: null, existingSlot: null });
+    existingSlots: EnrichedSlot[]; // All slots for this duty on this date
+  }>({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
   const [assigning, setAssigning] = useState(false);
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
 
@@ -343,13 +344,22 @@ export default function RosterPage() {
     setCurrentDate(new Date());
   }
 
-  // Get slot for a specific date and duty type
+  // Get slot for a specific date and duty type (returns first match - for backward compatibility)
   function getSlotForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot | null {
     const dateStr = date.toISOString().split("T")[0];
     return slots.find((slot) => {
       const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
       return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
     }) || null;
+  }
+
+  // Get ALL slots for a specific date and duty type (for multi-slot duties)
+  function getSlotsForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot[] {
+    const dateStr = date.toISOString().split("T")[0];
+    return slots.filter((slot) => {
+      const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+      return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
+    });
   }
 
   // Check if date is a liberty/holiday day
@@ -611,21 +621,34 @@ export default function RosterPage() {
     const cellBlock = getCellBlock(date, dutyType.id);
     if (cellBlock) return; // Can't assign to blocked cells
 
-    const existingSlot = getSlotForDateAndType(date, dutyType.id);
+    // Get all existing slots for this duty on this date
+    const existingSlots = getSlotsForDateAndType(date, dutyType.id);
+    const filledSlots = existingSlots.filter(s => s.personnel_id);
+    const slotsNeeded = dutyType.slots_needed || 1;
 
-    // Regular users can only assign themselves to empty slots, not swap others
-    if (!isManager && existingSlot?.personnel_id) {
-      // Regular user trying to click on an already-assigned slot
-      // Just show the details modal instead
-      setSelectedSlot(existingSlot);
-      return;
+    // Regular users can only add themselves if there's room
+    if (!isManager) {
+      // Check if all slots are filled
+      if (filledSlots.length >= slotsNeeded) {
+        // All slots filled - show info about first slot
+        if (existingSlots[0]) {
+          setSelectedSlot(existingSlots[0]);
+        }
+        return;
+      }
+      // Check if user is already assigned
+      const userAlreadyAssigned = filledSlots.some(s => s.personnel_id === currentUserPersonnel?.id);
+      if (userAlreadyAssigned) {
+        alert("You are already assigned to this duty on this date.");
+        return;
+      }
     }
 
     setAssignmentModal({
       isOpen: true,
       date,
       dutyType,
-      existingSlot,
+      existingSlots,
     });
   }
 
@@ -689,32 +712,57 @@ export default function RosterPage() {
     setAssigning(true);
 
     try {
-      if (assignmentModal.existingSlot) {
-        // Update existing slot (swap)
-        updateDutySlot(assignmentModal.existingSlot.id, {
-          personnel_id: personnelId,
-          assigned_by: user.id,
-        });
-      } else {
-        // Create new slot
-        const newSlot = {
-          id: crypto.randomUUID(),
-          duty_type_id: assignmentModal.dutyType.id,
-          personnel_id: personnelId,
-          date_assigned: assignmentModal.date,
-          assigned_by: user.id,
-          duty_points_earned: 1.0,
-          status: "scheduled" as const,
-          created_at: new Date(),
-          updated_at: new Date(),
-        };
-        createDutySlot(newSlot);
-      }
+      // Always create a new slot (for multi-slot support)
+      const newSlot = {
+        id: crypto.randomUUID(),
+        duty_type_id: assignmentModal.dutyType.id,
+        personnel_id: personnelId,
+        date_assigned: assignmentModal.date,
+        assigned_by: user.id,
+        duty_points_earned: 1.0,
+        status: "scheduled" as const,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      createDutySlot(newSlot);
 
-      fetchData();
-      setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlot: null });
+      // Check if we've filled all slots - if so, close modal
+      const slotsNeeded = assignmentModal.dutyType.slots_needed || 1;
+      const currentFilled = assignmentModal.existingSlots.filter(s => s.personnel_id).length;
+
+      if (currentFilled + 1 >= slotsNeeded) {
+        // All slots filled, close modal
+        fetchData();
+        setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
+      } else {
+        // More slots available - refresh and keep modal open
+        fetchData();
+        // Update the existing slots in the modal state
+        const updatedSlots = getSlotsForDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
+        setAssignmentModal(prev => ({ ...prev, existingSlots: updatedSlots }));
+      }
     } catch (err) {
       console.error("Error assigning duty:", err);
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  // Handle removing an assignment (for multi-slot duties)
+  function handleRemoveAssignment(slotId: string) {
+    if (!assignmentModal.date || !assignmentModal.dutyType) return;
+
+    setAssigning(true);
+    try {
+      // Delete the slot
+      deleteDutySlot(slotId);
+
+      fetchData();
+      // Update the existing slots in the modal state
+      const updatedSlots = getSlotsForDateAndType(assignmentModal.date, assignmentModal.dutyType.id);
+      setAssignmentModal(prev => ({ ...prev, existingSlots: updatedSlots }));
+    } catch (err) {
+      console.error("Error removing assignment:", err);
     } finally {
       setAssigning(false);
     }
@@ -1253,7 +1301,9 @@ export default function RosterPage() {
                         {dayName}
                       </td>
                       {filteredDutyTypes.map((dt) => {
-                        const slot = getSlotForDateAndType(date, dt.id);
+                        const allSlots = getSlotsForDateAndType(date, dt.id);
+                        const filledSlots = allSlots.filter(s => s.personnel_id);
+                        const slotsNeeded = dt.slots_needed || 1;
                         const cellBlock = getCellBlock(date, dt.id);
                         const isSelected = isCellSelected(dt.id, date);
 
@@ -1292,12 +1342,21 @@ export default function RosterPage() {
                               }`}
                               onClick={() => toggleCellSelection(date, dt)}
                             >
-                              {slot ? (
-                                <div className={`px-2 py-1 rounded text-xs ${isSelected ? "opacity-50" : ""} ${getStatusColor(slot.status)}`}>
-                                  {slot.personnel ? (
-                                    <span>{slot.personnel.rank} {slot.personnel.last_name}</span>
-                                  ) : (
-                                    <span className="text-foreground-muted italic">Unassigned</span>
+                              {filledSlots.length > 0 ? (
+                                <div className={`flex flex-col gap-0.5 ${isSelected ? "opacity-50" : ""}`}>
+                                  {filledSlots.map((slot, idx) => (
+                                    <div key={slot.id || idx} className={`px-2 py-0.5 rounded text-xs ${getStatusColor(slot.status)}`}>
+                                      {slot.personnel ? (
+                                        <span>{slot.personnel.rank} {slot.personnel.last_name}</span>
+                                      ) : (
+                                        <span className="text-foreground-muted italic">Unassigned</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {slotsNeeded > 1 && filledSlots.length < slotsNeeded && (
+                                    <span className="text-xs text-foreground-muted">
+                                      ({filledSlots.length}/{slotsNeeded})
+                                    </span>
                                   )}
                                 </div>
                               ) : (
@@ -1316,29 +1375,39 @@ export default function RosterPage() {
                             className={`text-center px-3 py-2 text-sm ${canAssignDuties ? "cursor-pointer hover:bg-primary/5" : ""}`}
                             onClick={() => canAssignDuties && handleCellClick(date, dt)}
                           >
-                            {slot ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (canAssignDuties) {
-                                    handleCellClick(date, dt);
-                                  } else {
-                                    setSelectedSlot(slot);
-                                  }
-                                }}
-                                className={`px-2 py-1 rounded text-xs transition-colors hover:brightness-110 ${getStatusColor(slot.status)}`}
-                              >
-                                {slot.personnel ? (
-                                  <span>
-                                    {slot.personnel.rank} {slot.personnel.last_name}
+                            {filledSlots.length > 0 ? (
+                              <div className="flex flex-col gap-0.5">
+                                {filledSlots.map((slot, idx) => (
+                                  <button
+                                    key={slot.id || idx}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (canAssignDuties) {
+                                        handleCellClick(date, dt);
+                                      } else {
+                                        setSelectedSlot(slot);
+                                      }
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-xs transition-colors hover:brightness-110 ${getStatusColor(slot.status)}`}
+                                  >
+                                    {slot.personnel ? (
+                                      <span>
+                                        {slot.personnel.rank} {slot.personnel.last_name}
+                                      </span>
+                                    ) : (
+                                      <span className="text-foreground-muted italic">Unassigned</span>
+                                    )}
+                                  </button>
+                                ))}
+                                {slotsNeeded > 1 && filledSlots.length < slotsNeeded && canAssignDuties && (
+                                  <span className="text-xs text-primary/70 hover:text-primary">
+                                    + Add ({filledSlots.length}/{slotsNeeded})
                                   </span>
-                                ) : (
-                                  <span className="text-foreground-muted italic">Unassigned</span>
                                 )}
-                              </button>
+                              </div>
                             ) : (
                               <span className={`text-foreground-muted/50 ${canAssignDuties ? "hover:text-primary" : ""}`}>
-                                {canAssignDuties ? "+ Assign" : "-"}
+                                {canAssignDuties ? (slotsNeeded > 1 ? `+ Assign (0/${slotsNeeded})` : "+ Assign") : "-"}
                               </span>
                             )}
                           </td>
@@ -1484,96 +1553,125 @@ export default function RosterPage() {
       )}
 
       {/* Assignment Modal */}
-      {assignmentModal.isOpen && assignmentModal.date && assignmentModal.dutyType && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-lg border border-border w-full max-w-lg">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  {isManager
-                    ? (assignmentModal.existingSlot ? "Swap Duty Assignment" : "Assign Duty")
-                    : "Assign Yourself"}
-                </h2>
-                <p className="text-sm text-foreground-muted mt-1">
-                  {assignmentModal.dutyType.duty_name} - {formatDate(assignmentModal.date)}
-                </p>
-              </div>
-              <button
-                onClick={() => setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlot: null })}
-                className="text-foreground-muted hover:text-foreground"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      {assignmentModal.isOpen && assignmentModal.date && assignmentModal.dutyType && (() => {
+        const slotsNeeded = assignmentModal.dutyType.slots_needed || 1;
+        const filledSlots = assignmentModal.existingSlots.filter(s => s.personnel_id);
+        const assignedPersonnelIds = new Set(filledSlots.map(s => s.personnel_id));
+        const availableForAssignment = eligiblePersonnel.filter(p => !assignedPersonnelIds.has(p.id));
+        const canAddMore = filledSlots.length < slotsNeeded;
 
-            <div className="p-4">
-              {assignmentModal.existingSlot?.personnel && (
-                <div className="mb-4 p-3 bg-primary/10 rounded-lg">
-                  <p className="text-sm text-foreground-muted">Currently Assigned:</p>
-                  <p className="text-foreground font-medium">
-                    {assignmentModal.existingSlot.personnel.rank} {assignmentModal.existingSlot.personnel.first_name} {assignmentModal.existingSlot.personnel.last_name}
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-surface rounded-lg border border-border w-full max-w-lg">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    {isManager ? "Manage Duty Assignment" : "Assign Yourself"}
+                  </h2>
+                  <p className="text-sm text-foreground-muted mt-1">
+                    {assignmentModal.dutyType.duty_name} - {formatDate(assignmentModal.date)}
+                    {slotsNeeded > 1 && (
+                      <span className="ml-2 px-2 py-0.5 bg-primary/10 rounded text-xs">
+                        {filledSlots.length}/{slotsNeeded} slots filled
+                      </span>
+                    )}
                   </p>
                 </div>
-              )}
+                <button
+                  onClick={() => setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] })}
+                  className="text-foreground-muted hover:text-foreground"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-              <div className="space-y-2">
-                <p className="text-sm text-foreground-muted">
-                  Select personnel to assign ({eligiblePersonnel.length} eligible):
-                </p>
-
-                {eligiblePersonnel.length === 0 ? (
-                  <div className="text-center py-8 text-foreground-muted">
-                    <p>No eligible personnel found.</p>
-                    <p className="text-xs mt-1">Check qualifications and non-availability.</p>
-                  </div>
-                ) : (
-                  <div className="max-h-64 overflow-y-auto space-y-1">
-                    {eligiblePersonnel.map((person) => {
-                      const isCurrentlyAssigned = assignmentModal.existingSlot?.personnel?.id === person.id;
-
-                      return (
-                        <button
-                          key={person.id}
-                          onClick={() => !isCurrentlyAssigned && handleAssign(person.id)}
-                          disabled={assigning || isCurrentlyAssigned}
-                          className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                            isCurrentlyAssigned
-                              ? "bg-primary/20 text-primary cursor-default"
-                              : "bg-surface-elevated hover:bg-primary/10 text-foreground"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="font-medium">{person.rank} {person.last_name}, {person.first_name}</span>
-                              <span className="text-xs text-foreground-muted ml-2">
-                                Score: {person.current_duty_score.toFixed(1)}
-                              </span>
-                            </div>
-                            {isCurrentlyAssigned && (
-                              <span className="text-xs bg-primary/30 px-2 py-0.5 rounded">Current</span>
-                            )}
+              <div className="p-4 space-y-4">
+                {/* Currently Assigned Section */}
+                {filledSlots.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-foreground-muted font-medium">Currently Assigned:</p>
+                    <div className="space-y-1">
+                      {filledSlots.map((slot) => (
+                        <div key={slot.id} className="flex items-center justify-between p-2 bg-primary/10 rounded-lg">
+                          <div>
+                            <span className="text-foreground font-medium">
+                              {slot.personnel?.rank} {slot.personnel?.first_name} {slot.personnel?.last_name}
+                            </span>
                           </div>
-                        </button>
-                      );
-                    })}
+                          {isManager && (
+                            <button
+                              onClick={() => handleRemoveAssignment(slot.id)}
+                              disabled={assigning}
+                              className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Available Personnel Section */}
+                {canAddMore && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-foreground-muted">
+                      {filledSlots.length > 0 ? "Add more personnel" : "Select personnel to assign"} ({availableForAssignment.length} eligible):
+                    </p>
+
+                    {availableForAssignment.length === 0 ? (
+                      <div className="text-center py-4 text-foreground-muted bg-surface-elevated rounded-lg">
+                        <p>No additional eligible personnel found.</p>
+                        <p className="text-xs mt-1">Check qualifications and non-availability.</p>
+                      </div>
+                    ) : (
+                      <div className="max-h-48 overflow-y-auto space-y-1 border border-border rounded-lg p-2">
+                        {availableForAssignment.map((person) => (
+                          <button
+                            key={person.id}
+                            onClick={() => handleAssign(person.id)}
+                            disabled={assigning}
+                            className="w-full text-left px-3 py-2 rounded-lg transition-colors bg-surface-elevated hover:bg-primary/10 text-foreground"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="font-medium">{person.rank} {person.last_name}, {person.first_name}</span>
+                                <span className="text-xs text-foreground-muted ml-2">
+                                  Score: {person.current_duty_score.toFixed(1)}
+                                </span>
+                              </div>
+                              <span className="text-xs text-primary">+ Add</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* All slots filled message */}
+                {!canAddMore && filledSlots.length > 0 && (
+                  <div className="text-center py-2 text-green-400 bg-green-500/10 rounded-lg text-sm">
+                    All {slotsNeeded} slot{slotsNeeded > 1 ? "s" : ""} filled
                   </div>
                 )}
               </div>
-            </div>
 
-            <div className="p-4 border-t border-border flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlot: null })}
-              >
-                Cancel
-              </Button>
+              <div className="p-4 border-t border-border flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] })}
+                >
+                  {filledSlots.length > 0 ? "Done" : "Cancel"}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Liberty/Holiday Modal */}
       {libertyModal.isOpen && libertyModal.startDate && (
