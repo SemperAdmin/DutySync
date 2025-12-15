@@ -760,3 +760,110 @@ export async function triggerAllUnitDataWorkflows(
     },
   };
 }
+
+// ============================================================================
+// RUC Initialization
+// ============================================================================
+
+/**
+ * Trigger workflow to initialize a new RUC with all required seed files
+ *
+ * Creates:
+ * - public/data/unit/{ruc}/unit-structure.json
+ * - public/data/unit/{ruc}/unit-members.json
+ * - public/data/unit/{ruc}/duty-types.json
+ * - public/data/unit/{ruc}/duty-roster.json
+ * - public/data/unit/{ruc}/non-availability.json
+ * - public/data/unit/{ruc}/qualifications.json
+ * - public/data/unit/{ruc}/duty-change-requests.json
+ *
+ * Also updates:
+ * - public/data/units-index.json
+ * - public/data/rucs.json
+ */
+export async function triggerInitializeRucWorkflow(
+  ruc: string,
+  unitName?: string,
+  unitDescription?: string
+): Promise<WorkflowTriggerResult> {
+  const settings = getGitHubSettings();
+
+  if (!settings) {
+    return { success: false, message: "GitHub not configured" };
+  }
+
+  const workflowFile = "initialize-ruc.yml";
+
+  try {
+    console.log(`[triggerInitializeRucWorkflow] Initializing RUC: ${ruc}`);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${settings.owner}/${settings.repo}/actions/workflows/${workflowFile}/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${settings.token}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ref: settings.branch,
+          inputs: {
+            ruc: ruc,
+            unit_name: unitName || "",
+            unit_description: unitDescription || "",
+          },
+        }),
+      }
+    );
+
+    console.log(`[triggerInitializeRucWorkflow] Response status: ${response.status}`);
+
+    // 204 No Content means success for workflow dispatch
+    if (response.status === 204) {
+      return {
+        success: true,
+        message: `RUC ${ruc} initialization started. All seed files will be created shortly.`,
+      };
+    }
+
+    // Handle errors
+    const errorData = await response.json().catch(() => ({}));
+    console.error(`[triggerInitializeRucWorkflow] Error:`, errorData);
+
+    throw new Error(
+      errorData.message || `GitHub API error: ${response.status} ${response.statusText}`
+    );
+  } catch (error) {
+    console.error(`[triggerInitializeRucWorkflow] Exception:`, error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
+/**
+ * Check if a RUC has been initialized (has seed files)
+ */
+export async function checkRucInitialized(ruc: string): Promise<boolean> {
+  const settings = getGitHubSettings();
+  if (!settings) return false;
+
+  try {
+    // Check if unit-structure.json exists for this RUC
+    const response = await fetch(
+      `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/public/data/unit/${ruc}/unit-structure.json?ref=${settings.branch}`,
+      {
+        headers: {
+          Authorization: `Bearer ${settings.token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+}
