@@ -542,6 +542,64 @@ function saveToStorage<T>(key: string, data: T[]): void {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+// Deduplicate array by ID
+function deduplicateById<T extends { id: string }>(data: T[]): T[] {
+  const seen = new Map<string, T>();
+  // Keep the last occurrence (most recent)
+  for (const item of data) {
+    seen.set(item.id, item);
+  }
+  return Array.from(seen.values());
+}
+
+/**
+ * Clean up duplicate entries in localStorage caused by merge issues
+ * Should be called once on app startup
+ */
+export function deduplicateLocalStorageData(): void {
+  if (typeof window === "undefined") return;
+
+  // Deduplicate units
+  const units = getFromStorage<UnitSection>(KEYS.units);
+  const dedupedUnits = deduplicateById(units);
+  if (dedupedUnits.length !== units.length) {
+    console.log(`Deduplicated units: ${units.length} -> ${dedupedUnits.length}`);
+    saveToStorage(KEYS.units, dedupedUnits);
+  }
+
+  // Deduplicate personnel
+  const personnel = getFromStorage<Personnel>(KEYS.personnel);
+  const dedupedPersonnel = deduplicateById(personnel);
+  if (dedupedPersonnel.length !== personnel.length) {
+    console.log(`Deduplicated personnel: ${personnel.length} -> ${dedupedPersonnel.length}`);
+    saveToStorage(KEYS.personnel, dedupedPersonnel);
+  }
+
+  // Deduplicate duty slots
+  const dutySlots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  const dedupedSlots = deduplicateById(dutySlots);
+  if (dedupedSlots.length !== dutySlots.length) {
+    console.log(`Deduplicated duty slots: ${dutySlots.length} -> ${dedupedSlots.length}`);
+    saveToStorage(KEYS.dutySlots, dedupedSlots);
+  }
+
+  // Deduplicate duty types
+  const dutyTypes = getFromStorage<DutyType>(KEYS.dutyTypes);
+  const dedupedTypes = deduplicateById(dutyTypes);
+  if (dedupedTypes.length !== dutyTypes.length) {
+    console.log(`Deduplicated duty types: ${dutyTypes.length} -> ${dedupedTypes.length}`);
+    saveToStorage(KEYS.dutyTypes, dedupedTypes);
+  }
+
+  // Deduplicate non-availability
+  const nonAvail = getFromStorage<NonAvailability>(KEYS.nonAvailability);
+  const dedupedNA = deduplicateById(nonAvail);
+  if (dedupedNA.length !== nonAvail.length) {
+    console.log(`Deduplicated non-availability: ${nonAvail.length} -> ${dedupedNA.length}`);
+    saveToStorage(KEYS.nonAvailability, dedupedNA);
+  }
+}
+
 // Unit Sections
 export function getUnitSections(): UnitSection[] {
   return getFromStorage<UnitSection>(KEYS.units).sort((a, b) => {
