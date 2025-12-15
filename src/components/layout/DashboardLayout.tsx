@@ -15,6 +15,7 @@ import {
   type ViewMode,
 } from "@/lib/constants";
 import AutoSaveStatus from "@/components/AutoSaveStatus";
+import SyncIndicator from "@/components/ui/SyncIndicator";
 import type { SessionUser, RoleName } from "@/types";
 
 interface DashboardLayoutProps {
@@ -542,6 +543,9 @@ export default function DashboardLayout({
             <div className="flex items-center gap-3 ml-auto">
               {/* Auto-save status indicator */}
               <AutoSaveStatus ruc="02301" showControls={actuallyIsAppAdmin} />
+
+              {/* Sync indicator */}
+              <SyncIndicator />
 
               {/* View mode toggle for users with admin roles */}
               {hasAnyAdminRole && (

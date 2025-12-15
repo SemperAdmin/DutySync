@@ -12,6 +12,7 @@ import {
   seedUserExists,
   encryptEdipi,
 } from "@/lib/client-stores";
+import { startSyncPolling, stopSyncPolling } from "@/lib/sync-service";
 
 interface SignupResult {
   success: boolean;
@@ -322,9 +323,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       setIsLoading(false);
+
+      // Start sync polling for cross-device updates
+      startSyncPolling();
     };
 
     initializeApp();
+
+    // Cleanup sync polling on unmount
+    return () => {
+      stopSyncPolling();
+    };
   }, []);
 
   const login = async (edipi: string, password: string): Promise<boolean> => {
