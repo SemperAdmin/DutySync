@@ -1,0 +1,62 @@
+name: Update Duty Types
+
+on:
+  workflow_dispatch:
+    inputs:
+      ruc:
+        description: 'RUC code (e.g., 02301)'
+        required: true
+        type: string
+      data_json:
+        description: 'JSON data for duty types file'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update-duty-types:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ inputs.ruc }}" ]; then
+            echo "Error: ruc is required"
+            exit 1
+          fi
+          if [ -z "${{ inputs.data_json }}" ]; then
+            echo "Error: data_json is required"
+            exit 1
+          fi
+
+      - name: Create unit directory if needed
+        run: |
+          mkdir -p "public/data/unit/${{ inputs.ruc }}"
+
+      - name: Update duty-types.json
+        run: |
+          TARGET_FILE="public/data/unit/${{ inputs.ruc }}/duty-types.json"
+
+          # Write the JSON data to the file
+          echo '${{ inputs.data_json }}' | jq '.' > "$TARGET_FILE"
+
+          echo "Updated $TARGET_FILE"
+          cat "$TARGET_FILE"
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add "public/data/unit/${{ inputs.ruc }}/duty-types.json"
+          git diff --cached --quiet || git commit -m "chore: Update duty-types (${{ inputs.ruc }})"
+          git push
+
+      - name: Output result
+        run: |
+          echo "::notice::Duty types updated successfully for RUC: ${{ inputs.ruc }}"

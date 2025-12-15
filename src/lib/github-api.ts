@@ -599,3 +599,144 @@ export async function triggerDeleteUserWorkflow(
     };
   }
 }
+
+// ============================================================================
+// Unit Data Workflow Triggers
+// These functions trigger workflows to update unit-specific data files
+// ============================================================================
+
+type UnitDataFileType = "duty-types" | "duty-roster" | "non-availability" | "qualifications";
+
+// Trigger a workflow to update a unit data file
+export async function triggerUnitDataWorkflow(
+  ruc: string,
+  fileType: UnitDataFileType,
+  data: object
+): Promise<WorkflowTriggerResult> {
+  const settings = getGitHubSettings();
+
+  if (!settings) {
+    return { success: false, message: "GitHub not configured" };
+  }
+
+  const workflowFile = `update-${fileType}.yml`;
+
+  try {
+    console.log(`[triggerUnitDataWorkflow] Triggering ${workflowFile} for RUC: ${ruc}`);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${settings.owner}/${settings.repo}/actions/workflows/${workflowFile}/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${settings.token}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ref: settings.branch,
+          inputs: {
+            ruc: ruc,
+            data_json: JSON.stringify(data),
+          },
+        }),
+      }
+    );
+
+    console.log(`[triggerUnitDataWorkflow] Response status: ${response.status}`);
+
+    // 204 No Content means success for workflow dispatch
+    if (response.status === 204) {
+      return {
+        success: true,
+        message: `${fileType} workflow triggered successfully. Changes will be applied shortly.`,
+      };
+    }
+
+    // Handle errors
+    const errorData = await response.json().catch(() => ({}));
+    console.error(`[triggerUnitDataWorkflow] Error:`, errorData);
+
+    throw new Error(
+      errorData.message || `GitHub API error: ${response.status} ${response.statusText}`
+    );
+  } catch (error) {
+    console.error(`[triggerUnitDataWorkflow] Exception:`, error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
+// Trigger workflow to update duty types
+export async function triggerUpdateDutyTypesWorkflow(
+  ruc: string,
+  data: object
+): Promise<WorkflowTriggerResult> {
+  return triggerUnitDataWorkflow(ruc, "duty-types", data);
+}
+
+// Trigger workflow to update duty roster
+export async function triggerUpdateDutyRosterWorkflow(
+  ruc: string,
+  data: object
+): Promise<WorkflowTriggerResult> {
+  return triggerUnitDataWorkflow(ruc, "duty-roster", data);
+}
+
+// Trigger workflow to update non-availability
+export async function triggerUpdateNonAvailabilityWorkflow(
+  ruc: string,
+  data: object
+): Promise<WorkflowTriggerResult> {
+  return triggerUnitDataWorkflow(ruc, "non-availability", data);
+}
+
+// Trigger workflow to update qualifications
+export async function triggerUpdateQualificationsWorkflow(
+  ruc: string,
+  data: object
+): Promise<WorkflowTriggerResult> {
+  return triggerUnitDataWorkflow(ruc, "qualifications", data);
+}
+
+// Trigger all unit data workflows at once
+export async function triggerAllUnitDataWorkflows(
+  ruc: string,
+  dutyTypes: object,
+  dutyRoster: object,
+  nonAvailability: object,
+  qualifications: object
+): Promise<{
+  success: boolean;
+  results: {
+    dutyTypes: WorkflowTriggerResult;
+    dutyRoster: WorkflowTriggerResult;
+    nonAvailability: WorkflowTriggerResult;
+    qualifications: WorkflowTriggerResult;
+  };
+}> {
+  // Trigger all workflows in parallel
+  const [dutyTypesResult, dutyRosterResult, nonAvailabilityResult, qualificationsResult] =
+    await Promise.all([
+      triggerUpdateDutyTypesWorkflow(ruc, dutyTypes),
+      triggerUpdateDutyRosterWorkflow(ruc, dutyRoster),
+      triggerUpdateNonAvailabilityWorkflow(ruc, nonAvailability),
+      triggerUpdateQualificationsWorkflow(ruc, qualifications),
+    ]);
+
+  return {
+    success:
+      dutyTypesResult.success &&
+      dutyRosterResult.success &&
+      nonAvailabilityResult.success &&
+      qualificationsResult.success,
+    results: {
+      dutyTypes: dutyTypesResult,
+      dutyRoster: dutyRosterResult,
+      nonAvailability: nonAvailabilityResult,
+      qualifications: qualificationsResult,
+    },
+  };
+}
