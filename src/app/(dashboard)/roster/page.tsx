@@ -8,6 +8,7 @@ import {
   getEnrichedSlots,
   getAllDutyTypes,
   getPersonnelByUnit,
+  getAllPersonnel,
   getChildUnits,
   getDutyRequirements,
   hasQualification,
@@ -255,10 +256,11 @@ export default function RosterPage() {
   // Get eligible personnel for a duty type on a specific date
   // Only includes personnel within the manager's scope
   function getEligiblePersonnel(dutyType: DutyType, date: Date): Personnel[] {
-    const unitPersonnel = getPersonnelByUnit(dutyType.unit_section_id);
+    // Get all personnel within the manager's scope
+    const allPersonnel = getAllPersonnel();
     const requirements = getDutyRequirements(dutyType.id);
 
-    return unitPersonnel.filter(person => {
+    return allPersonnel.filter(person => {
       // Only include personnel within the manager's scope
       if (scopeUnitIds.length > 0 && !scopeUnitIds.includes(person.unit_section_id)) {
         return false;
