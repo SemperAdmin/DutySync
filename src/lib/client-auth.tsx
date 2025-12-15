@@ -99,6 +99,52 @@ export async function triggerUpdateRolesWorkflow(
   }
 }
 
+// Trigger GitHub workflow to delete user
+export async function triggerDeleteUserWorkflow(
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+    return { success: false, error: "GitHub API not configured" };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/delete-user.yml/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({
+          ref: "main",
+          inputs: {
+            user_id: userId,
+          },
+        }),
+      }
+    );
+
+    if (response.status === 204) {
+      return { success: true };
+    }
+
+    const errorText = await response.text();
+    console.error("GitHub API error:", response.status, errorText);
+    return {
+      success: false,
+      error: `GitHub API error: ${response.status}`,
+    };
+  } catch (error) {
+    console.error("Failed to trigger delete workflow:", error);
+    return {
+      success: false,
+      error: "Failed to connect to GitHub API",
+    };
+  }
+}
+
 // Trigger GitHub workflow to create user
 async function triggerCreateUserWorkflow(
   edipiEncrypted: string,
