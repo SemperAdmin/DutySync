@@ -13,7 +13,6 @@ import {
   getAllUsers,
   getUnitSections,
   getAllPersonnel,
-  getPersonnelByEdipi,
   assignUserRole,
   removeUserRole,
   updateUserApprovalPermission,
@@ -34,13 +33,6 @@ interface UserData {
   personnel_id: string | null;
   can_approve_non_availability: boolean;
   roles: UserRole[];
-}
-
-interface PendingChanges {
-  rolesToAdd: UserRole[];
-  rolesToRemove: UserRole[];
-  approvalPermissionChanged: boolean;
-  newApprovalValue: boolean;
 }
 
 export default function UsersPage() {
@@ -322,131 +314,133 @@ function RoleAssignmentModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
-  const [selectedUnit, setSelectedUnit] = useState<string>("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Track local state for roles and approval permission
-  const [localRoles, setLocalRoles] = useState<UserRole[]>(user.roles);
-  const [localCanApproveNA, setLocalCanApproveNA] = useState(user.can_approve_non_availability);
-
-  // Track if there are unsaved changes
-  const hasChanges = useMemo(() => {
-    // Check if roles changed
-    const originalRoleKeys = user.roles.map(r => `${r.role_name}:${r.scope_unit_id}`).sort().join(",");
-    const localRoleKeys = localRoles.map(r => `${r.role_name}:${r.scope_unit_id}`).sort().join(",");
-    const rolesChanged = originalRoleKeys !== localRoleKeys;
-
-    // Check if approval permission changed
-    const approvalChanged = user.can_approve_non_availability !== localCanApproveNA;
-
-    return rolesChanged || approvalChanged;
-  }, [user.roles, user.can_approve_non_availability, localRoles, localCanApproveNA]);
-
-  const isAppAdmin = localRoles.some((r) => r.role_name === "App Admin");
-
-  // Check if user has a scoped role that could have approval permissions
-  const hasScopedRole = localRoles.some(r => [
-    "Unit Admin",
+  // Manager role options
+  const MANAGER_ROLES: RoleName[] = [
     "Unit Manager",
     "Company Manager",
-    "Platoon Manager",
-    "Section Manager"
-  ].includes(r.role_name) && r.scope_unit_id);
+    "Section Manager",
+    "Work Section Manager",
+  ];
 
-  // Check if role requires a unit scope
-  const roleRequiresScope = (role: string) => {
-    return [
-      "Unit Admin",
-      "Unit Manager",
-      "Company Manager",
-      "Section Manager",
-      "Work Section Manager",
-    ].includes(role);
-  };
+  // Check if user is App Admin (cannot be changed via UI)
+  const isAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
-  const handleAddRole = () => {
-    const scopeUnitId = roleRequiresScope(selectedRole) ? selectedUnit : null;
+  // Initialize state from user's current roles
+  const currentUnitAdminRole = user.roles.find(r => r.role_name === "Unit Admin");
+  const currentManagerRole = user.roles.find(r => MANAGER_ROLES.includes(r.role_name));
 
-    // Check if role already exists
-    const roleExists = localRoles.some(
-      r => r.role_name === selectedRole && r.scope_unit_id === scopeUnitId
-    );
+  // Local state for the form
+  const [isUnitAdmin, setIsUnitAdmin] = useState(!!currentUnitAdminRole);
+  const [unitAdminScope, setUnitAdminScope] = useState(currentUnitAdminRole?.scope_unit_id || "");
+  const [managerRole, setManagerRole] = useState<RoleName | "">(currentManagerRole?.role_name || "");
+  const [managerScope, setManagerScope] = useState(currentManagerRole?.scope_unit_id || "");
+  const [canApproveNA, setCanApproveNA] = useState(user.can_approve_non_availability);
 
-    if (roleExists) {
-      setError("This role is already assigned");
-      return;
-    }
+  // Check if there are changes
+  const hasChanges = useMemo(() => {
+    // Check Unit Admin change
+    const originalUnitAdmin = !!currentUnitAdminRole;
+    const originalUnitAdminScope = currentUnitAdminRole?.scope_unit_id || "";
+    const unitAdminChanged = isUnitAdmin !== originalUnitAdmin ||
+      (isUnitAdmin && unitAdminScope !== originalUnitAdminScope);
 
-    setLocalRoles([...localRoles, {
-      role_name: selectedRole,
-      scope_unit_id: scopeUnitId,
-    }]);
+    // Check Manager role change
+    const originalManagerRole = currentManagerRole?.role_name || "";
+    const originalManagerScope = currentManagerRole?.scope_unit_id || "";
+    const managerChanged = managerRole !== originalManagerRole ||
+      (managerRole && managerScope !== originalManagerScope);
 
-    // Reset selection
-    setSelectedRole("Standard User");
-    setSelectedUnit("");
-    setError(null);
-  };
+    // Check approval permission change
+    const approvalChanged = canApproveNA !== user.can_approve_non_availability;
 
-  const handleRemoveRole = (roleToRemove: UserRole) => {
-    // Don't allow removing the last role
-    if (localRoles.length <= 1) {
-      setError("User must have at least one role");
-      return;
-    }
+    return unitAdminChanged || managerChanged || approvalChanged;
+  }, [isUnitAdmin, unitAdminScope, managerRole, managerScope, canApproveNA,
+      currentUnitAdminRole, currentManagerRole, user.can_approve_non_availability]);
 
-    setLocalRoles(localRoles.filter(
-      r => !(r.role_name === roleToRemove.role_name && r.scope_unit_id === roleToRemove.scope_unit_id)
-    ));
-    setError(null);
-  };
+  // Check if user has any scoped role that could have approval permissions
+  const hasScopedRole = isUnitAdmin || !!managerRole;
 
   const handleSaveChanges = async () => {
+    // Validation
+    if (isUnitAdmin && !unitAdminScope) {
+      setError("Please select a RUC scope for Unit Admin");
+      return;
+    }
+    if (managerRole && !managerScope) {
+      setError("Please select a RUC scope for the manager role");
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
 
     try {
-      // Determine what changed
-      const originalRoleKeys = new Set(user.roles.map(r => `${r.role_name}:${r.scope_unit_id}`));
-      const localRoleKeys = new Set(localRoles.map(r => `${r.role_name}:${r.scope_unit_id}`));
-
-      // Find roles to add
-      const rolesToAdd = localRoles.filter(r => !originalRoleKeys.has(`${r.role_name}:${r.scope_unit_id}`));
-      // Find roles to remove
-      const rolesToRemove = user.roles.filter(r => !localRoleKeys.has(`${r.role_name}:${r.scope_unit_id}`));
-
-      // Apply role additions to in-memory cache
-      for (const role of rolesToAdd) {
-        assignUserRole(user.id, role.role_name, role.scope_unit_id);
+      // Remove old Unit Admin role if it exists and changed
+      if (currentUnitAdminRole) {
+        removeUserRole(user.id, "Unit Admin", currentUnitAdminRole.scope_unit_id);
       }
 
-      // Apply role removals to in-memory cache
-      for (const role of rolesToRemove) {
-        removeUserRole(user.id, role.role_name, role.scope_unit_id);
+      // Remove old Manager role if it exists
+      if (currentManagerRole) {
+        removeUserRole(user.id, currentManagerRole.role_name, currentManagerRole.scope_unit_id);
       }
 
-      // Update approval permission if changed
-      if (user.can_approve_non_availability !== localCanApproveNA) {
-        updateUserApprovalPermission(user.id, localCanApproveNA);
+      // Add new Unit Admin role if enabled
+      if (isUnitAdmin && unitAdminScope) {
+        assignUserRole(user.id, "Unit Admin", unitAdminScope);
+      }
+
+      // Add new Manager role if selected
+      if (managerRole && managerScope) {
+        assignUserRole(user.id, managerRole, managerScope);
+      }
+
+      // Ensure user has Standard User role if they have no other roles
+      if (!isUnitAdmin && !managerRole && !isAppAdmin) {
+        // Check if they already have Standard User
+        const hasStandardUser = user.roles.some(r => r.role_name === "Standard User");
+        if (!hasStandardUser) {
+          assignUserRole(user.id, "Standard User", null);
+        }
+      }
+
+      // Update approval permission
+      if (canApproveNA !== user.can_approve_non_availability) {
+        updateUserApprovalPermission(user.id, canApproveNA);
       }
 
       // Build the final roles array for the workflow
-      const finalRoles = localRoles.map(r => ({
-        role_name: r.role_name,
-        scope_unit_id: r.scope_unit_id,
-      }));
+      const finalRoles: Array<{ role_name: RoleName; scope_unit_id: string | null }> = [];
+
+      // Always include Standard User
+      finalRoles.push({ role_name: "Standard User", scope_unit_id: null });
+
+      // Include App Admin if user has it
+      if (isAppAdmin) {
+        finalRoles.push({ role_name: "App Admin", scope_unit_id: null });
+      }
+
+      // Include Unit Admin if enabled
+      if (isUnitAdmin && unitAdminScope) {
+        finalRoles.push({ role_name: "Unit Admin", scope_unit_id: unitAdminScope });
+      }
+
+      // Include Manager role if selected
+      if (managerRole && managerScope) {
+        finalRoles.push({ role_name: managerRole, scope_unit_id: managerScope });
+      }
 
       // Trigger GitHub workflow to persist all changes
       const workflowResult = await triggerUpdateRolesWorkflow(
         user.id,
         finalRoles,
-        localCanApproveNA
+        canApproveNA
       );
 
       if (!workflowResult.success) {
         console.warn("Failed to persist changes to GitHub:", workflowResult.error);
-        // Still show success since in-memory cache was updated
       }
 
       onSuccess();
@@ -462,16 +456,12 @@ function RoleAssignmentModal({
     setError(null);
 
     try {
-      // Delete from in-memory cache
       const success = deleteUser(user.id);
-
       if (!success) {
         throw new Error("Failed to delete user");
       }
 
-      // Trigger GitHub workflow to persist deletion
       const workflowResult = await triggerDeleteUserWorkflow(user.id);
-
       if (!workflowResult.success) {
         console.warn("Failed to persist deletion to GitHub:", workflowResult.error);
       }
@@ -490,49 +480,131 @@ function RoleAssignmentModal({
         <CardHeader>
           <CardTitle>Manage Roles - {user.edipi}</CardTitle>
           <CardDescription>
-            Assign or modify user roles and permissions
+            Configure user roles and permissions
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {error && (
             <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
               {error}
             </div>
           )}
 
-          {/* Current Roles with Remove Button */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Current Roles
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {localRoles.map((role, idx) => (
-                <span
-                  key={role.id || idx}
-                  className="inline-flex items-center gap-1 px-3 py-1 text-sm rounded-lg bg-surface-elevated border border-border"
-                >
-                  {role.role_name}
-                  {role.scope_unit_id && (
-                    <span className="opacity-75">
-                      ({getUnitName(role.scope_unit_id)})
-                    </span>
-                  )}
-                  {/* Remove button - don't show for the last role */}
-                  {localRoles.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveRole(role)}
-                      className="ml-1 p-0.5 rounded hover:bg-error/20 text-foreground-muted hover:text-error transition-colors"
-                      title="Remove role"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
+          {/* App Admin Badge (if applicable) - Not editable */}
+          {isAppAdmin && (
+            <div className="p-3 rounded-lg bg-highlight/10 border border-highlight/20">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 text-xs font-medium rounded bg-highlight/20 text-highlight border border-highlight/30">
+                  App Admin
                 </span>
-              ))}
+                <span className="text-sm text-foreground-muted">
+                  (Assigned via configuration)
+                </span>
+              </div>
             </div>
+          )}
+
+          {/* Unit Admin Toggle */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-foreground">Unit Admin</h4>
+                <p className="text-sm text-foreground-muted">
+                  Full administrative access to a specific unit
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsUnitAdmin(!isUnitAdmin);
+                  if (!isUnitAdmin) setUnitAdminScope("");
+                }}
+                disabled={isSaving}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 ${
+                  isUnitAdmin ? "bg-primary" : "bg-foreground-muted/30"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isUnitAdmin ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Unit Admin Scope Selector */}
+            {isUnitAdmin && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Unit Scope (RUC)
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={unitAdminScope}
+                  onChange={(e) => setUnitAdminScope(e.target.value)}
+                  disabled={isSaving}
+                >
+                  <option value="">Select a unit...</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.unit_name} ({unit.hierarchy_level})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Manager Role Dropdown */}
+          <div className="space-y-3 pt-4 border-t border-border">
+            <div>
+              <h4 className="font-medium text-foreground">Manager Role</h4>
+              <p className="text-sm text-foreground-muted">
+                Assign a management role for personnel oversight
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Role
+              </label>
+              <select
+                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                value={managerRole}
+                onChange={(e) => {
+                  setManagerRole(e.target.value as RoleName | "");
+                  if (!e.target.value) setManagerScope("");
+                }}
+                disabled={isSaving}
+              >
+                <option value="">None</option>
+                <option value="Unit Manager">Unit Manager</option>
+                <option value="Company Manager">Company Manager</option>
+                <option value="Section Manager">Section Manager</option>
+                <option value="Work Section Manager">Work Section Manager</option>
+              </select>
+            </div>
+
+            {/* Manager Scope Selector */}
+            {managerRole && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Unit Scope (RUC)
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={managerScope}
+                  onChange={(e) => setManagerScope(e.target.value)}
+                  disabled={isSaving}
+                >
+                  <option value="">Select a unit...</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.unit_name} ({unit.hierarchy_level})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Approval Permission Toggle - For users with scoped roles */}
@@ -542,19 +614,19 @@ function RoleAssignmentModal({
                 <div>
                   <h4 className="font-medium text-foreground">Non-Availability Approval</h4>
                   <p className="text-sm text-foreground-muted">
-                    Allow this manager to approve/reject non-availability requests within their unit scope
+                    Allow approving/rejecting non-availability requests
                   </p>
                 </div>
                 <button
-                  onClick={() => setLocalCanApproveNA(!localCanApproveNA)}
+                  onClick={() => setCanApproveNA(!canApproveNA)}
                   disabled={isSaving}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 ${
-                    localCanApproveNA ? "bg-success" : "bg-foreground-muted/30"
+                    canApproveNA ? "bg-success" : "bg-foreground-muted/30"
                   }`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      localCanApproveNA ? "translate-x-6" : "translate-x-1"
+                      canApproveNA ? "translate-x-6" : "translate-x-1"
                     }`}
                   />
                 </button>
@@ -562,82 +634,10 @@ function RoleAssignmentModal({
             </div>
           )}
 
-          {/* Assign New Role */}
-          {!isAppAdmin && (
-            <div className="space-y-4 pt-4 border-t border-border">
-              <h4 className="font-medium text-foreground">Assign New Role</h4>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Role Type
-                </label>
-                <select
-                  className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={selectedRole}
-                  onChange={(e) =>
-                    setSelectedRole(e.target.value as RoleName)
-                  }
-                  disabled={isSaving}
-                >
-                  <option value="Standard User">Standard User</option>
-                  <option value="Unit Manager">Unit Manager</option>
-                  <option value="Company Manager">Company Manager</option>
-                  <option value="Section Manager">Section Manager</option>
-                  <option value="Work Section Manager">Work Section Manager</option>
-                  <option value="Unit Admin">Unit Admin</option>
-                  <option value="App Admin">App Admin</option>
-                </select>
-              </div>
-
-              {roleRequiresScope(selectedRole) && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Unit Scope
-                  </label>
-                  <select
-                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    value={selectedUnit}
-                    onChange={(e) => setSelectedUnit(e.target.value)}
-                    disabled={isSaving}
-                  >
-                    <option value="">Select a unit...</option>
-                    {units.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.unit_name} ({unit.hierarchy_level})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <Button
-                variant="secondary"
-                onClick={handleAddRole}
-                disabled={
-                  isSaving ||
-                  (roleRequiresScope(selectedRole) && !selectedUnit)
-                }
-                className="w-full"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Role
-              </Button>
-            </div>
-          )}
-
-          {isAppAdmin && (
-            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
-              This user is an App Admin. Role changes for App Admins are
-              restricted.
-            </div>
-          )}
-
           {/* Unsaved Changes Indicator */}
           {hasChanges && (
             <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
-              You have unsaved changes. Click "Save Changes" to apply them.
+              You have unsaved changes. Click &quot;Save Changes&quot; to apply them.
             </div>
           )}
 
@@ -668,28 +668,32 @@ function RoleAssignmentModal({
               </Button>
 
               {/* Delete Account Button */}
-              {!showDeleteConfirm ? (
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={isSaving || isDeleting}
-                  className="text-error hover:bg-error/10"
-                >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  onClick={handleDeleteAccount}
-                  isLoading={isDeleting}
-                  disabled={isSaving || isDeleting}
-                  className="bg-error/10 text-error hover:bg-error/20"
-                >
-                  Confirm Delete
-                </Button>
+              {!isAppAdmin && (
+                <>
+                  {!showDeleteConfirm ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={isSaving || isDeleting}
+                      className="text-error hover:bg-error/10"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      onClick={handleDeleteAccount}
+                      isLoading={isDeleting}
+                      disabled={isSaving || isDeleting}
+                      className="bg-error/10 text-error hover:bg-error/20"
+                    >
+                      Confirm Delete
+                    </Button>
+                  )}
+                </>
               )}
             </div>
 
