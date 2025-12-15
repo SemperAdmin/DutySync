@@ -261,8 +261,7 @@ export default function DashboardLayout({
     {
       href: "/admin/personnel",
       label: "Personnel",
-      allowedRoles: PERSONNEL_ACCESS_ROLES,
-      userOnly: true, // Only show in User View
+      managerOnly: true, // Only show for managers in User View (not regular users)
       icon: (
         <svg
           className="w-5 h-5"
