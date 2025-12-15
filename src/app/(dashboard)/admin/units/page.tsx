@@ -439,6 +439,7 @@ function RucManagementView() {
 // ============ Unit Hierarchy View (Unit Admin) ============
 function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
   const [units, setUnits] = useState<UnitSection[]>([]);
+  const [scopeUnit, setScopeUnit] = useState<UnitSection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingUnit, setEditingUnit] = useState<UnitSection | null>(null);
@@ -449,28 +450,21 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
     try {
       const unitsData = getUnitSections();
 
-      // Find the top-level unit for this RUC scope
-      const topUnit = unitsData.find(u => u.unit_code === scopeRuc && u.hierarchy_level === "battalion");
+      // scopeRuc is actually the unit ID (scope_unit_id from the role)
+      // First try to find the unit by ID
+      let topUnit = unitsData.find(u => u.id === scopeRuc);
 
+      // If not found by ID, try by unit_code (legacy support)
       if (!topUnit) {
-        // If no battalion found, try to find any unit with this code
-        const anyUnit = unitsData.find(u => u.unit_code === scopeRuc);
-        if (anyUnit) {
-          // Get all descendants of this unit
-          const getDescendants = (parentId: string): UnitSection[] => {
-            const children = unitsData.filter(u => u.parent_id === parentId);
-            return [
-              ...children,
-              ...children.flatMap(child => getDescendants(child.id))
-            ];
-          };
-          const scopedUnits = [anyUnit, ...getDescendants(anyUnit.id)];
-          setUnits(scopedUnits);
-        } else {
-          setUnits([]);
-        }
-      } else {
-        // Get all descendants of the top-level unit
+        topUnit = unitsData.find(u => u.unit_code === scopeRuc && u.hierarchy_level === "battalion");
+      }
+      if (!topUnit) {
+        topUnit = unitsData.find(u => u.unit_code === scopeRuc);
+      }
+
+      if (topUnit) {
+        setScopeUnit(topUnit);
+        // Get all descendants of this unit
         const getDescendants = (parentId: string): UnitSection[] => {
           const children = unitsData.filter(u => u.parent_id === parentId);
           return [
@@ -480,6 +474,9 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
         };
         const scopedUnits = [topUnit, ...getDescendants(topUnit.id)];
         setUnits(scopedUnits);
+      } else {
+        setScopeUnit(null);
+        setUnits([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -575,7 +572,17 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Unit Management</h1>
         <p className="text-foreground-muted mt-1">
-          Manage organizational structure for RUC: <span className="font-mono font-medium">{scopeRuc}</span>
+          Manage organizational structure for{" "}
+          {scopeUnit ? (
+            <>
+              <span className="font-medium text-foreground">{scopeUnit.unit_name}</span>
+              {scopeUnit.unit_code && (
+                <span className="text-foreground-muted"> ({scopeUnit.unit_code})</span>
+              )}
+            </>
+          ) : (
+            <span className="font-mono font-medium">{scopeRuc}</span>
+          )}
         </p>
       </div>
 
@@ -592,7 +599,7 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
           unit={editingUnit}
           level={addingLevel}
           units={units}
-          scopeRuc={scopeRuc}
+          scopeUnit={scopeUnit}
           onClose={() => {
             setShowAddModal(false);
             setEditingUnit(null);
@@ -732,14 +739,14 @@ function UnitFormModal({
   unit,
   level,
   units,
-  scopeRuc,
+  scopeUnit,
   onClose,
   onSave,
 }: {
   unit: UnitSection | null;
   level: HierarchyLevel | null;
   units: UnitSection[];
-  scopeRuc: string;
+  scopeUnit: UnitSection | null;
   onClose: () => void;
   onSave: (data: { unit_name: string; hierarchy_level: HierarchyLevel; parent_id: string | null }) => void;
 }) {
@@ -782,7 +789,11 @@ function UnitFormModal({
         <CardHeader>
           <CardTitle>{isEditing ? "Edit Unit" : "Add New Unit"}</CardTitle>
           <CardDescription>
-            {isEditing ? "Update unit information" : `Create a new unit for RUC ${scopeRuc}`}
+            {isEditing
+              ? "Update unit information"
+              : scopeUnit
+                ? `Create a new unit under ${scopeUnit.unit_name}`
+                : "Create a new unit"}
           </CardDescription>
         </CardHeader>
         <CardContent>
