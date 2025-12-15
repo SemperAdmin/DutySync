@@ -42,11 +42,10 @@ export default function ProfilePage() {
     return path.join(" > ");
   }
 
-  // Get unit name by ID
-  function getUnitName(unitId: string | null): string {
+  // Get unit path by ID (full hierarchy)
+  function getUnitPath(unitId: string | null): string {
     if (!unitId) return "Global";
-    const unit = units.find(u => u.id === unitId);
-    return unit?.unit_name || unitId;
+    return buildUnitPath(unitId, units) || "Unknown Unit";
   }
 
   return (
@@ -149,7 +148,7 @@ export default function ProfilePage() {
                     </p>
                     {role.scope_unit_id && (
                       <p className="text-sm text-foreground-muted">
-                        Unit Scope: {getUnitName(role.scope_unit_id)}
+                        Unit Scope: {getUnitPath(role.scope_unit_id)}
                       </p>
                     )}
                   </div>
