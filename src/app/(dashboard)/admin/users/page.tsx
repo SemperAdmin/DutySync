@@ -130,9 +130,11 @@ export default function UsersPage() {
     return path.join(" > ");
   };
 
+  // Note: Uses getUnitSections() directly to ensure we have latest data
   const getUnitName = (unitId: string | null) => {
     if (!unitId) return null;
-    return buildUnitPath(unitId, units) || "Unknown Unit";
+    const allUnits = getUnitSections();
+    return buildUnitPath(unitId, allUnits) || "Unknown Unit";
   };
 
   if (isLoading) {
