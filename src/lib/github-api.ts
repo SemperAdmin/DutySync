@@ -119,64 +119,84 @@ async function getFileSha(
   }
 }
 
-// Update or create a file in GitHub
+// Update or create a file in GitHub with retry on SHA conflict
 export async function updateGitHubFile(
   settings: GitHubSettings,
   filePath: string,
   content: object,
-  commitMessage: string
+  commitMessage: string,
+  maxRetries: number = 3
 ): Promise<GitHubUpdateResult> {
-  try {
-    // Get current file SHA if it exists (required for updates)
-    const sha = await getFileSha(settings, filePath);
+  let lastError: string = "Unknown error occurred";
 
-    // Encode content as base64
-    const jsonContent = JSON.stringify(content, null, 2);
-    const base64Content = btoa(unescape(encodeURIComponent(jsonContent)));
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Get current file SHA if it exists (required for updates)
+      const sha = await getFileSha(settings, filePath);
 
-    const body: Record<string, string> = {
-      message: commitMessage,
-      content: base64Content,
-      branch: settings.branch,
-    };
+      // Encode content as base64
+      const jsonContent = JSON.stringify(content, null, 2);
+      const base64Content = btoa(unescape(encodeURIComponent(jsonContent)));
 
-    // Include SHA if updating existing file
-    if (sha) {
-      body.sha = sha;
-    }
+      const body: Record<string, string> = {
+        message: commitMessage,
+        content: base64Content,
+        branch: settings.branch,
+      };
 
-    const response = await fetch(
-      `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${filePath}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${settings.token}`,
-          Accept: "application/vnd.github.v3+json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
+      // Include SHA if updating existing file
+      if (sha) {
+        body.sha = sha;
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || `GitHub API error: ${response.statusText}`
+      const response = await fetch(
+        `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${filePath}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${settings.token}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }
       );
-    }
 
-    const data = await response.json();
-    return {
-      success: true,
-      message: sha ? "File updated successfully" : "File created successfully",
-      sha: data.content.sha,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Unknown error occurred",
-    };
+      // Handle SHA mismatch (409 Conflict) - retry with fresh SHA
+      if (response.status === 409) {
+        console.warn(`[updateGitHubFile] SHA conflict on ${filePath}, retrying (${attempt + 1}/${maxRetries})...`);
+        lastError = `SHA conflict - file was modified`;
+        // Wait a bit before retrying to allow the previous update to complete
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `GitHub API error: ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        message: sha ? "File updated successfully" : "File created successfully",
+        sha: data.content.sha,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "Unknown error occurred";
+      // Don't retry on non-409 errors
+      if (!lastError.includes("conflict")) {
+        break;
+      }
+    }
   }
+
+  return {
+    success: false,
+    message: lastError,
+  };
 }
 
 // Update both unit-structure.json and unit-members.json
