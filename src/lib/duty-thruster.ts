@@ -21,6 +21,7 @@ import {
   updatePersonnel,
   clearDutySlotsInRange,
 } from "./client-stores";
+import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
 
 // US Federal Holidays (approximate - would need proper holiday calculation in production)
 const FEDERAL_HOLIDAYS_2024 = [
@@ -88,7 +89,10 @@ function isWeekend(date: Date): boolean {
  * Check if a date is a federal holiday
  */
 function isHoliday(date: Date): boolean {
-  const dateStr = date.toISOString().split("T")[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
   return HOLIDAYS.has(dateStr);
 }
 
@@ -97,8 +101,8 @@ function isHoliday(date: Date): boolean {
  */
 function calculateDutyPoints(date: Date, dutyValue: DutyValue | undefined): number {
   const baseWeight = dutyValue?.base_weight ?? 1.0;
-  const weekendMultiplier = dutyValue?.weekend_multiplier ?? 1.5;
-  const holidayMultiplier = dutyValue?.holiday_multiplier ?? 2.0;
+  const weekendMultiplier = dutyValue?.weekend_multiplier ?? DEFAULT_WEEKEND_MULTIPLIER;
+  const holidayMultiplier = dutyValue?.holiday_multiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
 
   if (isHoliday(date)) {
     return baseWeight * holidayMultiplier;

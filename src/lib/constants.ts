@@ -14,3 +14,7 @@ export const VIEW_MODE_USER: ViewMode = "user";
 
 // Maximum duty score for display calculations
 export const MAX_DUTY_SCORE = 15;
+
+// Default duty score multipliers
+export const DEFAULT_WEEKEND_MULTIPLIER = 1.5;
+export const DEFAULT_HOLIDAY_MULTIPLIER = 2.0;
