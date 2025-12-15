@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -63,8 +64,8 @@ interface UserData {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const isAppAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
-  const [activeTab, setActiveTab] = useState<"units" | "users">("units");
   const [isAdminView, setIsAdminView] = useState(true);
+  const [stats, setStats] = useState({ users: 0, personnel: 0, units: 0 });
 
   // Sync with view mode from localStorage (set by DashboardLayout)
   useEffect(() => {
@@ -88,6 +89,20 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  // Load stats for admin dashboard
+  useEffect(() => {
+    if (isAppAdmin && isAdminView) {
+      const users = getAllUsers();
+      const personnel = getAllPersonnel();
+      const units = getUnitSections();
+      setStats({
+        users: users.length,
+        personnel: personnel.length,
+        units: units.length,
+      });
+    }
+  }, [isAppAdmin, isAdminView]);
+
   // If App Admin in admin view mode, show App Admin Dashboard
   // Otherwise, show UserDashboard (ManagerDashboard is on its own route /admin/manager)
   if (!isAppAdmin || !isAdminView) {
@@ -100,49 +115,159 @@ export default function AdminDashboard() {
       <div>
         <h1 className="text-3xl font-bold text-foreground">App Admin Dashboard</h1>
         <p className="text-foreground-muted mt-1">
-          Manage all units and users across the application
+          Overview of all units and users across the application
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-border">
-        <nav className="flex gap-4" aria-label="Tabs">
-          <button
-            onClick={() => setActiveTab("units")}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === "units"
-                ? "border-primary text-primary"
-                : "border-transparent text-foreground-muted hover:text-foreground hover:border-border"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              All Units
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-primary/20">
+                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.users}</p>
+                <p className="text-sm text-foreground-muted">Registered Users</p>
+              </div>
             </div>
-          </button>
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === "users"
-                ? "border-primary text-primary"
-                : "border-transparent text-foreground-muted hover:text-foreground hover:border-border"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              All Users
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-success/20">
+                <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.personnel}</p>
+                <p className="text-sm text-foreground-muted">Personnel Records</p>
+              </div>
             </div>
-          </button>
-        </nav>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-highlight/20">
+                <svg className="w-6 h-6 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.units}</p>
+                <p className="text-sm text-foreground-muted">Unit Sections</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Tab Content */}
-      {activeTab === "units" && <UnitsTab />}
-      {activeTab === "users" && <UsersTab />}
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              User Management
+            </CardTitle>
+            <CardDescription>
+              Manage user accounts, assign roles, and configure permissions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/users">
+              <Button variant="secondary" className="w-full">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                Go to User Management
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-highlight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              Unit Management
+            </CardTitle>
+            <CardDescription>
+              Configure unit hierarchy, RUCs, and organizational structure
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/units">
+              <Button variant="secondary" className="w-full">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                Go to Unit Management
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Personnel
+            </CardTitle>
+            <CardDescription>
+              View and manage personnel records, import rosters
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/personnel">
+              <Button variant="secondary" className="w-full">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                Go to Personnel
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Scheduler
+            </CardTitle>
+            <CardDescription>
+              Configure duty scheduling rules and generate rosters
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/scheduler">
+              <Button variant="secondary" className="w-full">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                Go to Scheduler
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
