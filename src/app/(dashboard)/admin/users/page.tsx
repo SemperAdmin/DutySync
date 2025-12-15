@@ -636,7 +636,7 @@ function RoleAssignmentModal({
 
           {/* Unsaved Changes Indicator */}
           {hasChanges && (
-            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm">
+            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
               You have unsaved changes. Click "Save Changes" to apply them.
             </div>
           )}
