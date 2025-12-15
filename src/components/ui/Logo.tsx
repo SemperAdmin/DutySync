@@ -1,10 +1,11 @@
-import Image from "next/image";
-
 interface LogoProps {
   size?: "sm" | "md" | "lg";
   showText?: boolean;
   className?: string;
 }
+
+// Get basePath for static export compatibility
+const basePath = process.env.NODE_ENV === "production" ? "/DutySync" : "";
 
 export default function Logo({
   size = "md",
@@ -21,13 +22,13 @@ export default function Logo({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <Image
-        src="/images/logo.png"
+      {/* Using img tag for better static export compatibility */}
+      <img
+        src={`${basePath}/images/logo.png`}
         alt="Semper Admin Logo"
         width={icon}
         height={icon}
         className="flex-shrink-0"
-        priority
       />
       {showText && (
         <div className="flex flex-col">
