@@ -8,6 +8,7 @@ import {
   getEnrichedSlots,
   getAllDutyTypes,
   getPersonnelByUnit,
+  getChildUnits,
   getDutyRequirements,
   hasQualification,
   getActiveNonAvailability,
@@ -88,6 +89,29 @@ export default function RosterPage() {
     const unitAdminRole = user.roles.find(r => r.role_name === "Unit Admin");
     return unitAdminRole?.scope_unit_id || null;
   }, [user?.roles]);
+
+  // Get manager's scope unit ID (from any manager role)
+  const managerScopeUnitId = useMemo(() => {
+    if (!user?.roles) return null;
+    const managerRole = user.roles.find(r => MANAGER_ROLES.includes(r.role_name as RoleName));
+    return managerRole?.scope_unit_id || null;
+  }, [user?.roles]);
+
+  // Get all unit IDs under a scope (recursive - includes the scope unit and all descendants)
+  const getUnitsInScope = useCallback((scopeUnitId: string): string[] => {
+    const result: string[] = [scopeUnitId];
+    const children = getChildUnits(scopeUnitId);
+    for (const child of children) {
+      result.push(...getUnitsInScope(child.id));
+    }
+    return result;
+  }, []);
+
+  // All unit IDs the manager can assign from
+  const scopeUnitIds = useMemo(() => {
+    if (!managerScopeUnitId) return [];
+    return getUnitsInScope(managerScopeUnitId);
+  }, [managerScopeUnitId, getUnitsInScope]);
 
   // Load liberty days from localStorage
   const loadLibertyDays = useCallback(() => {
@@ -229,11 +253,17 @@ export default function RosterPage() {
   }, [dutyTypes, selectedUnit]);
 
   // Get eligible personnel for a duty type on a specific date
+  // Only includes personnel within the manager's scope
   function getEligiblePersonnel(dutyType: DutyType, date: Date): Personnel[] {
     const unitPersonnel = getPersonnelByUnit(dutyType.unit_section_id);
     const requirements = getDutyRequirements(dutyType.id);
 
     return unitPersonnel.filter(person => {
+      // Only include personnel within the manager's scope
+      if (scopeUnitIds.length > 0 && !scopeUnitIds.includes(person.unit_section_id)) {
+        return false;
+      }
+
       // Check if person is available (not on non-availability)
       const nonAvail = getActiveNonAvailability(person.id, date);
       if (nonAvail) return false;
