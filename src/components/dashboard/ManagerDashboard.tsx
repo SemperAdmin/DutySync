@@ -9,13 +9,14 @@ import Card, {
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/lib/client-auth";
-import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, RoleName } from "@/types";
+import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, RoleName, DutyChangeRequest } from "@/types";
 import {
   getAllPersonnel,
   getUnitSections,
   getAllDutySlots,
   getAllNonAvailability,
   getAllDutyTypes,
+  getAllDutyChangeRequests,
   updateNonAvailability,
 } from "@/lib/client-stores";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
@@ -40,6 +41,7 @@ export default function ManagerDashboard() {
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutySlots, setDutySlots] = useState<DutySlot[]>([]);
   const [nonAvailability, setNonAvailability] = useState<NonAvailability[]>([]);
+  const [dutyChangeRequests, setDutyChangeRequests] = useState<DutyChangeRequest[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +54,13 @@ export default function ManagerDashboard() {
       const dutySlotsData = getAllDutySlots();
       const naData = getAllNonAvailability();
       const dutyTypesData = getAllDutyTypes();
+      const dcRequestsData = getAllDutyChangeRequests();
 
       setAllPersonnel(personnelData);
       setUnits(unitsData);
       setDutySlots(dutySlotsData);
       setNonAvailability(naData);
+      setDutyChangeRequests(dcRequestsData);
       setDutyTypes(dutyTypesData);
     } catch (err) {
       console.error("Error loading manager dashboard data:", err);
@@ -222,6 +226,27 @@ export default function ManagerDashboard() {
       }))
       .filter(na => na.person);
   }, [scopedNonAvailability, personnelMap]);
+
+  // Get pending duty swap requests involving personnel within scope
+  const pendingSwapRequests = useMemo(() => {
+    return dutyChangeRequests
+      .filter(req => {
+        if (req.status !== "pending") return false;
+        // Check if either personnel is within scope
+        const origInScope = scopedPersonnelIds.has(req.original_personnel_id);
+        const targetInScope = req.target_personnel_id
+          ? scopedPersonnelIds.has(req.target_personnel_id)
+          : false;
+        return origInScope || targetInScope;
+      })
+      .map(req => ({
+        ...req,
+        originalPerson: personnelMap.get(req.original_personnel_id),
+        targetPerson: req.target_personnel_id
+          ? personnelMap.get(req.target_personnel_id)
+          : undefined,
+      }));
+  }, [dutyChangeRequests, scopedPersonnelIds, personnelMap]);
 
   // Get personnel on duty this week
   const personnelOnDutyThisWeek = useMemo(() => {
@@ -450,8 +475,8 @@ export default function ManagerDashboard() {
         </Card>
       </div>
 
-      {/* Pending Requests */}
-      {pendingRequests.length > 0 && (
+      {/* Pending Requests - NA and Duty Swaps */}
+      {(pendingRequests.length > 0 || pendingSwapRequests.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -460,48 +485,108 @@ export default function ManagerDashboard() {
               </svg>
               Pending Requests
               <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-warning/20 text-warning">
-                {pendingRequests.length}
+                {pendingRequests.length + pendingSwapRequests.length}
               </span>
             </CardTitle>
-            <CardDescription>Non-availability requests awaiting approval</CardDescription>
+            <CardDescription>Requests from section members awaiting approval</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {pendingRequests.map(request => (
-                <div
-                  key={request.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-surface-elevated border border-border"
-                >
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">
-                      {request.person?.rank} {request.person?.last_name}, {request.person?.first_name}
-                    </p>
-                    <p className="text-sm text-foreground-muted">
-                      {request.reason} &bull;{" "}
-                      {new Date(request.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      {" - "}
-                      {new Date(request.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleApproveRequest(request.id, false)}
-                      className="text-error hover:bg-error/10"
-                    >
-                      Deny
-                    </Button>
-                    <Button
-                      variant="accent"
-                      size="sm"
-                      onClick={() => handleApproveRequest(request.id, true)}
-                    >
-                      Approve
-                    </Button>
+            <div className="space-y-4">
+              {/* Pending Non-Availability Requests */}
+              {pendingRequests.length > 0 && (
+                <div>
+                  <p className="text-xs text-foreground-muted uppercase tracking-wide mb-2">
+                    Non-Availability Requests ({pendingRequests.length})
+                  </p>
+                  <div className="space-y-3">
+                    {pendingRequests.map(request => (
+                      <div
+                        key={request.id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-surface-elevated border border-border"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">
+                            {request.person?.rank} {request.person?.last_name}, {request.person?.first_name}
+                          </p>
+                          <p className="text-sm text-foreground-muted">
+                            {request.reason} &bull;{" "}
+                            {new Date(request.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {" - "}
+                            {new Date(request.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleApproveRequest(request.id, false)}
+                            className="text-error hover:bg-error/10"
+                          >
+                            Deny
+                          </Button>
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            onClick={() => handleApproveRequest(request.id, true)}
+                          >
+                            Approve
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Pending Duty Swap Requests */}
+              {pendingSwapRequests.length > 0 && (
+                <div>
+                  <p className="text-xs text-foreground-muted uppercase tracking-wide mb-2">
+                    Duty Swap Requests ({pendingSwapRequests.length})
+                  </p>
+                  <div className="space-y-3">
+                    {pendingSwapRequests.map(request => (
+                      <div
+                        key={request.id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-surface-elevated border border-warning/20"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">
+                            {request.originalPerson?.rank} {request.originalPerson?.last_name}
+                            {request.targetPerson && (
+                              <>
+                                {" ↔ "}
+                                {request.targetPerson.rank} {request.targetPerson.last_name}
+                              </>
+                            )}
+                          </p>
+                          <p className="text-sm text-foreground-muted">
+                            Duty Swap &bull;{" "}
+                            {new Date(request.original_duty_date).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                            {request.target_duty_date && (
+                              <>
+                                {" ↔ "}
+                                {new Date(request.target_duty_date).toLocaleDateString("en-US", {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-warning/20 text-warning">
+                          Pending
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

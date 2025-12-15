@@ -8,7 +8,7 @@ import Card, {
   CardContent,
 } from "@/components/ui/Card";
 import { useAuth } from "@/lib/client-auth";
-import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType } from "@/types";
+import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, DutyChangeRequest } from "@/types";
 import {
   getAllPersonnel,
   getPersonnelByEdipi,
@@ -16,6 +16,7 @@ import {
   getNonAvailabilityByPersonnel,
   getUnitSections,
   getAllDutyTypes,
+  getDutyChangeRequestsByPersonnel,
 } from "@/lib/client-stores";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
 
@@ -34,6 +35,7 @@ export default function UserDashboard() {
   const [upcomingDuties, setUpcomingDuties] = useState<DutySlot[]>([]);
   const [pastDuties, setPastDuties] = useState<DutySlot[]>([]);
   const [nonAvailability, setNonAvailability] = useState<NonAvailability[]>([]);
+  const [dutyChangeRequests, setDutyChangeRequests] = useState<DutyChangeRequest[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,6 +81,10 @@ export default function UserDashboard() {
         // Get non-availability records
         const na = getNonAvailabilityByPersonnel(myPersonnel.id);
         setNonAvailability(na);
+
+        // Get duty change requests involving this personnel
+        const dcRequests = getDutyChangeRequestsByPersonnel(myPersonnel.id);
+        setDutyChangeRequests(dcRequests);
       }
     } catch (err) {
       console.error("Error loading dashboard data:", err);
@@ -171,6 +177,12 @@ export default function UserDashboard() {
     const start = new Date(na.start_date);
     return start > now && na.status === "approved";
   });
+
+  // Get pending non-availability requests
+  const pendingNA = nonAvailability.filter((na) => na.status === "pending");
+
+  // Get pending duty swap requests (where the user is involved)
+  const pendingSwaps = dutyChangeRequests.filter((req) => req.status === "pending");
 
   // Build duty history
   const dutyHistory: DutyHistoryEntry[] = pastDuties
@@ -439,6 +451,105 @@ export default function UserDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pending Requests - Show only if there are pending NA or duty swaps */}
+      {(pendingNA.length > 0 || pendingSwaps.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Pending Requests
+              <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-warning/20 text-warning">
+                {pendingNA.length + pendingSwaps.length}
+              </span>
+            </CardTitle>
+            <CardDescription>Requests awaiting approval</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Pending Non-Availability Requests */}
+              {pendingNA.length > 0 && (
+                <div>
+                  <p className="text-xs text-foreground-muted uppercase tracking-wide mb-2">
+                    Non-Availability Requests
+                  </p>
+                  <div className="space-y-2">
+                    {pendingNA.map((na) => (
+                      <div
+                        key={na.id}
+                        className="flex justify-between items-center p-3 rounded-lg bg-surface-elevated border border-warning/20"
+                      >
+                        <div>
+                          <p className="font-medium text-foreground">{na.reason}</p>
+                          <p className="text-sm text-foreground-muted">
+                            {new Date(na.start_date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                            {" - "}
+                            {new Date(na.end_date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                        </div>
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-warning/20 text-warning">
+                          Pending
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pending Duty Swap Requests */}
+              {pendingSwaps.length > 0 && (
+                <div>
+                  <p className="text-xs text-foreground-muted uppercase tracking-wide mb-2">
+                    Duty Swap Requests
+                  </p>
+                  <div className="space-y-2">
+                    {pendingSwaps.map((swap) => (
+                      <div
+                        key={swap.id}
+                        className="flex justify-between items-center p-3 rounded-lg bg-surface-elevated border border-warning/20"
+                      >
+                        <div>
+                          <p className="font-medium text-foreground">
+                            Duty Swap Request
+                          </p>
+                          <p className="text-sm text-foreground-muted">
+                            {new Date(swap.original_duty_date).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                            {swap.target_duty_date && (
+                              <>
+                                {" ↔ "}
+                                {new Date(swap.target_duty_date).toLocaleDateString("en-US", {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-warning/20 text-warning">
+                          Pending
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Duty History Table */}
       <Card>
