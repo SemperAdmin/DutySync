@@ -15,7 +15,6 @@ export const levelColors: Record<string, string> = {
   company: COMPANY_COLORS,
   section: SECTION_COLORS,
   work_section: WORK_SECTION_COLORS,
-  platoon: SECTION_COLORS,
 };
 
 // Order for sorting hierarchy levels
@@ -26,7 +25,6 @@ export const levelOrder: Record<string, number> = {
   company: 1,
   section: 2,
   work_section: 3,
-  platoon: 2,
 };
 
 // Get color for a hierarchy level with fallback

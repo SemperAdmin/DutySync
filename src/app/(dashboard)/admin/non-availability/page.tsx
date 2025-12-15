@@ -20,8 +20,8 @@ import { useAuth } from "@/lib/client-auth";
 const MANAGER_ROLES: RoleName[] = [
   "Unit Manager",
   "Company Manager",
-  "Platoon Manager",
   "Section Manager",
+  "Work Section Manager",
 ];
 
 // Admin roles that can see all
@@ -57,7 +57,7 @@ export default function NonAvailabilityAdminPage() {
   // Get user's scoped unit IDs (for managers, they can only approve within their scope)
   const userScopeUnitIds = user?.roles
     ?.filter((r) =>
-      ["Unit Admin", "Unit Manager", "Company Manager", "Platoon Manager", "Section Manager"].includes(r.role_name as string)
+      ["Unit Admin", "Unit Manager", "Company Manager", "Section Manager", "Work Section Manager"].includes(r.role_name as string)
     )
     .map((r) => r.scope_unit_id)
     .filter(Boolean) as string[] || [];

@@ -37,8 +37,8 @@ function isManager(user: SessionUser | null): boolean {
   return hasAnyRole(user, [
     "Unit Manager",
     "Company Manager",
-    "Platoon Manager",
     "Section Manager",
+    "Work Section Manager",
   ]);
 }
 
@@ -49,8 +49,8 @@ const ADMIN_ROLES: RoleName[] = ["App Admin", "Unit Admin"];
 const MANAGER_ROLES: RoleName[] = [
   "Unit Manager",
   "Company Manager",
-  "Platoon Manager",
   "Section Manager",
+  "Work Section Manager",
 ];
 
 // Roles that can access personnel/non-availability (admins + all managers)

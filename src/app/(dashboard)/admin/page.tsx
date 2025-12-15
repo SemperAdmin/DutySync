@@ -32,8 +32,8 @@ import {
 const MANAGER_ROLES: RoleName[] = [
   "Unit Manager",
   "Company Manager",
-  "Platoon Manager",
   "Section Manager",
+  "Work Section Manager",
 ];
 import { levelColors } from "@/lib/unit-constants";
 import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
@@ -575,8 +575,8 @@ function UnitForm({ unit, units, onClose, onSuccess }: { unit: UnitSection | nul
   const getPossibleParents = () => {
     switch (formData.hierarchy_level) {
       case "company": return units.filter((u) => u.hierarchy_level === "battalion");
-      case "platoon": return units.filter((u) => u.hierarchy_level === "company");
-      case "section": return units.filter((u) => u.hierarchy_level === "platoon");
+      case "section": return units.filter((u) => u.hierarchy_level === "company");
+      case "work_section": return units.filter((u) => u.hierarchy_level === "section");
       default: return [];
     }
   };
@@ -630,8 +630,8 @@ function UnitForm({ unit, units, onClose, onSuccess }: { unit: UnitSection | nul
               <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={formData.hierarchy_level} onChange={(e) => setFormData({ ...formData, hierarchy_level: e.target.value as HierarchyLevel, parent_id: "" })} disabled={isSubmitting || isEditing}>
                 <option value="battalion">Battalion</option>
                 <option value="company">Company</option>
-                <option value="platoon">Platoon</option>
                 <option value="section">Section</option>
+                <option value="work_section">Work Section</option>
               </select>
             </div>
             {formData.hierarchy_level !== "battalion" && (
@@ -1188,8 +1188,8 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
                   <optgroup label="Manager Roles (one at a time)">
                     <option value="Unit Manager">Unit Manager</option>
                     <option value="Company Manager">Company Manager</option>
-                    <option value="Platoon Manager">Platoon Manager</option>
                     <option value="Section Manager">Section Manager</option>
+                    <option value="Work Section Manager">Work Section Manager</option>
                   </optgroup>
                 </select>
               </div>

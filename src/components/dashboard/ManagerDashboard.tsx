@@ -24,8 +24,8 @@ import { MAX_DUTY_SCORE } from "@/lib/constants";
 const MANAGER_ROLES: RoleName[] = [
   "Unit Manager",
   "Company Manager",
-  "Platoon Manager",
   "Section Manager",
+  "Work Section Manager",
 ];
 
 // Non-availability categories for robust categorization
