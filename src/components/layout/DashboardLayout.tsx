@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/client-auth";
@@ -17,6 +17,11 @@ import {
 import AutoSaveStatus from "@/components/AutoSaveStatus";
 import SyncIndicator from "@/components/ui/SyncIndicator";
 import type { SessionUser, RoleName } from "@/types";
+import {
+  getAllDutyTypes,
+  getUnitSections,
+  getPersonnelByEdipi,
+} from "@/lib/client-stores";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -124,6 +129,44 @@ export default function DashboardLayout({
   // Check if user is a manager
   const actuallyIsManager = isManager(user);
 
+  // Check if user's unit section has duty types (tasks) configured
+  // This includes checking the user's section and all parent/child sections in their hierarchy
+  const userSectionHasTasks = useMemo(() => {
+    if (!user?.edipi) return false;
+
+    // Get the user's personnel record to find their unit section
+    const personnel = getPersonnelByEdipi(user.edipi);
+    if (!personnel?.unit_section_id) return false;
+
+    const userSectionId = personnel.unit_section_id;
+    const allDutyTypes = getAllDutyTypes();
+    const allUnits = getUnitSections();
+
+    // Build a set of all unit IDs in the user's hierarchy (ancestors + descendants)
+    const hierarchyUnitIds = new Set<string>();
+    hierarchyUnitIds.add(userSectionId);
+
+    // Find all ancestors (parent chain up to root)
+    let currentUnit = allUnits.find(u => u.id === userSectionId);
+    while (currentUnit?.parent_id) {
+      hierarchyUnitIds.add(currentUnit.parent_id);
+      currentUnit = allUnits.find(u => u.id === currentUnit?.parent_id);
+    }
+
+    // Find all descendants (children, grandchildren, etc.)
+    const findDescendants = (parentId: string) => {
+      const children = allUnits.filter(u => u.parent_id === parentId);
+      for (const child of children) {
+        hierarchyUnitIds.add(child.id);
+        findDescendants(child.id);
+      }
+    };
+    findDescendants(userSectionId);
+
+    // Check if any duty type is associated with a unit in the user's hierarchy
+    return allDutyTypes.some(dt => hierarchyUnitIds.has(dt.unit_section_id));
+  }, [user?.edipi]);
+
   // Navigation items with view mode flags
   interface ExtendedNavItem extends NavItem {
     adminOnly?: boolean; // Only show in Admin View (App Admin only)
@@ -133,6 +176,7 @@ export default function DashboardLayout({
     userAndUnitAdminView?: boolean; // Show in User View AND Unit Admin View (NOT App Admin View)
     managerOnly?: boolean; // Only show for managers in User View
     managerOrUnitAdmin?: boolean; // Show for managers in User View OR Unit Admins in Unit Admin View
+    sectionWithTasks?: boolean; // Only show when user's unit section has duty types configured
   }
 
   const navItems: ExtendedNavItem[] = [
@@ -152,6 +196,26 @@ export default function DashboardLayout({
             strokeLinejoin="round"
             strokeWidth={2}
             d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+          />
+        </svg>
+      ),
+    },
+    {
+      href: "/admin/task-manager",
+      label: "Task Manager",
+      sectionWithTasks: true, // Only show when user's section has duty types configured
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
           />
         </svg>
       ),
@@ -421,6 +485,17 @@ export default function DashboardLayout({
       if (actuallyIsManager && !isAdminView && !isUnitAdminView) return true;
       // Hide otherwise (regular users without manager role, or App Admins)
       return false;
+    }
+
+    // If item is marked sectionWithTasks, only show when user's unit section has duty types
+    // This is for User View only - hide from Admin/Unit Admin views
+    if (item.sectionWithTasks) {
+      // Hide from Admin View and Unit Admin View
+      if ((actuallyIsAppAdmin && isAdminView) || (actuallyIsUnitAdmin && isUnitAdminView)) {
+        return false;
+      }
+      // Only show if user's section has tasks
+      return userSectionHasTasks;
     }
 
     // If no allowedRoles specified, all users can access
