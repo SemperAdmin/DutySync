@@ -1,6 +1,5273 @@
 {
-  "personnel": [],
-  "encrypted": false,
-  "exportedAt": "2025-12-15T20:00:00.000Z",
-  "version": "1.1"
+  "personnel": [
+    {
+      "id": "653c998d-f14b-4b20-8f3f-d5743d1684b1",
+      "service_id": "ZmIMeANVc1xFew==",
+      "first_name": "JULIO",
+      "last_name": "ACEVEDO",
+      "rank": "GYSGT",
+      "unit_section_id": "bb9b4d6d-a279-429b-85f1-1a2a80df40a4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e6371cb7-4c83-45b2-970e-ac63b12de368",
+      "service_id": "ZmYEcQNSdFhBeg==",
+      "first_name": "BENJAMIN",
+      "last_name": "AGUILLON",
+      "rank": "CPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b04105df-388a-4a0b-a537-4bf07563bd01",
+      "service_id": "ZmIMfQJQcV9NeQ==",
+      "first_name": "TREVOR",
+      "last_name": "AHERN",
+      "rank": "GYSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8acd53f1-2553-4904-a044-a630d6fee23d",
+      "service_id": "ZmYEeQJSdVlAcQ==",
+      "first_name": "RUSLAN",
+      "last_name": "AILES",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "91218c2c-1a9f-4c60-8b50-e49aee00a221",
+      "service_id": "ZmYHcQxdc1lEeQ==",
+      "first_name": "DEREKSON",
+      "last_name": "ALACHEDELGADO",
+      "rank": "LCPL",
+      "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7449fe72-e4c6-45d8-b387-5a8e203a14f7",
+      "service_id": "ZmIDfA1QcF5CeQ==",
+      "first_name": "ADESINA",
+      "last_name": "ALADETOHUN",
+      "rank": "LTCOL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "41f1154e-e77e-4c49-827f-e7a0c4a8bd90",
+      "service_id": "ZmUGcQZRflZFeg==",
+      "first_name": "JASON",
+      "last_name": "ALBA",
+      "rank": "SSGT",
+      "unit_section_id": "802c8965-d3ec-4de7-98c1-79388b20bff8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "908299a4-7583-42b1-a7ba-51c1c4c3c64e",
+      "service_id": "ZmUHfgdWcldEcQ==",
+      "first_name": "CHARLES",
+      "last_name": "ALLEN",
+      "rank": "CAPT",
+      "unit_section_id": "3335447f-af51-4e55-8078-82fcf68658a2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "071afd04-66dc-41fb-8a5b-3a8931b14b4b",
+      "service_id": "ZmAGfQZXcVdAeQ==",
+      "first_name": "ROSS",
+      "last_name": "ALMAN II",
+      "rank": "MSGT",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "02cdf43b-3cbf-4c48-ad97-d32402f6bbdc",
+      "service_id": "ZmUBfgxXd1xMeg==",
+      "first_name": "CYNTHIA",
+      "last_name": "ALVARADO",
+      "rank": "SGT",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "17d607ce-c5dc-4cbc-9254-e86bd16a19b1",
+      "service_id": "ZmUGegBXd1tEew==",
+      "first_name": "MARCOS",
+      "last_name": "ALVARADO",
+      "rank": "SSGT",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "643ff2e8-6942-49bb-b415-a1307fc13cdb",
+      "service_id": "ZmQDcQFUcVhGfA==",
+      "first_name": "JOSE",
+      "last_name": "ALVARADOHERNANDEZ",
+      "rank": "GYSGT",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2d4da623-e46f-4bed-8bba-f6036bd16599",
+      "service_id": "ZmUDfgxWfl9EeA==",
+      "first_name": "TATIANA",
+      "last_name": "AMA",
+      "rank": "CPL",
+      "unit_section_id": "ab15e626-8621-4ca0-b9c9-9486148e98f4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8529cfc9-1e52-4d3f-bac2-a4a60f722c89",
+      "service_id": "ZmIAewBdcFhNfA==",
+      "first_name": "IULAI",
+      "last_name": "AMANI",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8946a1db-132c-4b24-929c-eed60f75e7cb",
+      "service_id": "ZmYGegxXdV9McA==",
+      "first_name": "ESINAM",
+      "last_name": "AMEEVOR",
+      "rank": "LCPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "42d31792-105d-4637-b16c-6ec95d9300ea",
+      "service_id": "ZmUAegZSc1ZDfg==",
+      "first_name": "ZACHRIAH",
+      "last_name": "AMELSE",
+      "rank": "SGT",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "49d9ed49-e820-4911-b452-2b803b44099d",
+      "service_id": "ZmUNcANRdVpBeg==",
+      "first_name": "RACYN",
+      "last_name": "ANCOG",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "152820dc-c89a-49b1-88ee-2c71ca1102ec",
+      "service_id": "ZmUDcQdUdVpGeg==",
+      "first_name": "ELIJAH",
+      "last_name": "ANDERSON",
+      "rank": "SGT",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e6e6bc09-c883-4e66-88fc-42cc635ed1c1",
+      "service_id": "ZmUBfgNUcV9BfA==",
+      "first_name": "ELIOT",
+      "last_name": "ANGULOIBARRA",
+      "rank": "SSGT",
+      "unit_section_id": "b9fb02f5-4cfe-4995-9de3-ff4ff116bc7d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4a5a9615-3261-4411-af59-23d666d93ab0",
+      "service_id": "ZmYEfQBXc1pGfw==",
+      "first_name": "JUAN",
+      "last_name": "ANTONIO",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d9bc4854-8445-4a39-9db4-bbf2dc5b1225",
+      "service_id": "ZmUMeQZdcVtGeA==",
+      "first_name": "FELIX",
+      "last_name": "ARDITO",
+      "rank": "CPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "39bc292d-efef-4255-8074-d217deeb4ecb",
+      "service_id": "ZmYGeQdUcFtDcQ==",
+      "first_name": "GILBERTO",
+      "last_name": "ARIAS",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9076597e-0d18-4928-9dff-ee9b0b4bf68f",
+      "service_id": "ZmUMeABVf1tMeA==",
+      "first_name": "ANTONIO",
+      "last_name": "ARMAS",
+      "rank": "SGT",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5273946e-b4ec-45f4-859f-53cad0dc7fdf",
+      "service_id": "ZmIDegBWcV9BeA==",
+      "first_name": "JAYLEN",
+      "last_name": "ARNOLD",
+      "rank": "SGT",
+      "unit_section_id": "0e5cd749-1583-4412-bdd5-0c792b76cfae",
+      "current_duty_score": 0
+    },
+    {
+      "id": "76db1fbd-f759-4b59-92be-82494aa111db",
+      "service_id": "ZmENfwBSdlZAfQ==",
+      "first_name": "MICHAEL",
+      "last_name": "ASHBURN",
+      "rank": "CWO4",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ff9bf10c-eac6-495d-8357-fe0623830df7",
+      "service_id": "ZmUNcQZXdVZEeg==",
+      "first_name": "JAVED",
+      "last_name": "ASHRAF",
+      "rank": "SGT",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b80e08f9-3344-424b-95d0-a31718c4ab87",
+      "service_id": "ZmUMfwdVdVhAfg==",
+      "first_name": "JESSE",
+      "last_name": "ASTON",
+      "rank": "CAPT",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c3207d1a-1443-486e-b1aa-d1c3c8965f38",
+      "service_id": "ZmICcAVTcVxEfg==",
+      "first_name": "BRANDON",
+      "last_name": "AUSTIN",
+      "rank": "CPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e7c5cf0b-25be-4e5e-aee4-209ae13d8268",
+      "service_id": "ZmUCewVXdVlFfQ==",
+      "first_name": "AVION",
+      "last_name": "AUSTON",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "bb932830-12d8-4848-b1e7-3c29096e6c93",
+      "service_id": "ZmUNcAZUcllNcA==",
+      "first_name": "KIHUN",
+      "last_name": "BAEK",
+      "rank": "SGT",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "792bf4de-4de2-4c5c-a289-61f8f4075ec1",
+      "service_id": "ZmYEfwxQcllNfg==",
+      "first_name": "KENDALL",
+      "last_name": "BAHE",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7444ab3d-3cb1-44bd-a9cb-fa6716b0f584",
+      "service_id": "ZmYHcAVQfl9AfQ==",
+      "first_name": "SETH",
+      "last_name": "BAKSA",
+      "rank": "LCPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f724e56f-3a9e-4cea-849c-acb1a7f3297d",
+      "service_id": "ZmICfARddlhHfg==",
+      "first_name": "JORDAN",
+      "last_name": "BARBER",
+      "rank": "CPL",
+      "unit_section_id": "b0da4043-9a6b-4c42-b79c-6b2e19622ae9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6dd88536-24ff-4cf8-a099-1cfdfd58432f",
+      "service_id": "ZmYEfQFWf15Meg==",
+      "first_name": "NATASHA",
+      "last_name": "BARILLASDELCID",
+      "rank": "CPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5efca78c-40f2-4dd1-96ae-c74a02dc6f5b",
+      "service_id": "ZmYEfwNRd1pCfw==",
+      "first_name": "DENNIS",
+      "last_name": "BARNETT",
+      "rank": "CPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3428d699-7c21-482c-932e-7eb403997261",
+      "service_id": "ZmYEfgJXcVdAcA==",
+      "first_name": "SONIA",
+      "last_name": "BAUTISTAGOMEZ",
+      "rank": "CPL",
+      "unit_section_id": "0ec255fb-1bee-4914-a1ac-11302e1f304d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "76d5bdf5-2428-49db-98f7-821dcbcb4771",
+      "service_id": "ZmAFfgBVc1dFcQ==",
+      "first_name": "JEREMY",
+      "last_name": "BEAVEN",
+      "rank": "COL",
+      "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d9c57fa5-dc4d-4118-8cb0-aec2270f62d6",
+      "service_id": "ZmYHcQVVflhFeQ==",
+      "first_name": "QUINCY",
+      "last_name": "BELL",
+      "rank": "LCPL",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "168faca9-1074-4b75-8111-2fe33115cfe7",
+      "service_id": "ZmYFcAJVd19DfA==",
+      "first_name": "DONALD",
+      "last_name": "BELT II",
+      "rank": "2NDLT",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e85e581e-855f-43bb-9c42-636f8cb06538",
+      "service_id": "ZmYEcA1WcllHeg==",
+      "first_name": "SAMUEL",
+      "last_name": "BENNETT",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7b5baccf-539e-47e4-b60c-bbe44d735677",
+      "service_id": "ZmYFeQZUd1hMfw==",
+      "first_name": "RYAN",
+      "last_name": "BENTZ",
+      "rank": "CAPT",
+      "unit_section_id": "0f5ee1aa-9cb0-45da-b2f6-2d7d8454092e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "98feec47-d00b-463b-be59-b7a1a95bb1ec",
+      "service_id": "ZmYGfQZVfltCcA==",
+      "first_name": "MARIO",
+      "last_name": "BERNAL JR",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e3f2b725-3a28-4d32-9d40-64d3f72678ac",
+      "service_id": "ZmIMewxQc1xNeg==",
+      "first_name": "HUNTER",
+      "last_name": "BERNIUS",
+      "rank": "CWO2",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "881c7414-11ed-4ac9-bcbb-93aef4c1d16d",
+      "service_id": "ZmIMfAdddF5AfA==",
+      "first_name": "CHRISTIAN",
+      "last_name": "BILLETDEAUX",
+      "rank": "CPL",
+      "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f295d569-253b-4131-910b-1a92f8cd30d9",
+      "service_id": "ZmYFeQZUcF5BeA==",
+      "first_name": "JACK",
+      "last_name": "BISHOP",
+      "rank": "CPL",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7d17181d-80b0-4806-bcef-fb58537a743b",
+      "service_id": "ZmYHeQBWcFhNew==",
+      "first_name": "CHRISTOPHE",
+      "last_name": "BITTEL",
+      "rank": "CAPT",
+      "unit_section_id": "be940f06-bdf6-477a-ab78-03f231306c89",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5b5c4e8f-5cd6-49d1-a0d2-16b12b5cad90",
+      "service_id": "ZmYFcQdUcV1AeA==",
+      "first_name": "CHRISTOPHE",
+      "last_name": "BLACK",
+      "rank": "LCPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4247f45b-2891-4d87-ba8b-61e0526a5629",
+      "service_id": "ZmYHfAxSdFpEcA==",
+      "first_name": "JAMES",
+      "last_name": "BLAKE",
+      "rank": "LCPL",
+      "unit_section_id": "3f69a6fc-5866-4a0b-97d9-44ce62e8ca24",
+      "current_duty_score": 0
+    },
+    {
+      "id": "be45b214-ad7c-40fe-9572-9e143eadfaab",
+      "service_id": "ZmYFfgVccl1MfQ==",
+      "first_name": "JOEL",
+      "last_name": "BLASBELTRAN",
+      "rank": "SGT",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ecd74ba9-3a65-4371-b802-fbbc5b2d1915",
+      "service_id": "ZmUMcABQdlZNew==",
+      "first_name": "STANLEY",
+      "last_name": "BOCCIWIX",
+      "rank": "CPL",
+      "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "df5fcf69-9475-46e7-963f-5a6f12ef0e51",
+      "service_id": "ZmUDfAJWd1pBfw==",
+      "first_name": "JASON",
+      "last_name": "BONEFAS",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fb847e89-c5af-4d92-8631-2d8d9f79797c",
+      "service_id": "ZmUMfg1cdFpMfw==",
+      "first_name": "ROBERT",
+      "last_name": "BOOCZKO",
+      "rank": "SGT",
+      "unit_section_id": "cc94edc0-372e-48b5-be21-4476c5ca3d98",
+      "current_duty_score": 0
+    },
+    {
+      "id": "860b6fac-e8e9-4de5-903f-9e4a979c1170",
+      "service_id": "ZmUMfg1UdVhMfA==",
+      "first_name": "ALEXANDER",
+      "last_name": "BOONE",
+      "rank": "CPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4eda6e2b-9e61-4101-9598-7edd6646e122",
+      "service_id": "ZmUMfQFRdFtFfw==",
+      "first_name": "SAGE",
+      "last_name": "BOPP",
+      "rank": "SGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0747cc44-440b-44df-ac53-c572e30db389",
+      "service_id": "ZmUEewNRfldDeA==",
+      "first_name": "BRIAN",
+      "last_name": "BORKOWSKI",
+      "rank": "SSGT",
+      "unit_section_id": "33f75718-85cc-417a-a6da-522c0bf1d571",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4f4d5dfb-2174-4c97-8bd1-9d4e45331857",
+      "service_id": "ZmUBeAdcdldBeQ==",
+      "first_name": "ANGELO",
+      "last_name": "BORREGO",
+      "rank": "CPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "40b5d6c9-67cc-4d6d-9284-efbcc04533ac",
+      "service_id": "ZmYHfQNUf1lCcQ==",
+      "first_name": "MAXWELL",
+      "last_name": "BOSWELL",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f7161dc1-36b2-4b45-9992-7348218ca541",
+      "service_id": "ZmUDcQRSdFpCfw==",
+      "first_name": "ISAAC",
+      "last_name": "BOWER",
+      "rank": "SGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9b238b0c-2d32-46d7-ba3f-9e570a58a872",
+      "service_id": "ZmYGeANVc19FeQ==",
+      "first_name": "CHANCE",
+      "last_name": "BOWMAN",
+      "rank": "LCPL",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "16e6e499-bd27-48d0-b719-05082e3f168a",
+      "service_id": "ZmYFfAdTcVpGew==",
+      "first_name": "SAMUEL",
+      "last_name": "BOX",
+      "rank": "CPL",
+      "unit_section_id": "b1b228e5-6011-416f-841b-3ebd0262a067",
+      "current_duty_score": 0
+    },
+    {
+      "id": "aa6ae6bf-3920-43ba-973a-dac72de6a814",
+      "service_id": "ZmIMfwJRcVZGeg==",
+      "first_name": "TREVION",
+      "last_name": "BOYD",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2c9f2508-b8da-4ee6-bd01-1f1ba91d15a0",
+      "service_id": "ZmUCeg1dcl1NeA==",
+      "first_name": "FREDERICK",
+      "last_name": "BRADLEY",
+      "rank": "SGT",
+      "unit_section_id": "3335447f-af51-4e55-8078-82fcf68658a2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b81cb2d0-63be-4fad-b1dd-1cccaa3e0bc8",
+      "service_id": "ZmIDcQNTdl1Aeg==",
+      "first_name": "RYAN",
+      "last_name": "BRADLEY",
+      "rank": "1STSGT",
+      "unit_section_id": "33f75718-85cc-417a-a6da-522c0bf1d571",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a2485482-c67f-492a-ba4d-7cf77d48f1a4",
+      "service_id": "ZmQAfwRQdV1AeQ==",
+      "first_name": "MATTHEW",
+      "last_name": "BRAGG",
+      "rank": "GYSGT",
+      "unit_section_id": "596f7957-fd9b-4a77-9bf7-b2c64aff207c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f6b08f03-30b8-4cfb-9082-3c2fd6057647",
+      "service_id": "ZmYHegdQflxFeA==",
+      "first_name": "ETHAN",
+      "last_name": "BRAHNEY",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e4556779-afde-4b83-8307-deb81079b555",
+      "service_id": "ZmYEegJUdF9BfQ==",
+      "first_name": "ZACHARY",
+      "last_name": "BREY",
+      "rank": "LCPL",
+      "unit_section_id": "0ec255fb-1bee-4914-a1ac-11302e1f304d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "85c45385-5e8b-40df-b6ce-8225c748c366",
+      "service_id": "ZmICfwFQd1xDfg==",
+      "first_name": "ALEX",
+      "last_name": "BRICENOCORTEZ",
+      "rank": "GYSGT",
+      "unit_section_id": "99ac5152-2b84-42ea-adb9-aaa0452cfebf",
+      "current_duty_score": 0
+    },
+    {
+      "id": "61fce2c7-5866-4b59-ab12-5e601a27db06",
+      "service_id": "ZmUAcQFXcFpCeQ==",
+      "first_name": "MARCO",
+      "last_name": "BRISENO",
+      "rank": "SGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "587f710a-a50b-4c74-bd7b-5423c09b7f0e",
+      "service_id": "ZmYEcQ1Qf1ZFfw==",
+      "first_name": "EDLGAR",
+      "last_name": "BRONFIELD",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "aa2f9a02-72a6-4014-94e2-c5ed9b0f994c",
+      "service_id": "ZmUMfQVXcF1BeQ==",
+      "first_name": "ELLIOT",
+      "last_name": "BROWN",
+      "rank": "CPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e689d214-a337-458a-9686-930cc2160adb",
+      "service_id": "ZmQFew1ddV5GeQ==",
+      "first_name": "KRISTOPHER",
+      "last_name": "BROWN",
+      "rank": "GYSGT",
+      "unit_section_id": "12306540-b11e-406b-ba34-6741ecc6289e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ab78b7d2-3634-42eb-84dc-227cbdfa75b3",
+      "service_id": "ZmYFcARTdFtDfQ==",
+      "first_name": "DEZMOND",
+      "last_name": "BROWNING",
+      "rank": "CPL",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8da89ce4-cd7a-4217-a855-4114e2fcec19",
+      "service_id": "ZmYFfA1Qc1hMfQ==",
+      "first_name": "EUGENE",
+      "last_name": "BUFFORD",
+      "rank": "CPL",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fefed9ec-31b0-466f-b025-9ec75b51dbad",
+      "service_id": "ZmYHewVccFZHfg==",
+      "first_name": "TREVEON",
+      "last_name": "BURTON",
+      "rank": "CPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "089b77d0-3ec6-483c-9039-cef68e60832f",
+      "service_id": "ZmUMegJTflhMfQ==",
+      "first_name": "BRAYDEN",
+      "last_name": "BUSZ",
+      "rank": "SGT",
+      "unit_section_id": "ab15e626-8621-4ca0-b9c9-9486148e98f4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b5ee2fe8-d674-44c3-ad02-bd30b5a6df06",
+      "service_id": "ZmYEcQBTdFZEfw==",
+      "first_name": "VICTORIA",
+      "last_name": "CALDERON",
+      "rank": "CPL",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "edd586eb-0b35-46bf-ad25-e4748792e38a",
+      "service_id": "ZmUMfgJXd15Afw==",
+      "first_name": "MICHAEL",
+      "last_name": "CALL",
+      "rank": "SGT",
+      "unit_section_id": "9c2f26fe-0097-4f3a-adb5-946f3d1defec",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ca04b101-89a5-44cd-8687-7e11073c9221",
+      "service_id": "ZmINfQxTcFxBeQ==",
+      "first_name": "CORA",
+      "last_name": "CALTABIANO",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c08236a7-9c5b-4d64-8032-918556a26de6",
+      "service_id": "ZmUAfwJcf1ZDeQ==",
+      "first_name": "JUSTINANGE",
+      "last_name": "CALUYA",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b7176490-34db-40eb-965a-910413110e03",
+      "service_id": "ZmIGfQFcdV9DcQ==",
+      "first_name": "DAMIEN",
+      "last_name": "CALVIN",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6e394fec-a8f8-4433-9488-8e03afe7d6c2",
+      "service_id": "ZmYHcANRdVhFeg==",
+      "first_name": "JONATHAN",
+      "last_name": "CAMPA",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "dbaba3a1-9e2a-4f51-b3d3-1056a70d005d",
+      "service_id": "ZmYHcQRSf19CeA==",
+      "first_name": "DANIEL",
+      "last_name": "CAMPBELL",
+      "rank": "LCPL",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "377f50f8-30de-48d8-991e-ade33c255592",
+      "service_id": "ZmUMfQ1ddltGeg==",
+      "first_name": "TYLER",
+      "last_name": "CAMPBELL",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "90df940c-eac1-4120-b20e-28794f076c9c",
+      "service_id": "ZmYHeAxScVxCeA==",
+      "first_name": "JULIAN",
+      "last_name": "CANCELLIERE",
+      "rank": "CPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3f75608c-667e-4727-a8bc-e305afb891a9",
+      "service_id": "ZmUMegBUcV1EeA==",
+      "first_name": "JOHN",
+      "last_name": "CANFIELD",
+      "rank": "SGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b24c2c98-b140-4c7a-ac8c-c72d542edecd",
+      "service_id": "ZmUMfQJQcFhFeg==",
+      "first_name": "DANTE",
+      "last_name": "CANNAVINA",
+      "rank": "SGT",
+      "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "02c3da3c-3c64-4cad-9362-a02509188ede",
+      "service_id": "ZmYGfgNWf1xEcA==",
+      "first_name": "NOEL",
+      "last_name": "CANSECORODRIGUEZ",
+      "rank": "PFC",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "248c44e6-cf89-46c4-9841-67389d897d6d",
+      "service_id": "ZmUHewBVcVdDfQ==",
+      "first_name": "EDWINJARED",
+      "last_name": "CAOILI V",
+      "rank": "SSGT",
+      "unit_section_id": "b1b228e5-6011-416f-841b-3ebd0262a067",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ca37cf68-3387-4d0a-97be-b74fa0de5a25",
+      "service_id": "ZmYGeAJVc1hNeg==",
+      "first_name": "JONATHAN",
+      "last_name": "CAPUSEGUACORTEZ",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1b7a821f-c3c8-445f-bf5c-4e01a63e65c7",
+      "service_id": "ZmYFcQFXdFlFcQ==",
+      "first_name": "JUANJOSE",
+      "last_name": "CARBAJAL",
+      "rank": "CPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1a6a8d66-caff-4728-8a57-062e3f2f7ff8",
+      "service_id": "ZmUCeA1Sf1xFeA==",
+      "first_name": "JOHN",
+      "last_name": "CARDENAS",
+      "rank": "CAPT",
+      "unit_section_id": "b9fb02f5-4cfe-4995-9de3-ff4ff116bc7d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1ab654b3-62f7-4382-9df1-e30e93b56c4f",
+      "service_id": "ZmYHeAJRf1dEfQ==",
+      "first_name": "MAXIMUS",
+      "last_name": "CARLSEN",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "30cc4769-820c-49ca-a302-8a39debb59b5",
+      "service_id": "ZmYHfwZTcV1New==",
+      "first_name": "LOGAN",
+      "last_name": "CARLSON",
+      "rank": "LCPL",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6d744719-0e61-4ff7-9f25-dcacc08d2bad",
+      "service_id": "ZmYEeg1VflhBfA==",
+      "first_name": "MARIA",
+      "last_name": "CARPINTEROPACHECO",
+      "rank": "CPL",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7d319316-539d-4f6c-97f8-c4af709a850b",
+      "service_id": "ZmYEfwRQf1dEeg==",
+      "first_name": "BRANDON",
+      "last_name": "CARRILLO",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c2cc79f3-5890-48ff-92fc-fc8bea72a39c",
+      "service_id": "ZmUAfQBWc1dHfw==",
+      "first_name": "DENORIS",
+      "last_name": "CARTER JR",
+      "rank": "SGT",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1cf979c7-9999-4acf-b4a5-36318a9a902f",
+      "service_id": "ZmIMfwFcdFhHfw==",
+      "first_name": "SHAYE",
+      "last_name": "CARTER",
+      "rank": "CWO2",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "01b2e79f-2452-4f35-a1ff-1f14fca24cc6",
+      "service_id": "ZmICfwNWf19AcQ==",
+      "first_name": "MATTHEW",
+      "last_name": "CARUSO",
+      "rank": "1STSGT",
+      "unit_section_id": "802c8965-d3ec-4de7-98c1-79388b20bff8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "582cbbaa-e7a0-4d06-878e-e03c5aff2467",
+      "service_id": "ZmUGfQxRc19DeA==",
+      "first_name": "RAFAEL",
+      "last_name": "CASTELLANOS",
+      "rank": "CPL",
+      "unit_section_id": "b8aa675f-b063-4aad-bcd1-88389cb831d2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8d3c4264-38a7-41ef-866c-da6140c6f370",
+      "service_id": "ZmYEfwNTfl5GeA==",
+      "first_name": "CHRIS",
+      "last_name": "CASTILLOMORENO",
+      "rank": "LCPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "812dfa3e-fe1b-4514-9b9e-c8f743267bb7",
+      "service_id": "ZmYGewJWcFdHfg==",
+      "first_name": "GABY",
+      "last_name": "CASTROJOSE",
+      "rank": "LCPL",
+      "unit_section_id": "9c2f26fe-0097-4f3a-adb5-946f3d1defec",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ab4b9e1c-009c-48e7-be6a-216738e2e8d0",
+      "service_id": "ZmUNfQVXcltDeQ==",
+      "first_name": "JOHN",
+      "last_name": "CATALDO",
+      "rank": "1STLT",
+      "unit_section_id": "550f9826-7b1c-4b1d-8840-e0661795010f",
+      "current_duty_score": 0
+    },
+    {
+      "id": "dd33e024-8028-42ef-a8fc-68d35f19f95b",
+      "service_id": "ZmANfwRXc1lDcA==",
+      "first_name": "ERIC",
+      "last_name": "CATTO",
+      "rank": "LTCOL",
+      "unit_section_id": "0f5ee1aa-9cb0-45da-b2f6-2d7d8454092e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ed27259a-6b69-4b52-8633-cad4fc5bed0f",
+      "service_id": "ZmYHeQJTc1dAeA==",
+      "first_name": "ANGEL",
+      "last_name": "CEDILLO",
+      "rank": "PFC",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3130f6eb-bfc2-4aca-a09c-a119d62fbf3a",
+      "service_id": "ZmYHegdXc1hCfQ==",
+      "first_name": "LUIS",
+      "last_name": "CEPEDA",
+      "rank": "LCPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "dcc982ac-6dde-4a27-95f2-b559b43be228",
+      "service_id": "ZmMCfgRddltHcQ==",
+      "first_name": "JOEL",
+      "last_name": "CHAPMAN",
+      "rank": "MAJ",
+      "unit_section_id": "3335447f-af51-4e55-8078-82fcf68658a2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5f34b32e-00d7-48a4-80b6-b28a3c500e6c",
+      "service_id": "ZmYEeQxVf1xMeA==",
+      "first_name": "CARLOS",
+      "last_name": "CHAVEZFLORES",
+      "rank": "LCPL",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "df508fc8-1cc4-4a89-b8cd-228c73e713ed",
+      "service_id": "ZmYFegxSdllAeQ==",
+      "first_name": "JHORDIN",
+      "last_name": "CHINO",
+      "rank": "CPL",
+      "unit_section_id": "3f69a6fc-5866-4a0b-97d9-44ce62e8ca24",
+      "current_duty_score": 0
+    },
+    {
+      "id": "196024a2-ae16-4d90-8d9e-e2f340341d35",
+      "service_id": "ZmYFewRSd11Bfw==",
+      "first_name": "SANIA",
+      "last_name": "CHOUDRI",
+      "rank": "LCPL",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "375900ab-c138-4e02-8883-accdeb23d4d5",
+      "service_id": "ZmYGegVXc19Afw==",
+      "first_name": "BLAKE",
+      "last_name": "CHRASTINA",
+      "rank": "LCPL",
+      "unit_section_id": "b9fb02f5-4cfe-4995-9de3-ff4ff116bc7d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "44ed7436-31a7-437b-a4a7-50f2e4211418",
+      "service_id": "ZmIMfAFcd15BeA==",
+      "first_name": "RICHARD",
+      "last_name": "CICHOWSKI JR",
+      "rank": "CWO3",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "75e10ede-632e-4e0b-8d99-1242e21c277d",
+      "service_id": "ZmIMegZVdFxBeA==",
+      "first_name": "NOAH",
+      "last_name": "CLAPP",
+      "rank": "PFC",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "03929b19-508a-4f4c-b54b-badcfb0682b4",
+      "service_id": "ZmANcARWfldFcA==",
+      "first_name": "KEEGAN",
+      "last_name": "CLARK",
+      "rank": "SSGT",
+      "unit_section_id": "9c2f26fe-0097-4f3a-adb5-946f3d1defec",
+      "current_duty_score": 0
+    },
+    {
+      "id": "322bddbd-40ba-4bb0-b1af-46b673460eee",
+      "service_id": "ZmMMeAFXd11CeA==",
+      "first_name": "RYAN",
+      "last_name": "COLE",
+      "rank": "CWO3",
+      "unit_section_id": "0f5ee1aa-9cb0-45da-b2f6-2d7d8454092e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "226f244a-164c-4b51-8b61-2d63f5a6e852",
+      "service_id": "ZmYEfQBSc1pAeA==",
+      "first_name": "SHANNA",
+      "last_name": "COLE",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d8667086-a8e2-485a-9313-e0dcfb0a61ff",
+      "service_id": "ZmYGewVUd1dCfg==",
+      "first_name": "WYATT",
+      "last_name": "COLLINS",
+      "rank": "LCPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "473492b8-fdf5-492e-a7b1-917c08f54e66",
+      "service_id": "ZmYHegRUdl5Aeg==",
+      "first_name": "HAYDEN",
+      "last_name": "COLLUM",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6b01d3aa-60a8-4bc2-bff8-863c22921211",
+      "service_id": "ZmYEfAVXdFlCcQ==",
+      "first_name": "BRENDAN",
+      "last_name": "COMBS",
+      "rank": "CPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "18e767a3-d835-4017-a9b5-9b8f83d48a38",
+      "service_id": "ZmINeQJSdV5NeQ==",
+      "first_name": "ANTHONY",
+      "last_name": "CONE",
+      "rank": "CAPT",
+      "unit_section_id": "550f9826-7b1c-4b1d-8840-e0661795010f",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ba174877-0563-4fdf-b07e-542300a013e8",
+      "service_id": "ZmYHeARVd1hDfQ==",
+      "first_name": "JOSIAH",
+      "last_name": "CONLEY",
+      "rank": "LCPL",
+      "unit_section_id": "0ec255fb-1bee-4914-a1ac-11302e1f304d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f9c47fd5-1837-469d-b67d-3a1283d8565d",
+      "service_id": "ZmICfAVUcFZNfA==",
+      "first_name": "ASHTON",
+      "last_name": "CONNELLY",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ca42f010-3076-46ab-a66b-59c81da773b2",
+      "service_id": "ZmYHegdTf1pFfw==",
+      "first_name": "MARISSA",
+      "last_name": "CONTRERAS",
+      "rank": "LCPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "13930baa-b17c-4916-8d8a-05824c7c0480",
+      "service_id": "ZmYHfA1VcFtDeQ==",
+      "first_name": "RONALD",
+      "last_name": "COOK",
+      "rank": "LCPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "427a9fb3-68ec-4265-89a8-447e65a9d986",
+      "service_id": "ZmYHfAxWdV1DcA==",
+      "first_name": "KAILEN",
+      "last_name": "COOLEY",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5a24438e-0b69-467c-a3f8-2c8489c7a299",
+      "service_id": "ZmYFfARTc1hHcQ==",
+      "first_name": "OLGA",
+      "last_name": "CORDERO",
+      "rank": "LCPL",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "985bd3d5-49ba-46f6-b7cf-d832912a8d5b",
+      "service_id": "ZmUMegxddFpBcA==",
+      "first_name": "RICARDO",
+      "last_name": "CORNEJOMENDOZA",
+      "rank": "SGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "58cb6b15-104a-4fef-8ffe-28986a5c374e",
+      "service_id": "ZmIMeAxTdFxAfQ==",
+      "first_name": "CRISTIN",
+      "last_name": "CORTEZ",
+      "rank": "LCPL",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "57dd6051-c2b0-4a00-adae-2823e96d9842",
+      "service_id": "ZmYGeQNcf19Afg==",
+      "first_name": "EMANUEL",
+      "last_name": "COSSLEY",
+      "rank": "LCPL",
+      "unit_section_id": "4ec84167-5dbc-4303-ad2a-f7631075877f",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0037f2e1-cf85-4844-b625-33ba793b2bc4",
+      "service_id": "ZmUMcQxTdl5Hfw==",
+      "first_name": "ALAN",
+      "last_name": "COSSOLIVA",
+      "rank": "SGT",
+      "unit_section_id": "3fe75c62-d3a8-4b34-b3db-12abcbcf6a33",
+      "current_duty_score": 0
+    },
+    {
+      "id": "879e0a30-4c0a-4556-9c57-b968fed0d59d",
+      "service_id": "ZmUMfgNWdFdEeQ==",
+      "first_name": "JARED",
+      "last_name": "COX",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "586aef74-3607-415d-bc4e-34d8f47ecbd5",
+      "service_id": "ZmUBcQJWfl9EcQ==",
+      "first_name": "EDUARDO",
+      "last_name": "CRISTOBAL",
+      "rank": "SGT",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c7e16797-b74a-426b-a30b-a439b5b4c047",
+      "service_id": "ZmUMfwRTfllNeA==",
+      "first_name": "ANTONIO",
+      "last_name": "CRUZMELO",
+      "rank": "CPL",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "28f58450-77fe-4e02-a9f7-0448cd45282c",
+      "service_id": "ZmYBeAdXd1tHeg==",
+      "first_name": "LYSANDER",
+      "last_name": "CRUZSANTIAGO",
+      "rank": "PFC",
+      "unit_section_id": "30ee27e3-209e-49ea-9c85-4b59e93bb51b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d334271c-4af4-405d-980c-7676a75b0f11",
+      "service_id": "ZmQCewVRd1xBfw==",
+      "first_name": "SANDRA",
+      "last_name": "CUELLAR",
+      "rank": "GYSGT",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d297face-f210-4959-b0b1-112b2160bde0",
+      "service_id": "ZmYEfAFVcVlEcQ==",
+      "first_name": "DAVI",
+      "last_name": "CUNHA",
+      "rank": "CPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "81bec307-befd-4cbe-afb8-8ddcb0e6aa3a",
+      "service_id": "ZmUBfQVQc11Dfg==",
+      "first_name": "DONTE",
+      "last_name": "DACOSTA",
+      "rank": "CPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a6dc6bea-df8d-40a1-b777-539379ef48af",
+      "service_id": "ZmYHcAFQclZDcA==",
+      "first_name": "ZEKE",
+      "last_name": "DAVILA JR",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "781643ee-c8af-4b39-98c5-017217db0613",
+      "service_id": "ZmUEfg1QdVlHeg==",
+      "first_name": "JAMES",
+      "last_name": "DAVIS III",
+      "rank": "SSGT",
+      "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e2855e8b-7e8a-4e05-b66c-5a06103de671",
+      "service_id": "ZmQAfQFRc11BfA==",
+      "first_name": "AMBER",
+      "last_name": "DAWSON",
+      "rank": "SSGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5ebebdb6-4211-44ae-b637-f5efe922c29d",
+      "service_id": "ZmUMfg1cd15HeA==",
+      "first_name": "DEVIN",
+      "last_name": "DEASE",
+      "rank": "CPL",
+      "unit_section_id": "be940f06-bdf6-477a-ab78-03f231306c89",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e9808f8b-1caa-4297-83d7-f90b13fc72d1",
+      "service_id": "ZmMCfAZTd1pFfw==",
+      "first_name": "NANCY",
+      "last_name": "DEAVILAALVARA",
+      "rank": "MAJ",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "29c375a2-dd07-4178-aa96-9c644942955c",
+      "service_id": "ZmUCegJVfltFfw==",
+      "first_name": "JAVIER",
+      "last_name": "DEJESUS",
+      "rank": "SGT",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a7972be8-add2-40b8-959d-0cb957a28a9a",
+      "service_id": "ZmENewJQf1tMeg==",
+      "first_name": "BRENAN",
+      "last_name": "DEJESUSORTIZ",
+      "rank": "CPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8bce652a-0f35-440e-867f-0e3890cc7e74",
+      "service_id": "ZmUAfg1QcVdNfA==",
+      "first_name": "ADRIANA",
+      "last_name": "DESCHAMPSREYES",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "674adbca-8b42-46e3-a18b-435a705b2a6e",
+      "service_id": "ZmUCfQVcclpFcQ==",
+      "first_name": "ANTHONY",
+      "last_name": "DIAZ",
+      "rank": "SGT",
+      "unit_section_id": "fe84b3a3-80a9-4a60-8947-411dc616f209",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4d9591cf-88bf-4db6-834e-81172167cd65",
+      "service_id": "ZmYHfw1WdV5GcQ==",
+      "first_name": "JESSE",
+      "last_name": "DIAZRODRIGUEZ",
+      "rank": "LCPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "346874ca-1bc3-4bd6-901f-6937de3a1e1f",
+      "service_id": "ZmYFcQJQf1tMfQ==",
+      "first_name": "LORENZO",
+      "last_name": "DICASTELNUOVO",
+      "rank": "CPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "eab57545-3aa2-4cfc-95c6-e6fb817aef63",
+      "service_id": "ZmIMfABdf1ZGfA==",
+      "first_name": "CHRISTOPHE",
+      "last_name": "DITTER",
+      "rank": "SSGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8307ebbf-eb42-472f-88e5-1a5202acfee7",
+      "service_id": "ZmUGfQ1VdF5HcQ==",
+      "first_name": "EMILI",
+      "last_name": "DODSON",
+      "rank": "SSGT",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "94ac162c-d541-4c4a-8516-8eff812aa2ae",
+      "service_id": "ZmYHegJcdV1DfA==",
+      "first_name": "RACHEL",
+      "last_name": "DONALDSON",
+      "rank": "LCPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "bcdcec57-0ec8-43a6-a5fe-36c46f0428cc",
+      "service_id": "ZmYEfwdTdFZDew==",
+      "first_name": "SHUOKANG",
+      "last_name": "DONG",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "affe6c18-2e9b-4637-b511-555e9c9ec211",
+      "service_id": "ZmAEcAdUcFdCeg==",
+      "first_name": "AUTUMN",
+      "last_name": "DUCKWORTH",
+      "rank": "SGT",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "660d78ef-9ccd-4500-8ce6-fd453e87354e",
+      "service_id": "ZmUAfgxcdFlEeA==",
+      "first_name": "CHRISTOPHE",
+      "last_name": "DUDDY",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e3c65e73-9610-4d1f-80e1-80ffc8b0a52b",
+      "service_id": "ZmUAcQBXclhEcQ==",
+      "first_name": "EMMITT",
+      "last_name": "DUHANEY",
+      "rank": "CPL",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ffe05add-2a00-4d47-8f2c-98b35dc10a33",
+      "service_id": "ZmYFfwVWc1ZAew==",
+      "first_name": "UZUKHANYE",
+      "last_name": "DUMBELA",
+      "rank": "PFC",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1257e602-58f7-49c3-bd73-970383468775",
+      "service_id": "ZmYHeg1UflhEfg==",
+      "first_name": "HARRY",
+      "last_name": "DUMFEH",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "97254b14-0685-4997-9a6d-c5a7fab628c7",
+      "service_id": "ZmQAfgNSdl9McA==",
+      "first_name": "JUSTIN",
+      "last_name": "DURAN",
+      "rank": "SSGT",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "471a84d1-d2c4-4e71-924f-8cb16d65f418",
+      "service_id": "ZmYGeQxScl1CcA==",
+      "first_name": "MELVIN",
+      "last_name": "DURANDONU",
+      "rank": "LCPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "485d95ba-087c-4faa-8fb4-2bdb95765369",
+      "service_id": "ZmUMcAVRcl1Meg==",
+      "first_name": "JHAEZEL",
+      "last_name": "DY",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2080159d-13bc-4aa9-b9e5-318bbd357daa",
+      "service_id": "ZmUBfgNUdF5Hew==",
+      "first_name": "LUCAS",
+      "last_name": "EBRATT",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c1f69329-dd55-4e58-a264-07f7c1c50bb4",
+      "service_id": "ZmUFewFWdlZEfQ==",
+      "first_name": "JOSHUA",
+      "last_name": "EDWARDS",
+      "rank": "SSGT",
+      "unit_section_id": "211e7c25-c266-478a-a6f5-8595a63e992e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "35224210-9ecd-4f73-8424-53254f1e1f79",
+      "service_id": "ZmMDcABRdltBeA==",
+      "first_name": "WAYNE",
+      "last_name": "ELLERSON",
+      "rank": "GYSGT",
+      "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d961e944-78c9-4948-8c5f-3705d8711cf5",
+      "service_id": "ZmIBfw1RdlZGeQ==",
+      "first_name": "JULIAN",
+      "last_name": "ELLIOTTDROUIN",
+      "rank": "SGT",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c48800b0-de52-4571-8649-da680246c3f9",
+      "service_id": "ZmINcAZcc1dEfw==",
+      "first_name": "RILEY",
+      "last_name": "ELMORE",
+      "rank": "MSGT",
+      "unit_section_id": "cc94edc0-372e-48b5-be21-4476c5ca3d98",
+      "current_duty_score": 0
+    },
+    {
+      "id": "95b622a6-d625-4b75-882a-cd6fb0acf188",
+      "service_id": "ZmYGewNQd1lDcQ==",
+      "first_name": "JONATHON",
+      "last_name": "ELY",
+      "rank": "LCPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "000ce46f-2ab1-40d6-b448-ba85644ec471",
+      "service_id": "ZmUGcQNUflZNfA==",
+      "first_name": "WILLIAM",
+      "last_name": "EMERSON",
+      "rank": "SSGT",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ef31978b-71f0-4c69-bf6a-182e13ac8a17",
+      "service_id": "ZmYHfwNSf11Aew==",
+      "first_name": "MANUEL",
+      "last_name": "ENRIQUEZ",
+      "rank": "LCPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ba0b8356-79d9-469a-a9b2-c80f6597d4e0",
+      "service_id": "ZmICfAJSdllBfg==",
+      "first_name": "CHARLES",
+      "last_name": "ESCO",
+      "rank": "CPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f19218b8-33a7-4b2b-9c0c-f4860bb4a4ce",
+      "service_id": "ZmYHfwJVfl1NfQ==",
+      "first_name": "SATLEE",
+      "last_name": "ESLAO",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5f0d1223-b7a1-4636-924b-758b5e1b2058",
+      "service_id": "ZmANfg1Qf1tAfQ==",
+      "first_name": "DANIEL",
+      "last_name": "ESPING",
+      "rank": "CWO4",
+      "unit_section_id": "0e5cd749-1583-4412-bdd5-0c792b76cfae",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ef2db2c0-8d6b-47a1-85cd-fce0e6667dcb",
+      "service_id": "ZmQFfgdUd1ZEeg==",
+      "first_name": "THOMAS",
+      "last_name": "ESTER JR",
+      "rank": "CPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "483b6b1d-e082-43c6-807c-17b30fcc4c4a",
+      "service_id": "ZmYHcAdQd15DeQ==",
+      "first_name": "JOHNNIE",
+      "last_name": "EVANS",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2a2c70f2-7c1f-466f-a238-064e33867dac",
+      "service_id": "ZmUFfQNVd19NeA==",
+      "first_name": "ANA",
+      "last_name": "FAJARDO",
+      "rank": "SSGT",
+      "unit_section_id": "99ac5152-2b84-42ea-adb9-aaa0452cfebf",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1ce154cb-799f-4ab2-94e9-ffd9c70a281b",
+      "service_id": "ZmYGfwFTc1tEfA==",
+      "first_name": "ROBBIE",
+      "last_name": "FARMER",
+      "rank": "LCPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "be3bfef3-29ff-446a-b1b6-5ca05eef5e6e",
+      "service_id": "ZmQFfAdddVdFcA==",
+      "first_name": "MIGUEL",
+      "last_name": "FELIX",
+      "rank": "GYSGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "095a1d96-b6ec-4921-bc09-87eb3d51463d",
+      "service_id": "ZmYEfQBQd1pAew==",
+      "first_name": "ANDRES",
+      "last_name": "FERNANDEZ",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ba68d036-411c-44c1-9fc9-e83e32c816c1",
+      "service_id": "ZmYHfQdQf1dGfA==",
+      "first_name": "ELVIS",
+      "last_name": "FERNANDEZ",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "add6ccc1-0da5-46aa-99a8-190b4560cf51",
+      "service_id": "ZmUAfQZTcVtEfA==",
+      "first_name": "TRISTAN",
+      "last_name": "FETTY",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8c2d2a30-3a16-412c-956d-63dc53f2ef03",
+      "service_id": "ZmYHeQZVdV1Gfg==",
+      "first_name": "DARLY",
+      "last_name": "FILSAIME",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a5a695ed-6980-4b53-87ec-54e339e2a914",
+      "service_id": "ZmYEeA1SclhFfg==",
+      "first_name": "STEVEN",
+      "last_name": "FLORES",
+      "rank": "CPL",
+      "unit_section_id": "1d6f201d-0e6c-4270-b487-c0c8beda9654",
+      "current_duty_score": 0
+    },
+    {
+      "id": "10edac77-b85e-412c-b492-f9bc943a1bf6",
+      "service_id": "ZmUNfwJdfl1AeA==",
+      "first_name": "XAVIER",
+      "last_name": "FLORES",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5df40aaa-5e82-43a4-ba19-8e5e7ffc80a0",
+      "service_id": "ZmUNcQVXcVhCcQ==",
+      "first_name": "GUSTAVO",
+      "last_name": "FLORESSANTOS",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e31c6c8c-4279-414d-83ee-23c89c13fe3a",
+      "service_id": "ZmYHcQ1SdVpEeA==",
+      "first_name": "BREANNE",
+      "last_name": "FLYNN",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "96b46db6-e1df-4cf1-8142-47357812285a",
+      "service_id": "ZmMMfgxUf19Dew==",
+      "first_name": "AIDAN",
+      "last_name": "FOGARTY",
+      "rank": "CAPT",
+      "unit_section_id": "3579b656-a505-4d1c-b712-8e444f142b0b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "84cc4063-6146-4ce2-94f3-1888a78d0ab3",
+      "service_id": "ZmQEeARQcFZMew==",
+      "first_name": "NEILONI",
+      "last_name": "FONGSOUZA",
+      "rank": "SSGT",
+      "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8703323e-7683-451b-812c-fbfaf2e4a760",
+      "service_id": "ZmINegRVdlxAeg==",
+      "first_name": "JOSHUA",
+      "last_name": "FOSBERG",
+      "rank": "SSGT",
+      "unit_section_id": "33f75718-85cc-417a-a6da-522c0bf1d571",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7a7fd849-00c6-4f39-b690-8ee0798263cb",
+      "service_id": "ZmUBfwVUflpHeA==",
+      "first_name": "ARIAUS",
+      "last_name": "FRAKER",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "90ec329b-facf-4c2e-80fe-7ffe2586b394",
+      "service_id": "ZmMMegxVdV1Eew==",
+      "first_name": "JOSEPH",
+      "last_name": "FRALIX",
+      "rank": "CWO2",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7e9dd0bb-e805-4406-b06d-2d507eed7216",
+      "service_id": "ZmUBfwBXfl5GeQ==",
+      "first_name": "ALIZE",
+      "last_name": "FRANCO",
+      "rank": "SGT",
+      "unit_section_id": "bb9b4d6d-a279-429b-85f1-1a2a80df40a4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "75fd096e-91a1-4c41-945a-d3774238fd77",
+      "service_id": "ZmYGeAxVclpDfA==",
+      "first_name": "KEVIN",
+      "last_name": "FRANCOFRANCO",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a75021bf-0e88-469c-a460-51a1971a2b67",
+      "service_id": "ZmICfgxdcVxFcQ==",
+      "first_name": "ANDREW",
+      "last_name": "FREMMING",
+      "rank": "MAJ",
+      "unit_section_id": "b8aa675f-b063-4aad-bcd1-88389cb831d2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f14fe7d9-83df-416e-b89d-639c2e958518",
+      "service_id": "ZmUMcAdRcl5CcA==",
+      "first_name": "ROBERT",
+      "last_name": "FRIEND III",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "32a436e0-1b48-4b89-b615-b15fd6514fc0",
+      "service_id": "ZmUMfQdVfl5DeQ==",
+      "first_name": "KACEY",
+      "last_name": "FROST",
+      "rank": "SGT",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b16add51-7b2c-4499-882a-8026de012c2f",
+      "service_id": "ZmUBeAVUc11FfA==",
+      "first_name": "CHASE",
+      "last_name": "FULLERTON",
+      "rank": "SSGT",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f33fbd62-4a73-4dd2-9e7b-44dc50238ffe",
+      "service_id": "ZmYEfgxSdV5GeA==",
+      "first_name": "EFRAIN",
+      "last_name": "GALINDOROJAS",
+      "rank": "CPL",
+      "unit_section_id": "0f5ee1aa-9cb0-45da-b2f6-2d7d8454092e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "307c386a-ef8e-4b82-8fc4-044fab06c104",
+      "service_id": "ZmYGeQ1UdFtEew==",
+      "first_name": "JONATON",
+      "last_name": "GARCIAGARCIA",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "27cb7f73-a2b3-48c5-86c6-4254c893729e",
+      "service_id": "ZmUMfABcfl1BcA==",
+      "first_name": "KELVIN",
+      "last_name": "GARCIAMEJIA",
+      "rank": "CPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "423dab27-33fd-4e61-9acb-f4a93c5e7e58",
+      "service_id": "ZmYEegRTcFpNeA==",
+      "first_name": "PARIS",
+      "last_name": "GATES",
+      "rank": "CPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "864ce088-a0ca-410e-8fbf-dd3ccb036bc4",
+      "service_id": "ZmYEewVcd1xHeg==",
+      "first_name": "JACOB",
+      "last_name": "GERFEN",
+      "rank": "CPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "55b91ea4-cdad-4352-90ae-2e6ec307995c",
+      "service_id": "ZmYFfARXcl1EeA==",
+      "first_name": "JAMES",
+      "last_name": "GOFF",
+      "rank": "CPL",
+      "unit_section_id": "88052cf4-e83c-40b8-8fdb-faafab10dfdd",
+      "current_duty_score": 0
+    },
+    {
+      "id": "68f0988c-b5db-4405-9564-c1f3ae4df8e9",
+      "service_id": "ZmINfwJSd1tNeg==",
+      "first_name": "MASON",
+      "last_name": "GOGGINS",
+      "rank": "LCPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "84464e78-2c7f-4ec1-98ab-c380fcb4c49e",
+      "service_id": "ZmYEfQRUclZEcQ==",
+      "first_name": "JAYLA",
+      "last_name": "GOMBER",
+      "rank": "CPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "952b663f-f59f-44bc-a108-da869dbf54a6",
+      "service_id": "ZmUCewNcd1hDew==",
+      "first_name": "ABDIAS",
+      "last_name": "GOMEZ",
+      "rank": "SGT",
+      "unit_section_id": "802c8965-d3ec-4de7-98c1-79388b20bff8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "70a226b8-8ed3-4f42-832e-6f0ac958d4c3",
+      "service_id": "ZmYGeQBVd1pEfg==",
+      "first_name": "LUIS",
+      "last_name": "GOMEZESCALERA",
+      "rank": "LCPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "caf34848-1f2f-4542-b8e4-d0fd910a8aef",
+      "service_id": "ZmUBcAJVdVtHcQ==",
+      "first_name": "EDUARD",
+      "last_name": "GONZALEZ",
+      "rank": "SGT",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7df39c91-56db-4d00-9884-0c54b8a5902b",
+      "service_id": "ZmYEfQxTc1lMew==",
+      "first_name": "JOHAN",
+      "last_name": "GONZALEZ",
+      "rank": "LCPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6449b5fd-e2f9-4a17-a859-9d3191dc1d67",
+      "service_id": "ZmYEfQNRf1ZFcQ==",
+      "first_name": "OMAR",
+      "last_name": "GONZALEZ",
+      "rank": "PFC",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "62d0205f-9302-4e2e-b94a-d765adf42b2d",
+      "service_id": "ZmQCeQxUf1lHeA==",
+      "first_name": "GABRIELA",
+      "last_name": "GONZALEZCEDANO",
+      "rank": "GYSGT",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c206ad54-c2f8-4457-b7e4-e48f08b65cd2",
+      "service_id": "ZmYEfgBcfl5BeA==",
+      "first_name": "KEVIN",
+      "last_name": "GONZALEZGARCIA",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "16de3521-304a-46e1-b5b5-1cf5115f6cfa",
+      "service_id": "ZmUFewBRcFZNcA==",
+      "first_name": "JOSEPH",
+      "last_name": "GONZALEZLOPEZ",
+      "rank": "SSGT",
+      "unit_section_id": "33f75718-85cc-417a-a6da-522c0bf1d571",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b19603d8-fd6c-4900-89a5-c739881636cb",
+      "service_id": "ZmYGfAVTclpEew==",
+      "first_name": "CARLOS",
+      "last_name": "GONZALEZMACHADO",
+      "rank": "PFC",
+      "unit_section_id": "8f4b6324-fdb4-4752-a919-670748a7d022",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8bf19cef-ecca-4270-b770-a10bd904b733",
+      "service_id": "ZmYFfwRUflhBeA==",
+      "first_name": "ALEJANDRO",
+      "last_name": "GONZALEZMANCILLA",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b0c5d728-1f7a-4e99-9ee0-eb8afc1c167d",
+      "service_id": "ZmYHfANVflZGeA==",
+      "first_name": "NICHOLAS",
+      "last_name": "GOODWIN",
+      "rank": "LCPL",
+      "unit_section_id": "be940f06-bdf6-477a-ab78-03f231306c89",
+      "current_duty_score": 0
+    },
+    {
+      "id": "952427e7-8367-4a69-bd81-22a5814f2087",
+      "service_id": "ZmYFegRdcV1HcQ==",
+      "first_name": "TIMOTHY",
+      "last_name": "GOVAN JR",
+      "rank": "CPL",
+      "unit_section_id": "fe84b3a3-80a9-4a60-8947-411dc616f209",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d1603d78-c6ca-4f9a-88b1-75a2def33e10",
+      "service_id": "ZmMCeQdVdllEfA==",
+      "first_name": "ISIDRO",
+      "last_name": "GRANA",
+      "rank": "WO",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ebb3ac45-78c4-46bb-910c-99b6940edb2b",
+      "service_id": "ZmYEcAdcdl1GfQ==",
+      "first_name": "LEIGHTON",
+      "last_name": "GREEN",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9421299d-837c-4340-aa11-ddc45d0bcea7",
+      "service_id": "ZmIBcQZddFpGeQ==",
+      "first_name": "ANDRE",
+      "last_name": "GREENE",
+      "rank": "MGYSGT",
+      "unit_section_id": "3f69a6fc-5866-4a0b-97d9-44ce62e8ca24",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cfd7d549-ca7e-4913-8f49-7fc3ca743efd",
+      "service_id": "ZmUMcAdRd1hEew==",
+      "first_name": "ZACHARY",
+      "last_name": "GUARASCE",
+      "rank": "CPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "444cb3bd-5263-4398-be8b-933ba924a212",
+      "service_id": "ZmUCegxTf1ZEew==",
+      "first_name": "DAVID",
+      "last_name": "GUEVARA",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a1c0cf18-9a7d-4669-b521-72bd58a995e0",
+      "service_id": "ZmYHeQ1XcltBfQ==",
+      "first_name": "HENRY",
+      "last_name": "GUILLEN",
+      "rank": "LCPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "75a65046-56b0-449f-bdf4-cccc88bd4fea",
+      "service_id": "ZmYHeAVRdFpHeQ==",
+      "first_name": "ALEXANDER",
+      "last_name": "GUTIERREZ",
+      "rank": "LCPL",
+      "unit_section_id": "e6da108c-7269-445b-b211-19571e31acb9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ccae3ef3-d044-4dc4-a4a3-f49fa4b3351a",
+      "service_id": "ZmUFfgRSdltHeA==",
+      "first_name": "BRIAN",
+      "last_name": "GUZMAN",
+      "rank": "SSGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d7e8eb90-c5cb-4b3d-9fa9-6e4ac3cb58c3",
+      "service_id": "ZmYEfwFUcldCeQ==",
+      "first_name": "MERRICK",
+      "last_name": "HABECKER",
+      "rank": "CPL",
+      "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4d2687be-c205-46a6-a1d2-56fdf56b5945",
+      "service_id": "ZmIBewJScFxHeA==",
+      "first_name": "TYLER",
+      "last_name": "HACKNEY",
+      "rank": "PFC",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f9b6c005-1d16-4cde-aca4-7a186b9adf32",
+      "service_id": "ZmYFfwZVflxHcQ==",
+      "first_name": "CARSON",
+      "last_name": "HAIR",
+      "rank": "CPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0997ab75-e330-4c50-8130-8d7ee44ac897",
+      "service_id": "ZmYEeABTf1dCcA==",
+      "first_name": "ERICKA",
+      "last_name": "HALL",
+      "rank": "CPL",
+      "unit_section_id": "3f69a6fc-5866-4a0b-97d9-44ce62e8ca24",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f9abcb37-42a2-471e-a412-152f34d14b43",
+      "service_id": "ZmUBcQVXf1dCfg==",
+      "first_name": "REED",
+      "last_name": "HALL",
+      "rank": "SGT",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "62e0d593-0add-4d03-b1e6-afe41649f50c",
+      "service_id": "ZmUFcAJXcVdDfA==",
+      "first_name": "MICHAEL",
+      "last_name": "HAMILTON",
+      "rank": "SSGT",
+      "unit_section_id": "211e7c25-c266-478a-a6f5-8595a63e992e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "eea73281-d066-4964-80f8-fca9bf8e10fe",
+      "service_id": "ZmUAcQBXdF1Dfw==",
+      "first_name": "JACE",
+      "last_name": "HANISCH",
+      "rank": "SGT",
+      "unit_section_id": "4ec84167-5dbc-4303-ad2a-f7631075877f",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3541ec14-7b4f-497f-95c2-ed970706e332",
+      "service_id": "ZmUDfAJWcltAeA==",
+      "first_name": "JAMES",
+      "last_name": "HANRAHAN",
+      "rank": "SGT",
+      "unit_section_id": "b1b228e5-6011-416f-841b-3ebd0262a067",
+      "current_duty_score": 0
+    },
+    {
+      "id": "83bef230-1b4c-4073-8b8d-8d1eee76634a",
+      "service_id": "ZmIMfwRdd1hGfA==",
+      "first_name": "TONY",
+      "last_name": "HANSEN",
+      "rank": "MSGT",
+      "unit_section_id": "211e7c25-c266-478a-a6f5-8595a63e992e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6c703b6c-3220-4941-ba37-c3b0c91e10f6",
+      "service_id": "ZmYHcAdScl1DcQ==",
+      "first_name": "CRISTIAN",
+      "last_name": "HARMON",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8f957238-4e8a-4172-b44d-04ff5d88241b",
+      "service_id": "ZmUGcQBRf19NcA==",
+      "first_name": "HAILEY",
+      "last_name": "HARMS",
+      "rank": "1STLT",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "372c3790-0d4a-46f0-a704-b13c7a5d028b",
+      "service_id": "ZmUNfwZRc11GfA==",
+      "first_name": "BRANDON",
+      "last_name": "HARTY",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "70233029-bacf-4dd0-b2bd-6145ff2d9bcc",
+      "service_id": "ZmUBcQZRdltHeA==",
+      "first_name": "TROY",
+      "last_name": "HARZULA",
+      "rank": "SGT",
+      "unit_section_id": "886b370d-a56c-4f75-9800-b43d48a17005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6f3c1c0d-d455-468c-8d4f-4ab44b67cfc4",
+      "service_id": "ZmYHeABQc1dEfQ==",
+      "first_name": "CALEB",
+      "last_name": "HAYES",
+      "rank": "CPL",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "076daacf-26d4-470d-984e-4d50203cbbb2",
+      "service_id": "ZmIMfgBcflZEew==",
+      "first_name": "STEVEN",
+      "last_name": "HAYES",
+      "rank": "GYSGT",
+      "unit_section_id": "886b370d-a56c-4f75-9800-b43d48a17005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "45737100-1027-4185-9614-8d1e3867ac18",
+      "service_id": "ZmINewNcdFtAeA==",
+      "first_name": "WILLIAM",
+      "last_name": "HAYNES",
+      "rank": "LTCOL",
+      "unit_section_id": "1812ed4d-982a-4bc0-a065-b9e3c523877a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "00326ed7-b97e-4ec2-9ea4-449b914f2c83",
+      "service_id": "ZmQDeANSc19Aew==",
+      "first_name": "ADAM",
+      "last_name": "HAZLETT",
+      "rank": "GYSGT",
+      "unit_section_id": "596f7957-fd9b-4a77-9bf7-b2c64aff207c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "324ffdc2-cd67-4ad1-94e6-22e977973bf9",
+      "service_id": "ZmYHeABQflpGcQ==",
+      "first_name": "CALEB",
+      "last_name": "HEAFER",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "859ac280-5643-49c5-92f4-faf5d24a160f",
+      "service_id": "ZmYEegVTflZHcQ==",
+      "first_name": "DANIEL",
+      "last_name": "HENAO",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8cf3d398-c631-4ef0-86ed-83f71b175b79",
+      "service_id": "ZmMDfwNQcVlGew==",
+      "first_name": "TEVIN",
+      "last_name": "HER",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0e22b06c-d9ed-49f1-8d0c-c7e515dcf1c8",
+      "service_id": "ZmUMfwZTdV9MfQ==",
+      "first_name": "FRANK",
+      "last_name": "HEREDIA III",
+      "rank": "SGT",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "507dd476-1f2c-401f-9136-65680cde5787",
+      "service_id": "ZmYGew1Vd1dBeA==",
+      "first_name": "CRISTOFER",
+      "last_name": "HERNANDEZ",
+      "rank": "LCPL",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f39b2b57-6d7a-4be3-ba86-ae9afb604745",
+      "service_id": "ZmYEcAJTfltBeg==",
+      "first_name": "MAIRA",
+      "last_name": "HERNANDEZ",
+      "rank": "CPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "eb13b8f1-446b-4bdb-aa5b-dba5888d9245",
+      "service_id": "ZmIAcAxVcVxHeg==",
+      "first_name": "RICARDO",
+      "last_name": "HERNANDEZ",
+      "rank": "GYSGT",
+      "unit_section_id": "fe84b3a3-80a9-4a60-8947-411dc616f209",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3cdb47c6-ddd4-4c97-af33-94f728d1a0e6",
+      "service_id": "ZmYFfQNddF1CcA==",
+      "first_name": "JONATHAN",
+      "last_name": "HERNANDEZCERVANTES",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f96ec9ec-b18f-4c64-8e3e-c61dd13df8fc",
+      "service_id": "ZmYEcQNXcV9MeQ==",
+      "first_name": "MARIA",
+      "last_name": "HERNANDEZSANTOS",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5ad899a8-a222-46a2-8325-baa9bd3b9d6d",
+      "service_id": "ZmYHfAdRfltEeQ==",
+      "first_name": "CHRISTIAN",
+      "last_name": "HICKMAN",
+      "rank": "LCPL",
+      "unit_section_id": "0ec255fb-1bee-4914-a1ac-11302e1f304d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c530d4dc-4aa7-4925-a6f8-161a6ecd273d",
+      "service_id": "ZmUNcQRVc1ZCfA==",
+      "first_name": "CASEY",
+      "last_name": "HICKS",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "275f88f8-5c92-4e80-9122-f52cabeb5a0f",
+      "service_id": "ZmIAeQxdd1dDfA==",
+      "first_name": "ANNALINA",
+      "last_name": "HILL",
+      "rank": "CPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c61fd39d-a604-4236-a516-0360a57887b3",
+      "service_id": "ZmYEeQVXf11Meg==",
+      "first_name": "KURTIS",
+      "last_name": "HILL",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "bf1c3042-917e-44e2-95a6-d74a3d696118",
+      "service_id": "ZmADeAZTf11BfA==",
+      "first_name": "NICOLE",
+      "last_name": "HILL",
+      "rank": "SSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4e9bbad0-b4aa-434f-8c5b-cf7fe304ecf0",
+      "service_id": "ZmYEfgBTflxNeQ==",
+      "first_name": "MARCO",
+      "last_name": "HINOJOS JR",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "49410b4a-e490-4031-9159-bca68d3ef24f",
+      "service_id": "ZmIMeQZRcV5EcA==",
+      "first_name": "JESSLYN",
+      "last_name": "HINOJOSA",
+      "rank": "CPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d1c312df-b839-4e25-8597-b3cd40507d14",
+      "service_id": "ZmMCfQNdc1xDcA==",
+      "first_name": "WILLIAM",
+      "last_name": "HINSON",
+      "rank": "MAJ",
+      "unit_section_id": "1d6f201d-0e6c-4270-b487-c0c8beda9654",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cf2db4a5-61b1-4ffb-b47f-7442c4d9111b",
+      "service_id": "ZmYFcAFcd1ZFfQ==",
+      "first_name": "BRETT",
+      "last_name": "HOFFMAN",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "dd262356-ac2b-442f-8344-e560163d991d",
+      "service_id": "ZmUMegJTcFlFcA==",
+      "first_name": "JOHN",
+      "last_name": "HOLLAND",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "15eb9fd2-fae6-41a3-afc0-9955ef4e1715",
+      "service_id": "ZmUMcAVTcFtEfQ==",
+      "first_name": "OLIVER",
+      "last_name": "HORN",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f40a335a-0280-4802-9b12-95b1b6424f76",
+      "service_id": "ZmYHegJWfl1MeQ==",
+      "first_name": "MADISON",
+      "last_name": "HORTON",
+      "rank": "LCPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cdffb3e6-8219-4d65-920d-1570e7ff0a34",
+      "service_id": "ZmIMfgVSf11Deg==",
+      "first_name": "KAILEE",
+      "last_name": "HOSMER",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d45e4ca5-bc75-4213-979a-1cc626a4570c",
+      "service_id": "ZmUEcQVcfl1Aeg==",
+      "first_name": "JAYLIN",
+      "last_name": "HUBBARD",
+      "rank": "SSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "62a10650-e090-48ae-a1ce-a7a9ab8a154e",
+      "service_id": "ZmYFfAxRdV9Bfw==",
+      "first_name": "BROCK",
+      "last_name": "HULL",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1226a360-ad35-4eb6-8fd2-3ef3b48b734c",
+      "service_id": "ZmYHeA1WdVhDfQ==",
+      "first_name": "MARIAELEN",
+      "last_name": "IBARRABRAVO",
+      "rank": "PFC",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "029e2831-644a-4514-80a9-468fe9d7c953",
+      "service_id": "ZmYFcARScFlCeQ==",
+      "first_name": "JEREMIAH",
+      "last_name": "IRELAND",
+      "rank": "LCPL",
+      "unit_section_id": "bb9b4d6d-a279-429b-85f1-1a2a80df40a4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "825993d7-a149-4977-b617-8e0d7a13c51b",
+      "service_id": "ZmYHcAZTcV5Eew==",
+      "first_name": "LUKE",
+      "last_name": "IRIZARRY",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e56e29b7-3e70-41dc-9d5b-67cacff58598",
+      "service_id": "ZmYFeQZVd1tCfA==",
+      "first_name": "JAHDEN",
+      "last_name": "JACOBS",
+      "rank": "SGT",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fdfe3f18-11c3-4a77-9f58-11d9facd2d04",
+      "service_id": "ZmUFcAJTcFdDeA==",
+      "first_name": "ALEXIS",
+      "last_name": "JAIMES",
+      "rank": "SSGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7d3e6106-d273-4545-88a3-96f701db6d84",
+      "service_id": "ZmYHegVWfl9Dfw==",
+      "first_name": "TRAVIS",
+      "last_name": "JAMIESON",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3c2716b5-7ed8-4bec-a631-126c1b122302",
+      "service_id": "ZmYEfgJTc11HfQ==",
+      "first_name": "NATAVIA",
+      "last_name": "JAMISON",
+      "rank": "CPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d92445dc-631d-404d-a77c-988bf500bf98",
+      "service_id": "ZmYHeQddcVhFcQ==",
+      "first_name": "ABRAHAM",
+      "last_name": "JIMENEZ",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7b30b609-3a26-4285-9653-15368b1b1413",
+      "service_id": "ZmYGeQBQdV9GfQ==",
+      "first_name": "KEVIN",
+      "last_name": "JOAQUINLOPEZ",
+      "rank": "LCPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "13b30c3b-da1c-482e-bcc9-7b9acf1a6f20",
+      "service_id": "ZmYHeQFUdVdBew==",
+      "first_name": "JADEN",
+      "last_name": "JOHNSON",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0e9e864f-3c13-4044-8bcd-a83181f7d1d7",
+      "service_id": "ZmYFfwdQcFdFcA==",
+      "first_name": "JARRETT",
+      "last_name": "JOHNSON",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d75a179f-9c64-4fab-8e01-708c69ec8211",
+      "service_id": "ZmUGeANXfl5GeA==",
+      "first_name": "KARON",
+      "last_name": "JOHNSON",
+      "rank": "SGT",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7459966a-f00f-4949-a50c-f2d83fb7635c",
+      "service_id": "ZmQDfgFcdFxFfQ==",
+      "first_name": "CLAYTON",
+      "last_name": "JOHNSTON",
+      "rank": "SSGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b91642cf-4fe7-414a-a677-86fd3d813518",
+      "service_id": "ZmYHegdUcV5GfQ==",
+      "first_name": "HANNAH",
+      "last_name": "JONES",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4f360e0d-b72c-4d10-b7ce-df32f649d89c",
+      "service_id": "ZmUGfQRScl5Nfg==",
+      "first_name": "RICKIA",
+      "last_name": "JONES",
+      "rank": "SSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a079d1eb-db6e-4fb3-8166-dba155efbfb1",
+      "service_id": "ZmUMfgdUdl5Neg==",
+      "first_name": "KYLE",
+      "last_name": "JOY",
+      "rank": "SGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2ba8c58e-2a5e-4a7e-a1b8-1d069af2e0bd",
+      "service_id": "ZmYGeQZUf1lCcQ==",
+      "first_name": "ALEXANDER",
+      "last_name": "JUAREZ",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a6c39d31-e60c-4f34-aeba-51cde2c9d4fa",
+      "service_id": "ZmUGfwxQcFtCcQ==",
+      "first_name": "EMMANUEL",
+      "last_name": "JUSTE",
+      "rank": "SSGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5637e688-cd3a-43d3-9961-dcf6746afa88",
+      "service_id": "ZmYHfQxRcldGeA==",
+      "first_name": "KATIE",
+      "last_name": "KANE",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ba29143b-2d42-4afe-afd5-a0e1590706c8",
+      "service_id": "ZmYFcAJUcFdCeA==",
+      "first_name": "ALEX",
+      "last_name": "KEENE",
+      "rank": "LCPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "82dcce8a-025d-4b0c-9f08-f4f2e99ca43f",
+      "service_id": "ZmYEcQNQcldNfA==",
+      "first_name": "TYLER",
+      "last_name": "KING",
+      "rank": "LCPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6d89d464-7ac8-45c9-b7ad-7f5bc76dd2c2",
+      "service_id": "ZmYFfgNRdFhDeQ==",
+      "first_name": "TESSA",
+      "last_name": "KNOBLAUCH",
+      "rank": "SGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9263ee7f-4ea7-439d-ad43-ca08aaf796e7",
+      "service_id": "ZmIDfQBQdFpCcA==",
+      "first_name": "ANDREW",
+      "last_name": "KOCH",
+      "rank": "LTCOL",
+      "unit_section_id": "587af4d7-3362-4fa9-aa5a-0f1560b1a63c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5fe36098-d0f4-47a4-a933-0915a58d1659",
+      "service_id": "ZmQFfAdddllMeQ==",
+      "first_name": "ANTHONY",
+      "last_name": "KOCH",
+      "rank": "CWO2",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fbc18e44-ab8e-42af-9348-07c468a77685",
+      "service_id": "ZmUAfAFWcF1BfQ==",
+      "first_name": "TRISTAN",
+      "last_name": "KONIECZNY",
+      "rank": "SGT",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a57a89e8-ea41-471a-8711-c798059c27bd",
+      "service_id": "ZmUBcQBScl5GeA==",
+      "first_name": "RYTHM",
+      "last_name": "KOZAK",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "26b1fc66-9a8d-4d5d-b23b-c8dea1274cdf",
+      "service_id": "ZmYHfw1WclpCfw==",
+      "first_name": "JOE",
+      "last_name": "KRAMER",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "79b8aacf-213e-458d-b64e-b83cdb35a400",
+      "service_id": "ZmUAeQNSclpAcQ==",
+      "first_name": "RYAN",
+      "last_name": "KRESMERY",
+      "rank": "SGT",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e901a41b-4942-40c6-8a0f-793d7b331c7b",
+      "service_id": "ZmYGfgZXdFxFew==",
+      "first_name": "MICHAEL",
+      "last_name": "KULIGOWSKI",
+      "rank": "PFC",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4b247b06-ee25-4760-923d-bbc8654e24d2",
+      "service_id": "ZmUMcAVTcF5Ceg==",
+      "first_name": "SABASTIAN",
+      "last_name": "LAKE",
+      "rank": "SGT",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "525882ca-9b27-4fa2-9597-9285bbd82e84",
+      "service_id": "ZmINfA1Rdl1McQ==",
+      "first_name": "RYAN",
+      "last_name": "LALONDE",
+      "rank": "CAPT",
+      "unit_section_id": "99ac5152-2b84-42ea-adb9-aaa0452cfebf",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e462839d-cd66-426d-a30d-439ab94a9edd",
+      "service_id": "ZmEDeAxQcl9EfQ==",
+      "first_name": "RYAN",
+      "last_name": "LAMAR",
+      "rank": "CAPT",
+      "unit_section_id": "b8aa675f-b063-4aad-bcd1-88389cb831d2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e3858572-f87a-4f6d-af45-1d9895f24024",
+      "service_id": "ZmUAfQdScVpNfQ==",
+      "first_name": "EMILY",
+      "last_name": "LARAVARGAS",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "45e3c3a9-1a6e-4c90-9bf3-e917e6987692",
+      "service_id": "ZmYEfQZdflxNeg==",
+      "first_name": "MARY",
+      "last_name": "LAWRENCE",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b2680b53-5e4b-4d7b-9e65-8a2e14998751",
+      "service_id": "ZmMDfg1Sdl9DeA==",
+      "first_name": "PENITILA",
+      "last_name": "LEAPAGA III",
+      "rank": "CWO3",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "aeb613e6-dfe2-4152-8b5d-30b022d4dc8d",
+      "service_id": "ZmUNcARVc1lMeg==",
+      "first_name": "JORDON",
+      "last_name": "LEBLANC",
+      "rank": "SGT",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2c3c2ea8-c6cc-40fc-b0f4-186e7fb95906",
+      "service_id": "ZmUEegNSdVdEeA==",
+      "first_name": "ZOE",
+      "last_name": "LEKAKIS",
+      "rank": "GYSGT",
+      "unit_section_id": "596f7957-fd9b-4a77-9bf7-b2c64aff207c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5913acdf-283c-4993-914f-854b07202540",
+      "service_id": "ZmUCewxUf1xMew==",
+      "first_name": "EDDIE",
+      "last_name": "LEON",
+      "rank": "SGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "99b0495d-47a0-45bf-838f-7cfd6f2fa28d",
+      "service_id": "ZmUEcQRXdVlNcA==",
+      "first_name": "JUAN",
+      "last_name": "LEONPEREZYNGA",
+      "rank": "SSGT",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6f40104b-6bd6-410c-bbc6-e452622944bf",
+      "service_id": "ZmYEfQRXcFxFeg==",
+      "first_name": "WILLIAMJOS",
+      "last_name": "LEPEGUTIERREZ",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "39c83482-881b-4672-be8c-d3c2001b8d7c",
+      "service_id": "ZmYEfwNVcl5Efg==",
+      "first_name": "GAGE",
+      "last_name": "LERMA",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e403f80f-5d82-4bba-89dc-7f5c0cb55c74",
+      "service_id": "ZmANewZTclZNfg==",
+      "first_name": "STEVEN",
+      "last_name": "LILLEY",
+      "rank": "GYSGT",
+      "unit_section_id": "550f9826-7b1c-4b1d-8840-e0661795010f",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8997c1d3-ea01-4976-9895-7078efdf84e1",
+      "service_id": "ZmUNcA1Sd15Cew==",
+      "first_name": "MAX",
+      "last_name": "LINDNER",
+      "rank": "1STLT",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "484c6764-2f3c-4b6a-a94b-58deed56f41c",
+      "service_id": "ZmYFeg1TcFdBew==",
+      "first_name": "VICTOR",
+      "last_name": "LOAIZAANDRADE",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "59d508ca-9fe0-4680-bb0c-bf1eeacef69f",
+      "service_id": "ZmUMfAdVflZAcQ==",
+      "first_name": "TAYLOR",
+      "last_name": "LOMAS",
+      "rank": "LCPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "caca74df-f2f5-4a0d-be3a-0467e89f0d7d",
+      "service_id": "ZmYEcQJWdl5Ffg==",
+      "first_name": "DAVID",
+      "last_name": "LOPEZ",
+      "rank": "CPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d0d37daf-c8e0-4e89-8bbf-2262ded13848",
+      "service_id": "ZmMCeQVQfldNeA==",
+      "first_name": "ERIC",
+      "last_name": "LOPEZ",
+      "rank": "GYSGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ad4c34eb-bab5-4d7b-b56f-022e0ca7f542",
+      "service_id": "ZmYEeAZcc1lMeA==",
+      "first_name": "JAIME",
+      "last_name": "LOPEZ",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "03b34652-904f-4ed3-85ed-c25e58167816",
+      "service_id": "ZmUMeARTdV5EeA==",
+      "first_name": "MICHAEL",
+      "last_name": "LOPEZ",
+      "rank": "SGT",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "98ad1766-7579-4903-9b09-a1a1d82ab169",
+      "service_id": "ZmYGfANRcVdCeA==",
+      "first_name": "SAMUEL",
+      "last_name": "LOPEZ",
+      "rank": "PFC",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a7a93104-7d65-4379-a2f2-ccf5fcbf602d",
+      "service_id": "ZmYEewdScl1Heg==",
+      "first_name": "EMILIANO",
+      "last_name": "LOPEZCORTEZ",
+      "rank": "CPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "bc5a148e-3c80-42e4-9dfb-0c3b0b887d5a",
+      "service_id": "ZmYEewBUclxGeg==",
+      "first_name": "JORGE",
+      "last_name": "LOPEZERAZO",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ce3f1308-3274-4d2b-a8af-591c1606ee7b",
+      "service_id": "ZmYEfwxdfl1FfA==",
+      "first_name": "MAITE",
+      "last_name": "LORENZOMARTINEZ",
+      "rank": "LCPL",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ff3216bf-2d78-4d7e-8409-d22099b409fb",
+      "service_id": "ZmUMfgRTdFtDfA==",
+      "first_name": "DYLAN",
+      "last_name": "LOWE",
+      "rank": "LCPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7c2cdab5-7cbd-4e7a-bfd3-c05311bf9269",
+      "service_id": "ZmYEfQZRcF5New==",
+      "first_name": "GIOVANNI",
+      "last_name": "LOZA",
+      "rank": "LCPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4cfd6c5f-6e75-4107-aae5-6fb9eecf2ce0",
+      "service_id": "ZmUFegBXd1xDcQ==",
+      "first_name": "JUSTIN",
+      "last_name": "LUCAS",
+      "rank": "SSGT",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2e635f16-3c14-4e82-95c3-ec61be1f58e5",
+      "service_id": "ZmUBfA1Qd1pMeA==",
+      "first_name": "ISABELLE",
+      "last_name": "LUGO",
+      "rank": "SGT",
+      "unit_section_id": "25748431-17de-42b4-8fea-701cb193ac99",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0c7f4ae9-55a1-4ad9-8895-0ab37264e403",
+      "service_id": "ZmYEegVUfl9CeA==",
+      "first_name": "COLIN",
+      "last_name": "LUMBRERAS",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5c8582be-5995-49fc-b61e-44bcd27790ce",
+      "service_id": "ZmUGfQVcclpNeQ==",
+      "first_name": "BAILEY",
+      "last_name": "MACNEIL",
+      "rank": "SSGT",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "dc884921-44fb-4b76-a932-a968e6b95994",
+      "service_id": "ZmYGeQdRcVhNeA==",
+      "first_name": "DARIAN",
+      "last_name": "MAINA",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fc5c1370-cd14-46ac-a717-79adabb51e99",
+      "service_id": "ZmUBfgNTdlZAfQ==",
+      "first_name": "KAMERON",
+      "last_name": "MALAUULU",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "67d9c83e-5647-49f4-b8e4-7f8aff05d6ea",
+      "service_id": "ZmUBfAxRdltGcA==",
+      "first_name": "ANGEL",
+      "last_name": "MALDONADO",
+      "rank": "CAPT",
+      "unit_section_id": "3335447f-af51-4e55-8078-82fcf68658a2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a4198dc0-799c-4f45-8c3d-27577b5ff1f3",
+      "service_id": "ZmYBeQVUd1hAew==",
+      "first_name": "COLE",
+      "last_name": "MALOY",
+      "rank": "PFC",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c2d1e772-3601-4cc5-a136-92ef2b038d58",
+      "service_id": "ZmYEfQVXdlxMfw==",
+      "first_name": "JESUS",
+      "last_name": "MANCERABARRERAS",
+      "rank": "CPL",
+      "unit_section_id": "bb9b4d6d-a279-429b-85f1-1a2a80df40a4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "86557296-92e9-4dce-9549-861c190f8b7d",
+      "service_id": "ZmQAcQ1Qd1lBfQ==",
+      "first_name": "VICTOR",
+      "last_name": "MANCILLA",
+      "rank": "GYSGT",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "79d1ddc6-d31b-4238-801c-832aefcb5c22",
+      "service_id": "ZmIGcQFVf15HcA==",
+      "first_name": "TOMAS",
+      "last_name": "MANESS",
+      "rank": "SGT",
+      "unit_section_id": "b0da4043-9a6b-4c42-b79c-6b2e19622ae9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "93f7c048-b2ea-4c22-887b-91c29be41231",
+      "service_id": "ZmYGfwBVc1pCeg==",
+      "first_name": "ASSA",
+      "last_name": "MAR",
+      "rank": "LCPL",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d3f01b6e-0a22-4d03-83d2-1b4debe6661e",
+      "service_id": "ZmYHfwJXcVZEfw==",
+      "first_name": "JESSE",
+      "last_name": "MARISCAL",
+      "rank": "LCPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "86b5d95f-4373-4f65-a0c1-b20d6db3fd3f",
+      "service_id": "ZmYGeAxXclZFfQ==",
+      "first_name": "JEARNBRICK",
+      "last_name": "MARTEJA",
+      "rank": "LCPL",
+      "unit_section_id": "8f4b6324-fdb4-4752-a919-670748a7d022",
+      "current_duty_score": 0
+    },
+    {
+      "id": "33acf6f6-cc87-4c19-b338-3cf3be3cbfa6",
+      "service_id": "ZmYFfwdRdl9GfQ==",
+      "first_name": "CALEB",
+      "last_name": "MARTIN",
+      "rank": "SGT",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "bb626664-c8ec-4c52-92e8-903bb4ec49e9",
+      "service_id": "ZmABfwNddF1Few==",
+      "first_name": "ISAAC",
+      "last_name": "MARTIN",
+      "rank": "SSGT",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "09e11752-70f2-41c3-a058-59a3dbd748b4",
+      "service_id": "ZmYEegNdcVZNeA==",
+      "first_name": "CESARIO",
+      "last_name": "MARTINEZ JR",
+      "rank": "CPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0ff0a6f9-db47-4119-93f6-28cacb0353f1",
+      "service_id": "ZmYFeQxcd1tAew==",
+      "first_name": "DANIEL",
+      "last_name": "MARTINEZ JR",
+      "rank": "SGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ce0da973-d5a2-4f26-ab2a-222eb900ed06",
+      "service_id": "ZmYGeQdWf1pFfw==",
+      "first_name": "ALIZA",
+      "last_name": "MARTINEZ",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "00daa110-8aeb-4c46-bcf0-6c66afa0d682",
+      "service_id": "ZmYEcAxVfltMew==",
+      "first_name": "ASHLEY",
+      "last_name": "MARTINEZ",
+      "rank": "CPL",
+      "unit_section_id": "b8aa675f-b063-4aad-bcd1-88389cb831d2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "78330cf5-e77c-44dc-87fb-0708e567919c",
+      "service_id": "ZmUMeAJSd19Beg==",
+      "first_name": "AXEL",
+      "last_name": "MARTINEZ",
+      "rank": "SGT",
+      "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b53d3e2d-7248-4f13-bb51-058e39a34058",
+      "service_id": "ZmIBfgdQd15Afw==",
+      "first_name": "BRANDEN",
+      "last_name": "MARTINEZ",
+      "rank": "SGT",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fac8dd91-93a6-4b01-ab93-98bd431db8ed",
+      "service_id": "ZmYGewBVcV5GcQ==",
+      "first_name": "BRIAN",
+      "last_name": "MARTINEZ",
+      "rank": "LCPL",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1ecdd622-8f3d-4552-a221-960bbd06577d",
+      "service_id": "ZmYEcAxcdlhAeA==",
+      "first_name": "IVAN",
+      "last_name": "MARTINEZ",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a79ee89c-aab5-467b-82a1-1bc2b89cb129",
+      "service_id": "ZmYEeAZQcl1BcQ==",
+      "first_name": "KENYON",
+      "last_name": "MARTINEZ",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "947d51fa-b0cf-49e4-842c-2a34a6057539",
+      "service_id": "ZmMCcAdUcltEeg==",
+      "first_name": "DARA",
+      "last_name": "MASGA",
+      "rank": "MSGT",
+      "unit_section_id": "fb76fbfc-9b7e-4976-bcd6-2a11ec231d2b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7b238e9d-1231-48b8-b90d-23af4babc126",
+      "service_id": "ZmUDewxQdVtGfw==",
+      "first_name": "ANTHONY",
+      "last_name": "MASON",
+      "rank": "SGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4935c9c6-7222-4557-90d9-85e76481dc28",
+      "service_id": "ZmICewNRcl9FfA==",
+      "first_name": "ASHTON",
+      "last_name": "MASTERS",
+      "rank": "PFC",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cfa7dcc4-ad67-4377-97c0-de8309e50852",
+      "service_id": "ZmYFcQJcc19Gew==",
+      "first_name": "ALEXANDER",
+      "last_name": "MATIASRODRIGUEZ",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c21ce777-22fa-4a96-8d27-c1d6a18138ef",
+      "service_id": "ZmEEcA1Qf11HeA==",
+      "first_name": "MORRIS",
+      "last_name": "MAYFIELD III",
+      "rank": "MGYSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0108729e-d2d4-4f67-a134-8efc9accc50c",
+      "service_id": "ZmUCewFQcV1AeA==",
+      "first_name": "JESUS",
+      "last_name": "MAYORAL",
+      "rank": "SGT",
+      "unit_section_id": "88052cf4-e83c-40b8-8fdb-faafab10dfdd",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4806c662-dca8-4c6f-b465-2743eb4d7512",
+      "service_id": "ZmYGewVccFlEcA==",
+      "first_name": "GABRIEL",
+      "last_name": "MAYORGA",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1162f02d-5a9c-44a2-93ef-bbad3c108bd4",
+      "service_id": "ZmUMfQVdd1xCcA==",
+      "first_name": "ANTHONY",
+      "last_name": "MAZZAFERRO",
+      "rank": "CPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "042243c7-0c8a-489b-a858-0554994fc3dd",
+      "service_id": "ZmYHeQZcf1dAeg==",
+      "first_name": "MBENDA",
+      "last_name": "MBENGUE",
+      "rank": "CPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4f828152-4437-4ad4-85f0-41b67f0ff24c",
+      "service_id": "ZmUCeABdfllBeQ==",
+      "first_name": "TRISTEN",
+      "last_name": "MCCLARNON",
+      "rank": "SGT",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ffe4978e-8d29-44ab-9078-ddae2d52ec92",
+      "service_id": "ZmUAcQVccltCeA==",
+      "first_name": "ETHAN",
+      "last_name": "MCCULLOUGH",
+      "rank": "SGT",
+      "unit_section_id": "88052cf4-e83c-40b8-8fdb-faafab10dfdd",
+      "current_duty_score": 0
+    },
+    {
+      "id": "12f2183a-6033-4911-bd10-22202b952428",
+      "service_id": "ZmYGfQRTc11EcQ==",
+      "first_name": "JAYDEN",
+      "last_name": "MCDONALD",
+      "rank": "LCPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0f1c97a8-c8eb-47ff-b648-bf5c0e2ce9b5",
+      "service_id": "ZmUMeAZXd19Gew==",
+      "first_name": "JACOB",
+      "last_name": "MCKNIGHT",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ed4d4181-84c4-4d6c-b54d-6248363e347c",
+      "service_id": "ZmUNcQRXcVxAcA==",
+      "first_name": "DAYSHA",
+      "last_name": "MCNAIR",
+      "rank": "SGT",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c4492eda-0ff9-4c34-ba4e-033ff515d3f9",
+      "service_id": "ZmYHeQNWd1hGcQ==",
+      "first_name": "DEE",
+      "last_name": "MEH",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2247997f-17d5-4893-9b76-0a130e69ee6f",
+      "service_id": "ZmYHeQdVflhCeg==",
+      "first_name": "KAREN",
+      "last_name": "MEJIATUNCHEZ",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3b02c92c-95a4-4372-a92e-03d77839edbf",
+      "service_id": "ZmYFfQ1RdFtHfQ==",
+      "first_name": "BRANDON",
+      "last_name": "MELGAR",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ddfa5d98-9de9-47b9-ab07-b5be5ddc798f",
+      "service_id": "ZmYHeQVRcF1Gew==",
+      "first_name": "LOUIS",
+      "last_name": "MENDOZA",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3d6e3905-f59e-4b8d-b5ac-df69f3328ce3",
+      "service_id": "ZmUBcQNddl5BeA==",
+      "first_name": "HAKIM",
+      "last_name": "MENEFEE",
+      "rank": "SGT",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "96d92357-d951-4808-aa44-34eed52c9087",
+      "service_id": "ZmYEewNXf1tMeQ==",
+      "first_name": "MEREDITH",
+      "last_name": "MERCER",
+      "rank": "LCPL",
+      "unit_section_id": "550f9826-7b1c-4b1d-8840-e0661795010f",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fd9056e4-45ea-42d6-ba09-2f82d46dd2e2",
+      "service_id": "ZmYHegZQflxAcQ==",
+      "first_name": "NATHAN",
+      "last_name": "MICHEL",
+      "rank": "LCPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c49a95b3-a3c0-464f-8662-244df6d5442a",
+      "service_id": "ZmYEeANQf1ZAfw==",
+      "first_name": "ALIC",
+      "last_name": "MILLER",
+      "rank": "CPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "882d2cfc-bbae-4662-8ef6-58eafb9b028e",
+      "service_id": "ZmINfANdc1lEfw==",
+      "first_name": "CEDRIC",
+      "last_name": "MILLER",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f4a14849-f110-4605-b673-b66d1c0cec21",
+      "service_id": "ZmYGegRWcF5HeQ==",
+      "first_name": "WILLIAM",
+      "last_name": "MILLER",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "04100a9f-575a-4411-8401-af97b23a2feb",
+      "service_id": "ZmYHeQxRcFxEfQ==",
+      "first_name": "ALEJANDRO",
+      "last_name": "MIRAMORALES",
+      "rank": "CPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f9f89cde-d4e2-48c3-a6e9-000549a1cc8e",
+      "service_id": "ZmYHcQZdflpBfw==",
+      "first_name": "FABIO",
+      "last_name": "MIRANDAHENRIQUEZ",
+      "rank": "LCPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "612f2162-5f68-4440-9a2f-e9fad71beda6",
+      "service_id": "ZmUMfARTcVdAew==",
+      "first_name": "COLE",
+      "last_name": "MLINAR",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "af1fe99f-db41-40e8-b1ec-3223ffba46ce",
+      "service_id": "ZmYEfABVdFtMeg==",
+      "first_name": "FRANKLIN",
+      "last_name": "MOLINAQUELAL",
+      "rank": "CPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "86323ce3-a422-44b8-9f05-048a36a4b531",
+      "service_id": "ZmYHeQZccFtHfg==",
+      "first_name": "LESLYE",
+      "last_name": "MOLINAVALLEJO",
+      "rank": "PFC",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "80257728-12e3-4474-a9b4-8a6ccc36c3a3",
+      "service_id": "ZmYEegJQdVhDeA==",
+      "first_name": "TREVOR",
+      "last_name": "MOMANYI",
+      "rank": "LCPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "14004ccd-4f2e-4b38-b3f1-e72c2ebfb557",
+      "service_id": "ZmYFcQZUdFhBcA==",
+      "first_name": "KAILYN",
+      "last_name": "MONTEZ",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "13a50571-bb80-425a-929e-1708bcae691e",
+      "service_id": "ZmYFcQJdc19Hfw==",
+      "first_name": "TYLER",
+      "last_name": "MONTGOMERY",
+      "rank": "CPL",
+      "unit_section_id": "cc94edc0-372e-48b5-be21-4476c5ca3d98",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c0792adb-4149-4d4a-a108-d053d4156383",
+      "service_id": "ZmIGfwNTcFhAfQ==",
+      "first_name": "JAYCE",
+      "last_name": "MOOR",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ddbe6ba6-ee4f-4926-9002-28d3ac817add",
+      "service_id": "ZmYHfQBQdF1Nfw==",
+      "first_name": "ERIC",
+      "last_name": "MORALESMONTES",
+      "rank": "PFC",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1c6e4668-a3af-4f31-a0d6-db8bf0ccbaaf",
+      "service_id": "ZmMNfANcdFpBew==",
+      "first_name": "PATRICK",
+      "last_name": "MORAN",
+      "rank": "MAJ",
+      "unit_section_id": "33f75718-85cc-417a-a6da-522c0bf1d571",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3d81a654-408a-4a6b-a6a5-2836dda0ee89",
+      "service_id": "ZmIAegRXdFdGeQ==",
+      "first_name": "ADAN",
+      "last_name": "MORENO",
+      "rank": "SGTMAJ",
+      "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d9ffe6f1-fd58-4448-b9ac-5460f4663974",
+      "service_id": "ZmQAfgNSdl1Meg==",
+      "first_name": "EMILIO",
+      "last_name": "MORENO",
+      "rank": "SSGT",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "99f482d0-cd3b-4a9e-b3cf-90ed293af5f4",
+      "service_id": "ZmYHeQJQdVhMfg==",
+      "first_name": "ANGELIQUE",
+      "last_name": "MORGAN",
+      "rank": "LCPL",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a976da8b-578d-4547-b169-63d19af4e8ad",
+      "service_id": "ZmYEewFVdFhCeg==",
+      "first_name": "JAMES",
+      "last_name": "MORGAN",
+      "rank": "CPL",
+      "unit_section_id": "3fe75c62-d3a8-4b34-b3db-12abcbcf6a33",
+      "current_duty_score": 0
+    },
+    {
+      "id": "37361a43-1eef-48f5-b2ca-0c5da92757ce",
+      "service_id": "ZmYHfANQc1tEfQ==",
+      "first_name": "JOHN",
+      "last_name": "MORITZ",
+      "rank": "LCPL",
+      "unit_section_id": "99ac5152-2b84-42ea-adb9-aaa0452cfebf",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8f7e8e7c-2ab8-46d9-8dfe-5eb37dc110f5",
+      "service_id": "ZmYEegZdf11EfA==",
+      "first_name": "RANDY",
+      "last_name": "MOROCHO",
+      "rank": "LCPL",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "29c31031-60ab-4b37-9c1c-8bd2d480770f",
+      "service_id": "ZmYGewdccVhNfA==",
+      "first_name": "HECTOR",
+      "last_name": "MOSQUEDA JR",
+      "rank": "PFC",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d4094d4d-d4b3-4f5a-8447-7a17c945ff3c",
+      "service_id": "ZmUBfQFVclxCeA==",
+      "first_name": "PATRICK",
+      "last_name": "MULKEARNS",
+      "rank": "CAPT",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a5c5eaab-96da-4eef-a493-c7854c48cbaf",
+      "service_id": "ZmYHfgNRcl1Meg==",
+      "first_name": "SALVADOR",
+      "last_name": "MURO",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "baa7257d-3e0f-48c3-8e31-324e00941560",
+      "service_id": "ZmYEeg1QcFdAfw==",
+      "first_name": "TIMOTHY",
+      "last_name": "NASH",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "26dad8e7-0083-4c7c-8caa-8bf1b65d834b",
+      "service_id": "ZmYGeAVddVtEfg==",
+      "first_name": "SAMUEL",
+      "last_name": "NEWBERRY",
+      "rank": "LCPL",
+      "unit_section_id": "bb9b4d6d-a279-429b-85f1-1a2a80df40a4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "42c14fb8-057b-4fdc-a82f-cdd89e04ec19",
+      "service_id": "ZmUMeQRcdV1BeA==",
+      "first_name": "MICHAEL",
+      "last_name": "NINO",
+      "rank": "CPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ee98dc57-f016-455d-832d-9066c43ea4d1",
+      "service_id": "ZmYFfwVUdl9Hfw==",
+      "first_name": "VIVANT",
+      "last_name": "NKURUNZIZA",
+      "rank": "CPL",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e5422018-b214-4983-9965-8d3fd9ec9cae",
+      "service_id": "ZmYHfw1SdFxAfQ==",
+      "first_name": "MICHAEL",
+      "last_name": "NUNGESTER JR",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e28a110d-efbf-4f16-9ed9-e32368194c33",
+      "service_id": "ZmYEeQVQcF5AcQ==",
+      "first_name": "ANGUS",
+      "last_name": "NYANDER",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2ea6bb16-7535-41b3-b7c3-1e35b10ac05d",
+      "service_id": "ZmYHfARQc1dAfA==",
+      "first_name": "MARINA",
+      "last_name": "OCHOA",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "94287fab-1f5c-4d1f-a273-85d3dbb13161",
+      "service_id": "ZmQAfgNSdlpBeA==",
+      "first_name": "JOHN",
+      "last_name": "OHARA",
+      "rank": "1STLT",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e3a4f979-54af-41f1-847c-ad01e9dc88be",
+      "service_id": "ZmUAeAVRc15Cew==",
+      "first_name": "OSCAR",
+      "last_name": "OJEDA",
+      "rank": "SGT",
+      "unit_section_id": "d4d3e290-b464-433f-98ce-41a23b7da106",
+      "current_duty_score": 0
+    },
+    {
+      "id": "77a10eee-6f4f-40c9-9322-04b9f5909d03",
+      "service_id": "ZmMMeQZVd1xBeA==",
+      "first_name": "MAURICE",
+      "last_name": "ORTEGA",
+      "rank": "SGT",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2a77fe62-af2e-479e-9503-1f562b88a84b",
+      "service_id": "ZmUAfA1Xf1xEfA==",
+      "first_name": "ASTRID",
+      "last_name": "ORTIZ",
+      "rank": "SGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "af96435e-321d-494f-bf2b-d069d78f5620",
+      "service_id": "ZmYFfQFccVpMew==",
+      "first_name": "ALEJANDRA",
+      "last_name": "OTEROCAMARGO",
+      "rank": "CPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a8bea567-8570-4e4f-943d-0cd1ec5ce1c3",
+      "service_id": "ZmUCegRWcF1FcA==",
+      "first_name": "TEVITA",
+      "last_name": "OTUAFI",
+      "rank": "SGT",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "96fb8469-d81d-418f-9bb2-1a7b36226838",
+      "service_id": "ZmIDfARTcF1NcA==",
+      "first_name": "SARA",
+      "last_name": "PACHECO",
+      "rank": "SGTMAJ",
+      "unit_section_id": "587af4d7-3362-4fa9-aa5a-0f1560b1a63c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7f5a6757-acb9-484e-ab85-7f003cd37fee",
+      "service_id": "ZmYFfQJRf1hCeQ==",
+      "first_name": "DYLAN",
+      "last_name": "PACK",
+      "rank": "CPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a0175198-ce1d-45f3-b77c-2008d6a0c11a",
+      "service_id": "ZmUFcQRTflZMfw==",
+      "first_name": "JAVIER",
+      "last_name": "PADILLA",
+      "rank": "SSGT",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f073fb90-0f2a-4431-88f2-6d0211f0924f",
+      "service_id": "ZmYGcAFSc11GeQ==",
+      "first_name": "ETHAN",
+      "last_name": "PARAS",
+      "rank": "PFC",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0216f955-84c1-4f6d-b996-140a7adde9af",
+      "service_id": "ZmYFfABTdldGfA==",
+      "first_name": "GEORGE",
+      "last_name": "PARDO",
+      "rank": "SGT",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3bbc98e2-0c77-4f2f-a6ed-6b00db5da411",
+      "service_id": "ZmYHcQVcflZDew==",
+      "first_name": "AFFINITY",
+      "last_name": "PARKER",
+      "rank": "LCPL",
+      "unit_section_id": "9c2f26fe-0097-4f3a-adb5-946f3d1defec",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1ee4dde0-6817-4969-a723-0aff09e5ef38",
+      "service_id": "ZmMMfABTcl1GcA==",
+      "first_name": "JAMES",
+      "last_name": "PAULY IV",
+      "rank": "CWO2",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9f39005c-c0a8-414f-9900-e5c0f4059a1c",
+      "service_id": "ZmUMfAdVcVhGeQ==",
+      "first_name": "GABRIEL",
+      "last_name": "PAVICH",
+      "rank": "CPL",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cbb48ec1-245a-4f91-a23d-61333690162f",
+      "service_id": "ZmMNfgBSdVZMfQ==",
+      "first_name": "KIRSTEN",
+      "last_name": "PEARSON",
+      "rank": "SGT",
+      "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5069353b-987f-496a-824b-359bed6776e9",
+      "service_id": "ZmUBcQ1Uc1lDfA==",
+      "first_name": "PENNY",
+      "last_name": "PELLEGRINI",
+      "rank": "1STLT",
+      "unit_section_id": "e6da108c-7269-445b-b211-19571e31acb9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8e0561db-5fc3-4e26-b1ec-e61bffc962c9",
+      "service_id": "ZmUDfg1dcVtFfQ==",
+      "first_name": "JOHNATHON",
+      "last_name": "PENA",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d87651bd-ba73-4692-9fbd-fefe1e14b43c",
+      "service_id": "ZmINcQRVf1xGeQ==",
+      "first_name": "KRYSTA",
+      "last_name": "PENA",
+      "rank": "MSGT",
+      "unit_section_id": "0f5ee1aa-9cb0-45da-b2f6-2d7d8454092e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cc784d20-8230-4a0b-b426-5d4a0006f6be",
+      "service_id": "ZmYEegFVdF1FcQ==",
+      "first_name": "SKYLYNN",
+      "last_name": "PENCE",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "58917fda-75f1-4f9c-9b60-71ade626487e",
+      "service_id": "ZmIDfgVVcF9Dfw==",
+      "first_name": "JONATHAN",
+      "last_name": "PENNINGTON",
+      "rank": "CWO2",
+      "unit_section_id": "3335447f-af51-4e55-8078-82fcf68658a2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4a041d49-65b1-44f6-b632-0acb75afa58c",
+      "service_id": "ZmYEfAVVfltAfQ==",
+      "first_name": "DEANDRE",
+      "last_name": "PERRY JR",
+      "rank": "CPL",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "12323ef4-fec9-4750-a113-ec9b17e26424",
+      "service_id": "ZmYHegRccV9EeA==",
+      "first_name": "BRYCE",
+      "last_name": "PHILLIPS",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6305d771-2f0d-4765-9f56-0241bb5f44e8",
+      "service_id": "ZmIDcARVd1xGcA==",
+      "first_name": "FABRICIO",
+      "last_name": "PINARGOTE",
+      "rank": "CWO3",
+      "unit_section_id": "fb76fbfc-9b7e-4976-bcd6-2a11ec231d2b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "07cbaedd-b4cb-4e7a-9e28-6a7ffaef1a68",
+      "service_id": "ZmQEeARXcVxBfg==",
+      "first_name": "JOSEPH",
+      "last_name": "PINTO",
+      "rank": "GYSGT",
+      "unit_section_id": "1d6f201d-0e6c-4270-b487-c0c8beda9654",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1294cdc7-33d9-4271-ad99-0df3c5301445",
+      "service_id": "ZmYFcA1QdFlHeg==",
+      "first_name": "LIZZETTE",
+      "last_name": "PINTO",
+      "rank": "CPL",
+      "unit_section_id": "e6da108c-7269-445b-b211-19571e31acb9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "aa52ebd3-356c-4cea-b033-08b560404225",
+      "service_id": "ZmIDfw1VclZGeQ==",
+      "first_name": "PHILLIP",
+      "last_name": "PITTMAN",
+      "rank": "LCPL",
+      "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "338c8fc1-e905-4579-9301-8a30977f53ed",
+      "service_id": "ZmYEfwdQcl5Feg==",
+      "first_name": "ROBERTVINC",
+      "last_name": "POCAIGUE JR",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "14985dee-3da1-4808-b444-df4d99bc5f52",
+      "service_id": "ZmYHcQZcclxAew==",
+      "first_name": "JOSUE",
+      "last_name": "PONCEMARTINEZ",
+      "rank": "LCPL",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9ea12681-525b-4164-bcad-deb4fb2358fa",
+      "service_id": "ZmQNcQRScVxFeg==",
+      "first_name": "MARIANA",
+      "last_name": "POSADAS",
+      "rank": "GYSGT",
+      "unit_section_id": "20eec77a-f57d-4764-b10d-ea5c8a8ddc2c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4caf6ae0-2fed-4517-85b7-f49e81b49bbf",
+      "service_id": "ZmUNfwxScFxCew==",
+      "first_name": "GARY",
+      "last_name": "POSTLEWAIT",
+      "rank": "SGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "39143431-9ee1-45cc-9ca1-c376456c96a5",
+      "service_id": "ZmYHcQxRd1xAfQ==",
+      "first_name": "LETICIA",
+      "last_name": "PRADO",
+      "rank": "PFC",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f25abab2-5d01-40fa-bc42-7e648a74a5cc",
+      "service_id": "ZmYHcQNTdVZDew==",
+      "first_name": "BRYAN",
+      "last_name": "PRAVIA",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8d93c535-7959-4f9a-bbbf-5ef6f6c8bb16",
+      "service_id": "ZmIDewFTdVZCcA==",
+      "first_name": "CODY",
+      "last_name": "PRESSON",
+      "rank": "SGT",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0f398974-b954-46af-9c59-10b9c6468852",
+      "service_id": "ZmYEeQdTd1dBeQ==",
+      "first_name": "LUIS",
+      "last_name": "PUENTESOROZCO",
+      "rank": "SGT",
+      "unit_section_id": "ab15e626-8621-4ca0-b9c9-9486148e98f4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b2a98970-2f68-43e8-bad0-4e88c0eddc63",
+      "service_id": "ZmMDewRUd11FcQ==",
+      "first_name": "MICHAEL",
+      "last_name": "RAMIREZ",
+      "rank": "CWO2",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7127947e-1b73-4505-8aa8-ea10d07957a0",
+      "service_id": "ZmIMcAZSdVtBew==",
+      "first_name": "URIEL",
+      "last_name": "RAMIREZ",
+      "rank": "WO",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "17540919-3c64-4928-a7d0-720641b529e8",
+      "service_id": "ZmINfAJXd15Gew==",
+      "first_name": "VALERIE",
+      "last_name": "RAMIREZ",
+      "rank": "CWO3",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "16ec33fc-119e-4b53-819b-680c58e1d328",
+      "service_id": "ZmICfwBWc15BfA==",
+      "first_name": "JEFFREY",
+      "last_name": "RANDALL",
+      "rank": "LTCOL",
+      "unit_section_id": "b9fb02f5-4cfe-4995-9de3-ff4ff116bc7d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "dff1abf6-e044-4587-bb75-b8a7a9e71bc8",
+      "service_id": "ZmICcAxWdVpHew==",
+      "first_name": "SHYHIEM",
+      "last_name": "REED",
+      "rank": "LCPL",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9343d8d4-3135-4356-8cdb-34abdb3f5c86",
+      "service_id": "ZmANeQBccVhDeQ==",
+      "first_name": "CHRISTOPH",
+      "last_name": "REITHMANN",
+      "rank": "MAJ",
+      "unit_section_id": "587af4d7-3362-4fa9-aa5a-0f1560b1a63c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9455c821-0fa6-434f-8c25-a51ab9749ef6",
+      "service_id": "ZmUHfgNWc1hAcQ==",
+      "first_name": "RILEY",
+      "last_name": "RENTERIA",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9aa1ba36-3a4d-4067-8bc3-a998a141a1cf",
+      "service_id": "ZmYGeAJRdFlFeg==",
+      "first_name": "ERIS",
+      "last_name": "RESENDEZ",
+      "rank": "PFC",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9688e7fe-c0ae-4e75-8714-20840e25ae7d",
+      "service_id": "ZmIMcABcdVpNew==",
+      "first_name": "CRESCENCIA",
+      "last_name": "REYES",
+      "rank": "1STSGT",
+      "unit_section_id": "a498366d-614f-4b92-b4ef-1674f20b4dfd",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e7a1eecf-7176-4759-b891-d7df526244a5",
+      "service_id": "ZmUMfAFddllFfA==",
+      "first_name": "JOSUE",
+      "last_name": "REYES",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "284231a8-df04-460d-bc02-9e596fae33cb",
+      "service_id": "ZmYEfABTdFhBeg==",
+      "first_name": "ADRIAN",
+      "last_name": "REYESMUNOZ",
+      "rank": "CPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "dd6a5755-9dcf-4b95-b1cc-2e40cc24433e",
+      "service_id": "ZmYEfQ1WclpDeA==",
+      "first_name": "ALEXANDRO",
+      "last_name": "REYNA",
+      "rank": "CPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2a81db3d-7c21-49c9-8b2b-dc44dc006493",
+      "service_id": "ZmYHeAJRcFxNew==",
+      "first_name": "ELIA",
+      "last_name": "REYNAGA",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d265ee58-aac6-4131-b26c-dbdaf3cf6ea5",
+      "service_id": "ZmUMfQVSdV9FeQ==",
+      "first_name": "DUSTIN",
+      "last_name": "RHODES JR",
+      "rank": "SGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ec073f26-d693-4bf7-b8be-2986da45c5de",
+      "service_id": "ZmUMfAZSd1xMfQ==",
+      "first_name": "MARCIANO",
+      "last_name": "RIBEIROSILVA",
+      "rank": "SGT",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f1af6ff2-eb9e-413c-96b9-10e7cbee3a8e",
+      "service_id": "ZmINfQRWdF9FcA==",
+      "first_name": "KEVIN",
+      "last_name": "RICHARDSON II",
+      "rank": "CWO4",
+      "unit_section_id": "fb76fbfc-9b7e-4976-bcd6-2a11ec231d2b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cb1fb172-056f-4f76-be4c-5f953eb6a8b1",
+      "service_id": "ZmYGeQ1RcF1EeQ==",
+      "first_name": "GARY",
+      "last_name": "RICHMOND",
+      "rank": "LCPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "98143d8f-e2c9-464a-b3df-72de4ec6b522",
+      "service_id": "ZmYFcQdScF1Feg==",
+      "first_name": "JOHNIE",
+      "last_name": "RIDDLE V",
+      "rank": "CPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0e0108a6-f042-44fb-a384-b78c17968739",
+      "service_id": "ZmYHfAxWcFxBcA==",
+      "first_name": "MARCO",
+      "last_name": "RINCON",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c75a6b18-fcd5-4191-b380-3bdd4f11717e",
+      "service_id": "ZmYEfQFTc1pBcQ==",
+      "first_name": "RYAN",
+      "last_name": "RIOS",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "59538df0-8606-4d65-b546-13f6c8d49258",
+      "service_id": "ZmYHewFRdl9CcQ==",
+      "first_name": "ERICK",
+      "last_name": "RIOSTORRES",
+      "rank": "CPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "474ffb97-7adb-4411-924c-57e57494ab87",
+      "service_id": "ZmUBeg1Sc15EfQ==",
+      "first_name": "JORGE",
+      "last_name": "RIVERA",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "789a9eef-ef50-4037-a972-097243ada64a",
+      "service_id": "ZmYGfwFWcl1NeA==",
+      "first_name": "KEVIN",
+      "last_name": "RIVERA",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5341d25e-24c8-4f4f-ada7-b0329e18b6ad",
+      "service_id": "ZmQEeAVUclZMfA==",
+      "first_name": "MATTHEW",
+      "last_name": "RIVERA",
+      "rank": "GYSGT",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8b651ffb-7323-463d-aea6-3d7acbe551f8",
+      "service_id": "ZmUAcARQflZAeg==",
+      "first_name": "JOSIAH",
+      "last_name": "RIVERS JR",
+      "rank": "CPL",
+      "unit_section_id": "886b370d-a56c-4f75-9800-b43d48a17005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2638705d-4d53-42ed-8c79-7cfb6b7ed664",
+      "service_id": "ZmYEfwdScV1DcQ==",
+      "first_name": "ANDRE",
+      "last_name": "ROBERTS",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "694f5bbd-4ae9-46f1-9123-9a97db0ef080",
+      "service_id": "ZmUBfARUfl1NcA==",
+      "first_name": "MARIAH",
+      "last_name": "ROBERTS",
+      "rank": "SGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b390ebb3-4157-4e1c-bf1a-03c5caee190a",
+      "service_id": "ZmYEcAZSdV1Mfw==",
+      "first_name": "BRITISH",
+      "last_name": "ROBINSON",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c2a133ff-cd87-4900-aaa3-bbc0351d7290",
+      "service_id": "ZmIBeAdTdFpDeQ==",
+      "first_name": "DANIEL",
+      "last_name": "ROBINSON",
+      "rank": "MSGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6bad7fc2-8298-4f06-bb9c-d3044c15122b",
+      "service_id": "ZmINcA1Uc1hFfw==",
+      "first_name": "JALEN",
+      "last_name": "ROBINSON",
+      "rank": "LCPL",
+      "unit_section_id": "0ec255fb-1bee-4914-a1ac-11302e1f304d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cd752930-b690-4c30-86d1-3b3dfc3c1524",
+      "service_id": "ZmQDew1Wf11EeQ==",
+      "first_name": "JOSEPH",
+      "last_name": "ROBINSON",
+      "rank": "SSGT",
+      "unit_section_id": "596f7957-fd9b-4a77-9bf7-b2c64aff207c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d18b04c5-4d36-45df-96a5-fb7f3b5a6049",
+      "service_id": "ZmQDfAdXc1xNfg==",
+      "first_name": "LIZBETH",
+      "last_name": "ROBLES",
+      "rank": "GYSGT",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f1ccf6be-216c-47f5-8825-f865a12e807c",
+      "service_id": "ZmUBfwVRfldDeQ==",
+      "first_name": "BOO",
+      "last_name": "ROCHESTER",
+      "rank": "SSGT",
+      "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
+      "current_duty_score": 0
+    },
+    {
+      "id": "74ee0825-5f61-4238-a49b-b93f0ca02ae9",
+      "service_id": "ZmIAeQVUcV1NfQ==",
+      "first_name": "ALICIA",
+      "last_name": "RODRIGUEZ",
+      "rank": "CPL",
+      "unit_section_id": "3fe75c62-d3a8-4b34-b3db-12abcbcf6a33",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6b6dcce4-dfed-4f0c-b816-3f5a197a2ef7",
+      "service_id": "ZmUFfQRRc1xDeA==",
+      "first_name": "CHRISTIAN",
+      "last_name": "RODRIGUEZ",
+      "rank": "SSGT",
+      "unit_section_id": "a498366d-614f-4b92-b4ef-1674f20b4dfd",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c349cc36-5ce7-4708-a4ce-551002e57439",
+      "service_id": "ZmUMeAJQd19Mfg==",
+      "first_name": "GREGORY",
+      "last_name": "RODRIGUEZ",
+      "rank": "CPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "45366ff9-2379-4d87-a407-6998495f97ac",
+      "service_id": "ZmYEfQZUclZGfA==",
+      "first_name": "JORGE",
+      "last_name": "RODRIGUEZ",
+      "rank": "CPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "890a1aea-c633-478a-9368-c2557f93eb28",
+      "service_id": "ZmUMcANVfl1DfQ==",
+      "first_name": "JORGE",
+      "last_name": "RODRIGUEZ",
+      "rank": "CPL",
+      "unit_section_id": "99ac5152-2b84-42ea-adb9-aaa0452cfebf",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7085ad10-b62c-4b22-9dfa-8bc40d80dbae",
+      "service_id": "ZmYHfAVQdVdMeA==",
+      "first_name": "JEAN",
+      "last_name": "RODRIGUEZCOLON",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "bf69415c-c2ea-49b3-b94c-fc0c8bacb667",
+      "service_id": "ZmYEfg1XdVlDfw==",
+      "first_name": "PEYTEN",
+      "last_name": "ROEST",
+      "rank": "LCPL",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "39abcdb2-0813-479c-9cf6-88f69a5caff4",
+      "service_id": "ZmUGcQNUc11Mfg==",
+      "first_name": "BRANDON",
+      "last_name": "ROLLO",
+      "rank": "SGT",
+      "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "badaf6ba-5a51-4527-b994-b7a56f1e8976",
+      "service_id": "ZmYHfgNddV9GfA==",
+      "first_name": "IAN",
+      "last_name": "ROMANVALLELLANES",
+      "rank": "LCPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3bb47603-04b0-483f-99c8-e89286f72c63",
+      "service_id": "ZmYHeAxUdVpBcA==",
+      "first_name": "DAVID",
+      "last_name": "ROMERO",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "77ea9b43-4fb7-4012-9e4c-ef4b7c17df5e",
+      "service_id": "ZmQDfQxQd15MeQ==",
+      "first_name": "RICARDO",
+      "last_name": "ROSADO JR",
+      "rank": "SSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a04c5c6e-7c55-44eb-b108-93924d359471",
+      "service_id": "ZmUEcQRWfl5DeQ==",
+      "first_name": "LUZ",
+      "last_name": "ROSADO",
+      "rank": "SSGT",
+      "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b8862315-9a99-40b8-b1be-7ed58812c6ba",
+      "service_id": "ZmANfwRQd15Cew==",
+      "first_name": "STEVEN",
+      "last_name": "RUANE",
+      "rank": "1STLT",
+      "unit_section_id": "587af4d7-3362-4fa9-aa5a-0f1560b1a63c",
+      "current_duty_score": 0
+    },
+    {
+      "id": "53ce484a-e271-4e16-90ec-e2c2f8740b15",
+      "service_id": "ZmYFcAFQcllAfQ==",
+      "first_name": "ADRIANA",
+      "last_name": "RUIZ",
+      "rank": "LCPL",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d3f70152-3d78-4233-993a-7907539d34ba",
+      "service_id": "ZmYEfQ1Xf1lFfQ==",
+      "first_name": "AVERY",
+      "last_name": "RUSHING",
+      "rank": "CPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3c122e51-fe58-4004-8b33-d9f085e4319d",
+      "service_id": "ZmYGewRXf1dBeA==",
+      "first_name": "KAI",
+      "last_name": "SAING",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "80c03fe2-1449-456f-aac6-c44f19ea2b85",
+      "service_id": "ZmUBfQZVd1pEeg==",
+      "first_name": "EDUARDO",
+      "last_name": "SALAS",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0c5d89c5-1a78-44fe-a9b1-b06da4144235",
+      "service_id": "ZmYEcQBWd1xHfA==",
+      "first_name": "AMERICA",
+      "last_name": "SALDANA",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4fded06b-d798-4859-93fe-fb9ca2db4bd1",
+      "service_id": "ZmUBegJRfl5EfA==",
+      "first_name": "ISIDRA",
+      "last_name": "SALINASRODRIGUEZ",
+      "rank": "SGT",
+      "unit_section_id": "886b370d-a56c-4f75-9800-b43d48a17005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "64336040-742a-4b3b-9330-766702b1416d",
+      "service_id": "ZmQFewNUd1ZEeg==",
+      "first_name": "NICOLE",
+      "last_name": "SANCHEZ",
+      "rank": "GYSGT",
+      "unit_section_id": "e6da108c-7269-445b-b211-19571e31acb9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "4d304b87-6ce9-4056-a11a-844165877175",
+      "service_id": "ZmYGegRRdV9NeA==",
+      "first_name": "EDWUAR",
+      "last_name": "SANCHEZCASTILLO",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "947d47dd-06ff-494d-bdd2-664cbc8c5215",
+      "service_id": "ZmUEeQZdcF9DeA==",
+      "first_name": "CHANTAL",
+      "last_name": "SANCHEZLAUCER",
+      "rank": "GYSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d296044b-8ce1-4dc9-b8f4-91ffaa5d8c73",
+      "service_id": "ZmUAfQNQfltMew==",
+      "first_name": "NICHALOS",
+      "last_name": "SANNER",
+      "rank": "SGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cb1916f1-14d6-494f-813c-44536ac252e4",
+      "service_id": "ZmYHfgVTd1xMfA==",
+      "first_name": "JOE",
+      "last_name": "SANTELLANA JR",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6f88be12-cee1-43d8-a7dd-81b9040afc3a",
+      "service_id": "ZmQDcQ1SfllMew==",
+      "first_name": "JOSEPH",
+      "last_name": "SANTONE",
+      "rank": "SSGT",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9b891c30-ca16-486d-96bd-403c9ce343cd",
+      "service_id": "ZmMMcAZWf19AeA==",
+      "first_name": "ROBERTO",
+      "last_name": "SAUCEDA",
+      "rank": "GYSGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "297ef534-d5ea-4ec7-b1e5-728d5108c50c",
+      "service_id": "ZmEHfAFUc1ZMeA==",
+      "first_name": "JACOB",
+      "last_name": "SAUCEDO",
+      "rank": "GYSGT",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9ed75660-c635-469f-8732-85a7a0dabf02",
+      "service_id": "ZmYGeQVVdl9Mfg==",
+      "first_name": "ROODLEY",
+      "last_name": "SAUREL",
+      "rank": "LCPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f56b72e3-f717-446f-b196-aad056398fc7",
+      "service_id": "ZmYFcQNTfl9Efg==",
+      "first_name": "MICHAEL",
+      "last_name": "SAVAGE",
+      "rank": "CPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a8280546-5042-4de2-a990-9385f6f772d7",
+      "service_id": "ZmYGeQ1cc1tNeA==",
+      "first_name": "TREYTON",
+      "last_name": "SAVAGE",
+      "rank": "LCPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "68e3d7f0-b925-4ced-89bf-7fa55d12b6c9",
+      "service_id": "ZmYHfAxTd1hAfA==",
+      "first_name": "ROCCO",
+      "last_name": "SCANDARIATO",
+      "rank": "LCPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fc592263-84f2-48de-af6f-04b5c54ae71c",
+      "service_id": "ZmYHewJWdFpNeA==",
+      "first_name": "TAELOR",
+      "last_name": "SCHOOLER",
+      "rank": "LCPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b666cfba-45da-4aac-968e-a56801cfb462",
+      "service_id": "ZmYFeQZUf1dGfg==",
+      "first_name": "ANGELO",
+      "last_name": "SEBASTIAN",
+      "rank": "CPL",
+      "unit_section_id": "cc94edc0-372e-48b5-be21-4476c5ca3d98",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7fdd75fd-0eb5-492b-bb7a-8b0e6a6924a0",
+      "service_id": "ZmYFcQ1Vf1lHfw==",
+      "first_name": "LESAY",
+      "last_name": "SENEGAL",
+      "rank": "LCPL",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e902cea5-ac99-47d0-9e99-d8b4a283a7a5",
+      "service_id": "ZmQFeQVdcV5Gew==",
+      "first_name": "JORGE",
+      "last_name": "SERRANO",
+      "rank": "GYSGT",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9a98705f-dbd7-407f-ad69-27aedf1d5da6",
+      "service_id": "ZmYEcQFWf15FeA==",
+      "first_name": "THOMAS",
+      "last_name": "SERRANO",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a3fe8522-0288-4694-bcf8-2038a8c383e8",
+      "service_id": "ZmYFfwFWdFpCeA==",
+      "first_name": "JACE",
+      "last_name": "SHEARER",
+      "rank": "SGT",
+      "unit_section_id": "bb9b4d6d-a279-429b-85f1-1a2a80df40a4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "cf281d2b-1937-4391-8e2b-893e3a9b7614",
+      "service_id": "ZmUAeQJWf1xNeA==",
+      "first_name": "AVERY",
+      "last_name": "SHEPPARD",
+      "rank": "SGT",
+      "unit_section_id": "802c8965-d3ec-4de7-98c1-79388b20bff8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a3cda381-c287-4aae-a907-c72f5c48e98c",
+      "service_id": "ZmUMfQNTcV9DcQ==",
+      "first_name": "JACK",
+      "last_name": "SHIELDS",
+      "rank": "CPL",
+      "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "69e8eab3-76bf-41b6-886e-95246a87a066",
+      "service_id": "ZmUHegRTfl5GcA==",
+      "first_name": "BENJAMIN",
+      "last_name": "SHREVE",
+      "rank": "CAPT",
+      "unit_section_id": "1d6f201d-0e6c-4270-b487-c0c8beda9654",
+      "current_duty_score": 0
+    },
+    {
+      "id": "03a5c298-0c5d-447b-b29e-cf9f0f9d0506",
+      "service_id": "ZmUGewNXf1hCfg==",
+      "first_name": "MARTINLUTH",
+      "last_name": "SIMELEUMO",
+      "rank": "CPL",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "556e0769-20ed-4056-ad60-60bb3bea499b",
+      "service_id": "ZmQDeQZVcF9Bew==",
+      "first_name": "RICHARD",
+      "last_name": "SIMONTE",
+      "rank": "SSGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b5292963-d743-46b7-aa36-2cb566a83c77",
+      "service_id": "ZmYFcABddVxEfg==",
+      "first_name": "ANABEL",
+      "last_name": "SKUSE",
+      "rank": "CPL",
+      "unit_section_id": "fe84b3a3-80a9-4a60-8947-411dc616f209",
+      "current_duty_score": 0
+    },
+    {
+      "id": "20a6484e-00bc-464c-ab5f-c5913271bc66",
+      "service_id": "ZmUMcAVWdlxDeA==",
+      "first_name": "GARRETT",
+      "last_name": "SLOAN",
+      "rank": "SGT",
+      "unit_section_id": "bb9b4d6d-a279-429b-85f1-1a2a80df40a4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b24040e8-dba5-44c5-b123-e75a5a48b8e6",
+      "service_id": "ZmYHfwRTcVtBfg==",
+      "first_name": "ALANA",
+      "last_name": "SMALLWOOD",
+      "rank": "LCPL",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3bae2957-5e5a-43e6-a727-a5cb165749d8",
+      "service_id": "ZmYEcAVdflxDeA==",
+      "first_name": "CHRISTOPHE",
+      "last_name": "SMITH",
+      "rank": "LCPL",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "73f5fbc5-235a-40c7-8596-36f038754e37",
+      "service_id": "ZmUNcANTcFpAfA==",
+      "first_name": "SEAN",
+      "last_name": "SMITH",
+      "rank": "CPL",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d970b39a-4591-4fb4-8e66-774661c5afca",
+      "service_id": "ZmUDfANWcFhDfQ==",
+      "first_name": "DAVID",
+      "last_name": "SORIA",
+      "rank": "SGT",
+      "unit_section_id": "d4d3e290-b464-433f-98ce-41a23b7da106",
+      "current_duty_score": 0
+    },
+    {
+      "id": "59f1a43d-6ecf-4522-8f13-d10ea6f99f6b",
+      "service_id": "ZmUMfgVQfllCcA==",
+      "first_name": "KASSANDRA",
+      "last_name": "SORIA",
+      "rank": "SGT",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7b31dd61-bf91-4b72-866d-1b643af0606c",
+      "service_id": "ZmMDcQJcf1tBeA==",
+      "first_name": "NICHOLAS",
+      "last_name": "SOUTHWICK",
+      "rank": "SSGT",
+      "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5095bdc1-5b5d-4f60-8259-51cfd3cdbc40",
+      "service_id": "ZmUBewJVd1tHeA==",
+      "first_name": "JORDAN",
+      "last_name": "SPENCER",
+      "rank": "SSGT",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "357f75f2-a559-4b64-a56f-f4def4c7112b",
+      "service_id": "ZmUMfgVQdVZFfw==",
+      "first_name": "TAMALLIA",
+      "last_name": "SPENCER",
+      "rank": "SGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "786f6856-2710-402a-a05c-69bb9ce7c1e2",
+      "service_id": "ZmMNfgJXclhNcA==",
+      "first_name": "JONATHAN",
+      "last_name": "STARK",
+      "rank": "GYSGT",
+      "unit_section_id": "3579b656-a505-4d1c-b712-8e444f142b0b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2d7a8ba7-6a4c-4354-b31f-42a2eac913a7",
+      "service_id": "ZmMMfwFVdVtHeA==",
+      "first_name": "TAYLOR",
+      "last_name": "STATEN",
+      "rank": "SSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8267c763-2074-48e8-841c-2182a9cdfe01",
+      "service_id": "ZmUMegxXdFpAfw==",
+      "first_name": "OSCAR",
+      "last_name": "STAUTZENBERGER",
+      "rank": "SGT",
+      "unit_section_id": "a498366d-614f-4b92-b4ef-1674f20b4dfd",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ff560ede-5f3f-46e1-a0ed-2df78834b4d4",
+      "service_id": "ZmUMcAZRcl9AcQ==",
+      "first_name": "TRAVIS",
+      "last_name": "STAYTON",
+      "rank": "CPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2b7473fa-ef31-4b11-9c38-ac86dad5b322",
+      "service_id": "ZmUMeg1Vd1xAeA==",
+      "first_name": "MATHEW",
+      "last_name": "STEELE",
+      "rank": "SGT",
+      "unit_section_id": "8be73c0e-9706-4700-a73a-402ba828adb5",
+      "current_duty_score": 0
+    },
+    {
+      "id": "310046fa-f276-4604-8cff-4a88fecdf23c",
+      "service_id": "ZmUBeQ1RdVtDfQ==",
+      "first_name": "DALVIN",
+      "last_name": "STEWART",
+      "rank": "SGT",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "bdd8d681-c6bb-4696-b6c3-a86300a90d24",
+      "service_id": "ZmYEfAVWdlhDfg==",
+      "first_name": "JAYLIN",
+      "last_name": "STICHTER",
+      "rank": "CPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a8dcb482-6a90-48e4-8abe-5c2c4d9b407c",
+      "service_id": "ZmUNcABcdV5HcQ==",
+      "first_name": "JESSICA",
+      "last_name": "STOUT",
+      "rank": "SGT",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "98b69f74-8d74-4ac3-b9df-714eb6d36434",
+      "service_id": "ZmYEfgZRf1lNeA==",
+      "first_name": "JAMES",
+      "last_name": "STRONG III",
+      "rank": "PFC",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f9181b4c-02c5-4240-a473-bdcf173e2c23",
+      "service_id": "ZmINegBWf1xBeQ==",
+      "first_name": "EZEKIEL",
+      "last_name": "SUTER",
+      "rank": "LCPL",
+      "unit_section_id": "0ec255fb-1bee-4914-a1ac-11302e1f304d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c30d4a58-f613-480d-92c0-6c8426861947",
+      "service_id": "ZmUFeAFScFZBeg==",
+      "first_name": "MEAGAN",
+      "last_name": "SWICK",
+      "rank": "SSGT",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a5dc9859-d1e7-4c56-99d1-02436dd2bb6f",
+      "service_id": "ZmYGeQxQf1hBfw==",
+      "first_name": "OUMOU",
+      "last_name": "SYLLA",
+      "rank": "LCPL",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5cece606-e2ed-4da1-8f78-37b349534b40",
+      "service_id": "ZmYEfQxcc1ZNcQ==",
+      "first_name": "JARED",
+      "last_name": "TAMALEAA",
+      "rank": "LCPL",
+      "unit_section_id": "96dcf46b-51ff-40d0-9bc9-3a5fed9eb57a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9b04d855-8136-46e7-8668-fe19aad5f939",
+      "service_id": "ZmYHcQVccFlMfw==",
+      "first_name": "OLIVIA",
+      "last_name": "TEMPLETON",
+      "rank": "LCPL",
+      "unit_section_id": "b569bc37-fe05-455f-a05a-d58df36349f9",
+      "current_duty_score": 0
+    },
+    {
+      "id": "234e2937-177a-400b-b67c-b4d2b031df2a",
+      "service_id": "ZmYGewRQf1tAcA==",
+      "first_name": "PETER",
+      "last_name": "TEP",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0bb02e38-5931-40a7-afed-303dfba9638d",
+      "service_id": "ZmUHcAdSdVZBeA==",
+      "first_name": "NATHANIEL",
+      "last_name": "THOMPSON",
+      "rank": "CAPT",
+      "unit_section_id": "0ec255fb-1bee-4914-a1ac-11302e1f304d",
+      "current_duty_score": 0
+    },
+    {
+      "id": "8b82e706-9cf1-4ed1-897a-419848404d50",
+      "service_id": "ZmQFfwJWd1lBeQ==",
+      "first_name": "PATRICK",
+      "last_name": "TILTON",
+      "rank": "GYSGT",
+      "unit_section_id": "0e5cd749-1583-4412-bdd5-0c792b76cfae",
+      "current_duty_score": 0
+    },
+    {
+      "id": "13366afb-7e31-42e3-b954-b3bb993a34e4",
+      "service_id": "ZmYEfQVTd1hMfA==",
+      "first_name": "MAXWELL",
+      "last_name": "TOBIASON",
+      "rank": "CPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0289f5ec-5c51-4c65-94cf-e2ac92555232",
+      "service_id": "ZmUNeAJSclpBeA==",
+      "first_name": "RUSSELL",
+      "last_name": "TOMAN",
+      "rank": "SGT",
+      "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
+      "current_duty_score": 0
+    },
+    {
+      "id": "859963fd-06fc-42e0-a975-6cb80fc3b898",
+      "service_id": "ZmYGeQNRcl9NcQ==",
+      "first_name": "MASON",
+      "last_name": "TOMLIN",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ba372cd6-3dc0-438d-bd35-09e4b28164db",
+      "service_id": "ZmYGfAddc1lNeA==",
+      "first_name": "LOKAHI",
+      "last_name": "TONGE",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "324f74ab-e61c-4124-bd61-5df02ad70c9e",
+      "service_id": "ZmUBcAdQcF1GcQ==",
+      "first_name": "NOAH",
+      "last_name": "TORRALBA",
+      "rank": "CPL",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "18964f0f-e7da-443b-b6b3-5d7cf4b294b7",
+      "service_id": "ZmYHcAFVclxDcA==",
+      "first_name": "GABRIELA",
+      "last_name": "TORRES",
+      "rank": "LCPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3f7b8002-b284-4e15-8e34-ea047421db26",
+      "service_id": "ZmQFeQ1dd1hCcA==",
+      "first_name": "KRISTINA",
+      "last_name": "TREVINO",
+      "rank": "GYSGT",
+      "unit_section_id": "3f69a6fc-5866-4a0b-97d9-44ce62e8ca24",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1d74f59c-d053-4578-acd9-7f014dda2255",
+      "service_id": "ZmIDfAZcdFpDeg==",
+      "first_name": "EVER",
+      "last_name": "TRILLO",
+      "rank": "CPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "37eb816d-6386-4f29-9387-c2e46a15f976",
+      "service_id": "ZmYGeQFWdFZHfw==",
+      "first_name": "SHANDLEY",
+      "last_name": "TRIPLETT",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "7de3c128-3da4-43ab-b480-b59efc68abb3",
+      "service_id": "ZmYGeAFWflhBeA==",
+      "first_name": "ISABELLE",
+      "last_name": "TROCHESSETT",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "c6592c82-812e-493e-a826-b1d3e4053822",
+      "service_id": "ZmYEegFXdlpEeA==",
+      "first_name": "WILLIAM",
+      "last_name": "TRUE",
+      "rank": "CPL",
+      "unit_section_id": "d4d3e290-b464-433f-98ce-41a23b7da106",
+      "current_duty_score": 0
+    },
+    {
+      "id": "77edb85b-f844-4302-b541-dd3669537e49",
+      "service_id": "ZmUHegRQf1dHfw==",
+      "first_name": "JOHNATHON",
+      "last_name": "TURNER III",
+      "rank": "MAJ",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b0f64887-04a0-4a3a-9636-216573d79eaa",
+      "service_id": "ZmMDewxXcF5AeA==",
+      "first_name": "TROY",
+      "last_name": "TURNER",
+      "rank": "PFC",
+      "unit_section_id": "30ee27e3-209e-49ea-9c85-4b59e93bb51b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "19a051dd-69cb-456e-9d6a-a28838135d03",
+      "service_id": "ZmUMeAJWdlhGeA==",
+      "first_name": "IVAN",
+      "last_name": "UGALDE",
+      "rank": "SGT",
+      "unit_section_id": "88052cf4-e83c-40b8-8fdb-faafab10dfdd",
+      "current_duty_score": 0
+    },
+    {
+      "id": "75a370f4-3248-40b1-8ce9-334ca7f43c61",
+      "service_id": "ZmICfgJQcl5Gfw==",
+      "first_name": "KAMARI",
+      "last_name": "UNDERWOOD",
+      "rank": "CPL",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6b546172-644d-44e5-bac3-5da25ab01b1b",
+      "service_id": "ZmUBfwRSflxNeQ==",
+      "first_name": "MARLENE",
+      "last_name": "URENA",
+      "rank": "CPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "eaf1efcb-03b6-46b2-a0d6-103228fdf38e",
+      "service_id": "ZmYEewZVdFpMeA==",
+      "first_name": "STEVEN",
+      "last_name": "URRUTIA",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "1e9d8943-cc17-4cef-877e-64ed203006a0",
+      "service_id": "ZmUDegVdclpGeA==",
+      "first_name": "MIGUEL",
+      "last_name": "VALDIVIA III",
+      "rank": "SGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6de9b510-5f54-461c-a2a2-fccd8c8f0f57",
+      "service_id": "ZmYGfQVWdlxCeQ==",
+      "first_name": "PETER",
+      "last_name": "VANG",
+      "rank": "LCPL",
+      "unit_section_id": "3f69a6fc-5866-4a0b-97d9-44ce62e8ca24",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a4291e35-303e-470e-907e-883d60b1b1b2",
+      "service_id": "ZmYHeABUfltHcA==",
+      "first_name": "STEPHANIE",
+      "last_name": "VERA",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "eaf2a2a4-0e2c-409b-9153-42a5bbba6896",
+      "service_id": "ZmUAfwJRc1pBfA==",
+      "first_name": "DOMINIQUE",
+      "last_name": "VILLAFANA",
+      "rank": "SGT",
+      "unit_section_id": "0e5cd749-1583-4412-bdd5-0c792b76cfae",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0d8f5463-9eea-4ac5-9ab6-e974379a22d6",
+      "service_id": "ZmYGfQVdd1xAeA==",
+      "first_name": "JUAN",
+      "last_name": "VILLALVACANO",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "189d80d7-1fdf-4b20-a0ef-952732437766",
+      "service_id": "ZmYFfAdTcllHeA==",
+      "first_name": "ARTURO",
+      "last_name": "VILLAVICENCIO",
+      "rank": "CPL",
+      "unit_section_id": "58fba4ca-5c19-4449-b677-d858eb175ac7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6ecff780-fe07-467a-9e1f-9dc37009af91",
+      "service_id": "ZmQFfgZVf1dHeA==",
+      "first_name": "VALENTIN",
+      "last_name": "VIVALDO",
+      "rank": "GYSGT",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "82e3a430-4c41-4232-b06f-914be051e274",
+      "service_id": "ZmYHeQJcc11CcA==",
+      "first_name": "ADARSH",
+      "last_name": "VIVEKANANDH",
+      "rank": "CPL",
+      "unit_section_id": "9c2f26fe-0097-4f3a-adb5-946f3d1defec",
+      "current_duty_score": 0
+    },
+    {
+      "id": "2e7a1c0b-691a-4868-8d3f-0bb3236dcc33",
+      "service_id": "ZmYGfQBTc19FeA==",
+      "first_name": "DARRELL",
+      "last_name": "WALKER",
+      "rank": "LCPL",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0d79fdb7-c50d-4483-9a26-61e6633e9855",
+      "service_id": "ZmYFfAdVd19Gfg==",
+      "first_name": "COOPER",
+      "last_name": "WALL",
+      "rank": "CPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "ca00c673-86de-4b00-881f-ea8e4d0ff224",
+      "service_id": "ZmIDfQVWf1lMeg==",
+      "first_name": "MASON",
+      "last_name": "WALTON",
+      "rank": "SGT",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3915d1d1-e139-4d98-b20f-854b57b2a1eb",
+      "service_id": "ZmUCewRSc19NeA==",
+      "first_name": "BOOTH",
+      "last_name": "WARNOCK",
+      "rank": "SGT",
+      "unit_section_id": "ab15e626-8621-4ca0-b9c9-9486148e98f4",
+      "current_duty_score": 0
+    },
+    {
+      "id": "d9a21398-19a3-4eb4-a278-81ffdd269363",
+      "service_id": "ZmYFcAVQflpGcQ==",
+      "first_name": "CALEB",
+      "last_name": "WATKINS",
+      "rank": "SGT",
+      "unit_section_id": "cc94edc0-372e-48b5-be21-4476c5ca3d98",
+      "current_duty_score": 0
+    },
+    {
+      "id": "a28b3706-917f-4c4b-b55b-bd1208d3b787",
+      "service_id": "ZmYEcABQcFpFcQ==",
+      "first_name": "SHANITA",
+      "last_name": "WATSON",
+      "rank": "LCPL",
+      "unit_section_id": "21bb14db-8d84-4d6e-9247-32758858fb26",
+      "current_duty_score": 0
+    },
+    {
+      "id": "759d6097-4ad8-49ad-aeee-899f7aa2f970",
+      "service_id": "ZmYGfARddFdFfg==",
+      "first_name": "JOSHUA",
+      "last_name": "WEBB",
+      "rank": "LCPL",
+      "unit_section_id": "99ac5152-2b84-42ea-adb9-aaa0452cfebf",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9432afd0-b4f1-45aa-a452-5654dc51a2af",
+      "service_id": "ZmIAfwBXfl5GcA==",
+      "first_name": "ADAM",
+      "last_name": "WENC",
+      "rank": "MGYSGT",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "887c2bc9-ec07-46dd-9bdd-5063193365ff",
+      "service_id": "ZmYHeANTclhDeA==",
+      "first_name": "CHRISTOPHE",
+      "last_name": "WESTON",
+      "rank": "CPL",
+      "unit_section_id": "988040ee-fa78-4264-a622-3f0ad3798a3b",
+      "current_duty_score": 0
+    },
+    {
+      "id": "038adcd5-213d-48e7-8c0d-c796e35bd8f1",
+      "service_id": "ZmUBeg1dd1lAfQ==",
+      "first_name": "AUSTIN",
+      "last_name": "WHITMAN",
+      "rank": "CPL",
+      "unit_section_id": "5a8ca50c-9909-411b-83c0-6d1ca6c057d7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "960739a7-1941-4789-94c3-ebcee9a270df",
+      "service_id": "ZmYGcA1Vf11NfQ==",
+      "first_name": "DAVON",
+      "last_name": "WILLETTE",
+      "rank": "PFC",
+      "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
+      "current_duty_score": 0
+    },
+    {
+      "id": "090cabf7-b7eb-44c0-9879-bcde7b072632",
+      "service_id": "ZmYHeQxddlhDfQ==",
+      "first_name": "LEON",
+      "last_name": "WILLIAMS",
+      "rank": "LCPL",
+      "unit_section_id": "6b1d8e3c-1171-4184-8d5b-e533fc2cdb58",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fc3a235f-05db-4c21-83ce-c5a58bde473d",
+      "service_id": "ZmYHeg1ccVtEeQ==",
+      "first_name": "HUNTER",
+      "last_name": "WILSON",
+      "rank": "LCPL",
+      "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5ec8e7a3-ed6a-4aaf-86ce-f450a147fc1d",
+      "service_id": "ZmYEcAdTc1pHeQ==",
+      "first_name": "KENNETH",
+      "last_name": "WILSON",
+      "rank": "LCPL",
+      "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
+      "current_duty_score": 0
+    },
+    {
+      "id": "e02a87f1-a5c4-4b9a-b84f-60f7a3430d10",
+      "service_id": "ZmYEfwdSclpHcQ==",
+      "first_name": "RIVER",
+      "last_name": "WILSON",
+      "rank": "CPL",
+      "unit_section_id": "12306540-b11e-406b-ba34-6741ecc6289e",
+      "current_duty_score": 0
+    },
+    {
+      "id": "43564010-0adb-4801-8eef-bb343ea372aa",
+      "service_id": "ZmUBeA1cc19Mfw==",
+      "first_name": "KAEGAN",
+      "last_name": "WINTER",
+      "rank": "LCPL",
+      "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
+      "current_duty_score": 0
+    },
+    {
+      "id": "b3de1f73-9378-4623-aed8-19b4b3266d8d",
+      "service_id": "ZmYEeg1ccVhHeA==",
+      "first_name": "SIDNEY",
+      "last_name": "WOMACK",
+      "rank": "LCPL",
+      "unit_section_id": "9c2f26fe-0097-4f3a-adb5-946f3d1defec",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6087776e-fe44-4923-ad51-3774ef45585f",
+      "service_id": "ZmUBcQdWf11Gew==",
+      "first_name": "NIKOLAUS",
+      "last_name": "WOODWORTH",
+      "rank": "SGT",
+      "unit_section_id": "df179d1e-ee39-44e1-bdab-2504f435d660",
+      "current_duty_score": 0
+    },
+    {
+      "id": "db10caaf-7d16-4587-baa4-06f976953dc8",
+      "service_id": "ZmAHegVTcV1NfQ==",
+      "first_name": "BRANDON",
+      "last_name": "WORLEY",
+      "rank": "SSGT",
+      "unit_section_id": "0e5cd749-1583-4412-bdd5-0c792b76cfae",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9e75871d-fda1-4549-8813-1b0468072a15",
+      "service_id": "ZmUDfgJcclZGeA==",
+      "first_name": "IAN",
+      "last_name": "WORRELL",
+      "rank": "CAPT",
+      "unit_section_id": "b8aa675f-b063-4aad-bcd1-88389cb831d2",
+      "current_duty_score": 0
+    },
+    {
+      "id": "5f99b355-69fc-4beb-bd14-ca20e006984d",
+      "service_id": "ZmYHcQNScVtBeA==",
+      "first_name": "FREDRICK",
+      "last_name": "WRIGHT JR",
+      "rank": "LCPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    },
+    {
+      "id": "3ca7efe9-69fe-426f-9a86-7a6ab383b778",
+      "service_id": "ZmYGfwBdcVpCcQ==",
+      "first_name": "KEITH",
+      "last_name": "WYCHEOUELLETTE JR",
+      "rank": "LCPL",
+      "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
+      "current_duty_score": 0
+    },
+    {
+      "id": "fb32c90d-f177-41ad-a6ad-056c045bad6f",
+      "service_id": "ZmIMeANRdFxDfQ==",
+      "first_name": "DANIEL",
+      "last_name": "WYSOCKI",
+      "rank": "SSGT",
+      "unit_section_id": "95913e38-03b2-42f6-a78b-1a0e696c7b81",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9b86954b-f24c-4ae5-8f34-f6425941bc6a",
+      "service_id": "ZmYEewJTclhNfg==",
+      "first_name": "CHALI",
+      "last_name": "XIONG",
+      "rank": "CPL",
+      "unit_section_id": "6e8753ac-8988-47ba-94e5-162972bcab7a",
+      "current_duty_score": 0
+    },
+    {
+      "id": "9db51b0f-117b-453a-b201-7d93c751a65c",
+      "service_id": "ZmYHewJRcVdHeA==",
+      "first_name": "SEAN",
+      "last_name": "XIONG",
+      "rank": "CPL",
+      "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
+      "current_duty_score": 0
+    },
+    {
+      "id": "0b406a82-dad9-4b67-a5c2-e5a5c6fff030",
+      "service_id": "ZmICfAVWfl1Ceg==",
+      "first_name": "ANDREW",
+      "last_name": "YAGER",
+      "rank": "LTCOL",
+      "unit_section_id": "886b370d-a56c-4f75-9800-b43d48a17005",
+      "current_duty_score": 0
+    },
+    {
+      "id": "77488444-54d9-41c9-95fc-dcd8147a172f",
+      "service_id": "ZmUCegJVf19Dew==",
+      "first_name": "DARRELL",
+      "last_name": "YBARRA",
+      "rank": "SGT",
+      "unit_section_id": "5bb66164-9d4b-475a-abfa-9e2596b807c3",
+      "current_duty_score": 0
+    },
+    {
+      "id": "f4d7ef5f-d520-48ea-a7b3-4f5a303a1a29",
+      "service_id": "ZmQEewdcd1pAeA==",
+      "first_name": "VICTOR",
+      "last_name": "YBARRA",
+      "rank": "GYSGT",
+      "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
+      "current_duty_score": 0
+    },
+    {
+      "id": "6d41d78a-0033-4f98-972c-548bfe15185e",
+      "service_id": "ZmYEewRUc1ZEcA==",
+      "first_name": "KRISTINA",
+      "last_name": "ZERVOUDIS",
+      "rank": "1STLT",
+      "unit_section_id": "be940f06-bdf6-477a-ab78-03f231306c89",
+      "current_duty_score": 0
+    },
+    {
+      "id": "95fd5dc9-1396-44d2-a9fb-82625c999183",
+      "service_id": "ZmYEfA1Vf1pGcQ==",
+      "first_name": "DAVID",
+      "last_name": "ZORICH JR",
+      "rank": "CPL",
+      "unit_section_id": "558e71f3-cea7-4c1a-a0ee-89fc1257b520",
+      "current_duty_score": 0
+    }
+  ],
+  "exportedAt": "2025-12-16T23:43:30.475Z",
+  "version": "1.1",
+  "encrypted": true,
+  "encryptedAt": "2025-12-16T23:43:30.475Z"
 }
