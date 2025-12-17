@@ -27,6 +27,7 @@ import {
   assignUserRole,
   removeUserRole,
   getSeedUserByEdipi,
+  getTopLevelUnitForOrganization,
   type RucEntry,
 } from "@/lib/data-layer";
 import {
@@ -128,6 +129,7 @@ export default function UnitManagementPage() {
 function RucManagementView() {
   const [rucs, setRucs] = useState<RucEntry[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [units, setUnits] = useState<UnitSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingRuc, setEditingRuc] = useState<RucEntry | null>(null);
@@ -165,10 +167,11 @@ function RucManagementView() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Load both RUCs and users from Supabase
-      const [data] = await Promise.all([loadRucs(), loadUsers()]);
+      // Load RUCs, users, and units from Supabase
+      const [data, , unitsData] = await Promise.all([loadRucs(), loadUsers(), loadUnits()]);
       setRucs(data);
       setUsers(mapUsersWithPersonnel());
+      setUnits(unitsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -180,20 +183,40 @@ function RucManagementView() {
     fetchData();
   }, [fetchData]);
 
-  // Build map of RUC code -> Unit Admin(s)
+  // Build map of top-level unit ID -> organization ID
+  const unitToOrgMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const unit of units) {
+      // Top-level units have no parent
+      if (!unit.parent_id) {
+        // Units now have organization_id from the data layer
+        const orgId = (unit as UnitSection & { organization_id?: string }).organization_id;
+        if (orgId) {
+          map.set(unit.id, orgId);
+        }
+      }
+    }
+    return map;
+  }, [units]);
+
+  // Build map of organization ID -> Unit Admin(s)
   const unitAdminsByRuc = useMemo(() => {
     const map = new Map<string, UserData[]>();
     for (const user of users) {
       for (const role of user.roles) {
         if (role.role_name === "Unit Admin" && role.scope_unit_id) {
-          const existing = map.get(role.scope_unit_id) || [];
+          // scope_unit_id is now a unit ID, map it back to org ID
+          const orgId = unitToOrgMap.get(role.scope_unit_id);
+          // If we can't map, fall back to using scope_unit_id directly (for backwards compatibility)
+          const key = orgId || role.scope_unit_id;
+          const existing = map.get(key) || [];
           existing.push(user);
-          map.set(role.scope_unit_id, existing);
+          map.set(key, existing);
         }
       }
     }
     return map;
-  }, [users]);
+  }, [users, unitToOrgMap]);
 
   // Get display name for unit admin
   const getAdminDisplay = (user: UserData) => {
@@ -1090,25 +1113,32 @@ function RucEditModal({
         return;
       }
 
-      // Check if user already has Unit Admin role for this RUC
+      // Get the top-level unit for this organization (scope_unit_id must reference units table)
+      const topLevelUnit = await getTopLevelUnitForOrganization(ruc.id);
+      if (!topLevelUnit) {
+        setAdminError("No top-level unit found for this organization. Please create a unit first.");
+        return;
+      }
+
+      // Check if user already has Unit Admin role for this unit
       const existingRole = user.roles.find(
-        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id === ruc.id
+        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id === topLevelUnit.id
       );
       if (existingRole) {
         setAdminError("User is already a Unit Admin for this RUC");
         return;
       }
 
-      // Remove any existing Unit Admin role for other RUCs (a user can only admin one RUC)
+      // Remove any existing Unit Admin role for other units (a user can only admin one RUC)
       const otherUnitAdminRole = user.roles.find(
-        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id !== ruc.id
+        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id !== topLevelUnit.id
       );
       if (otherUnitAdminRole) {
         await removeUserRole(user.id, UNIT_ADMIN_ROLE, otherUnitAdminRole.scope_unit_id);
       }
 
-      // Assign the Unit Admin role
-      const success = await assignUserRole(user.id, UNIT_ADMIN_ROLE, ruc.id);
+      // Assign the Unit Admin role with the top-level unit ID
+      const success = await assignUserRole(user.id, UNIT_ADMIN_ROLE, topLevelUnit.id);
       if (!success) {
         setAdminError("Failed to assign Unit Admin role");
         return;
@@ -1130,11 +1160,15 @@ function RucEditModal({
     setAdminError(null);
 
     try {
+      // Get the top-level unit for this organization to find the correct role
+      const topLevelUnit = await getTopLevelUnitForOrganization(ruc.id);
+      const unitIdToMatch = topLevelUnit?.id;
+
       const unitAdminRole = admin.roles.find(
-        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id === ruc.id
+        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id === unitIdToMatch
       );
-      if (unitAdminRole) {
-        await removeUserRole(admin.id, UNIT_ADMIN_ROLE, ruc.id);
+      if (unitAdminRole && unitIdToMatch) {
+        await removeUserRole(admin.id, UNIT_ADMIN_ROLE, unitIdToMatch);
         await loadUsers();
         onRefresh();
       }
