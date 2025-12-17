@@ -700,16 +700,14 @@ export async function addUserRole(
 
   if (fetchError) {
     console.error("Error checking existing roles:", fetchError);
+    return null;
   }
 
   // Check if we already have this role (with same or any scope)
   const roles = existingRoles as UserRole[] | null;
   if (roles && roles.length > 0) {
     // Find exact match (same scope)
-    const exactMatch = roles.find(r =>
-      (scopeUnitId && r.scope_unit_id === scopeUnitId) ||
-      (!scopeUnitId && r.scope_unit_id === null)
-    );
+    const exactMatch = roles.find(r => r.scope_unit_id === (scopeUnitId || null));
     if (exactMatch) {
       console.log("Role already exists with exact scope, returning existing");
       return exactMatch;
@@ -746,9 +744,9 @@ export async function addUserRole(
     .single();
 
   if (error) {
-    // If we get a 409 conflict, try to fetch and return the existing role
-    if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("conflict")) {
-      console.log("Insert conflict, fetching existing role");
+    // If we get a unique constraint violation (23505), try to fetch and return the existing role
+    if (error.code === "23505") {
+      console.log("Insert conflict (unique constraint), fetching existing role");
       const { data: existing } = await supabase
         .from("user_roles")
         .select("*")
