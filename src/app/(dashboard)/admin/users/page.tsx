@@ -19,6 +19,9 @@ import {
   getAllDescendantUnitIds,
   loadUsers,
   loadUnits,
+  loadRucs,
+  getAllRucs,
+  type RucEntry,
 } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
 
@@ -41,6 +44,7 @@ export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
+  const [rucs, setRucs] = useState<RucEntry[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,11 +57,12 @@ export default function UsersPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Reload users and units from Supabase
-      await Promise.all([loadUsers(), loadUnits()]);
+      // Reload users, units, and rucs from Supabase
+      await Promise.all([loadUsers(), loadUnits(), loadRucs()]);
 
       const usersData = getAllUsers();
       const unitsData = getUnitSections();
+      const rucsData = getAllRucs();
       const personnelData = getAllPersonnel();
 
       setUsers(usersData.map(u => ({
@@ -73,6 +78,7 @@ export default function UsersPage() {
         })),
       })));
       setUnits(unitsData);
+      setRucs(rucsData);
       setPersonnel(personnelData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -218,6 +224,7 @@ export default function UsersPage() {
         <RoleAssignmentModal
           user={editingUser}
           units={units}
+          rucs={rucs}
           getUnitName={getUnitName}
           onClose={() => setEditingUser(null)}
           onSuccess={() => {
@@ -363,12 +370,14 @@ export default function UsersPage() {
 function RoleAssignmentModal({
   user,
   units,
+  rucs,
   getUnitName,
   onClose,
   onSuccess,
 }: {
   user: UserData;
   units: UnitSection[];
+  rucs: RucEntry[];
   getUnitName: (unitId: string | null) => string | null;
   onClose: () => void;
   onSuccess: () => void;
@@ -569,9 +578,9 @@ function RoleAssignmentModal({
                   disabled={isSaving}
                 >
                   <option value="">Select a unit...</option>
-                  {units.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.unit_name} ({unit.hierarchy_level})
+                  {rucs.map((ruc) => (
+                    <option key={ruc.id} value={ruc.id}>
+                      {ruc.ruc}{ruc.name ? ` - ${ruc.name}` : ""}
                     </option>
                   ))}
                 </select>
@@ -579,61 +588,63 @@ function RoleAssignmentModal({
             )}
           </div>
 
-          {/* Manager Role Dropdown */}
-          <div className="space-y-3 pt-4 border-t border-border">
-            <div>
-              <h4 className="font-medium text-foreground">Manager Role</h4>
-              <p className="text-sm text-foreground-muted">
-                Assign a management role for personnel oversight
-              </p>
-            </div>
+          {/* Manager Role Dropdown - Hidden for App Admin users */}
+          {!isAppAdmin && (
+            <div className="space-y-3 pt-4 border-t border-border">
+              <div>
+                <h4 className="font-medium text-foreground">Manager Role</h4>
+                <p className="text-sm text-foreground-muted">
+                  Assign a management role for personnel oversight
+                </p>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
-                Role
-              </label>
-              <select
-                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                value={managerRole}
-                onChange={(e) => {
-                  setManagerRole(e.target.value as RoleName | "");
-                  if (!e.target.value) setManagerScope("");
-                }}
-                disabled={isSaving}
-              >
-                <option value="">None</option>
-                <option value="Unit Manager">Unit Manager</option>
-                <option value="Company Manager">Company Manager</option>
-                <option value="Section Manager">Section Manager</option>
-                <option value="Work Section Manager">Work Section Manager</option>
-              </select>
-            </div>
-
-            {/* Manager Scope Selector */}
-            {managerRole && (
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Unit Scope (RUC)
+                  Role
                 </label>
                 <select
                   className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={managerScope}
-                  onChange={(e) => setManagerScope(e.target.value)}
+                  value={managerRole}
+                  onChange={(e) => {
+                    setManagerRole(e.target.value as RoleName | "");
+                    if (!e.target.value) setManagerScope("");
+                  }}
                   disabled={isSaving}
                 >
-                  <option value="">Select a unit...</option>
-                  {units.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.unit_name} ({unit.hierarchy_level})
-                    </option>
-                  ))}
+                  <option value="">None</option>
+                  <option value="Unit Manager">Unit Manager</option>
+                  <option value="Company Manager">Company Manager</option>
+                  <option value="Section Manager">Section Manager</option>
+                  <option value="Work Section Manager">Work Section Manager</option>
                 </select>
               </div>
-            )}
-          </div>
 
-          {/* Approval Permission Toggle - For users with scoped roles */}
-          {hasScopedRole && (
+              {/* Manager Scope Selector */}
+              {managerRole && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                    Unit Scope (RUC)
+                  </label>
+                  <select
+                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={managerScope}
+                    onChange={(e) => setManagerScope(e.target.value)}
+                    disabled={isSaving}
+                  >
+                    <option value="">Select a unit...</option>
+                    {units.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.unit_name} ({unit.hierarchy_level})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Approval Permission Toggle - For users with scoped roles (hidden for App Admins) */}
+          {hasScopedRole && !isAppAdmin && (
             <div className="pt-4 border-t border-border">
               <div className="flex items-center justify-between">
                 <div>
