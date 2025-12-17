@@ -170,11 +170,25 @@ function getLocalData<T>(key: string): T[] {
 }
 
 /**
- * Save data to localStorage and invalidate the in-memory cache
+ * Deduplicate array by ID, keeping the last occurrence
  */
-function saveLocalData<T>(key: string, data: T[]): void {
+function deduplicateById<T extends { id: string }>(data: T[]): T[] {
+  const seen = new Map<string, T>();
+  for (const item of data) {
+    seen.set(item.id, item);
+  }
+  return Array.from(seen.values());
+}
+
+/**
+ * Save data to localStorage and invalidate the in-memory cache
+ * Deduplicates by ID to prevent duplicate entries
+ */
+function saveLocalData<T extends { id: string }>(key: string, data: T[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(data));
+  // Deduplicate before saving to prevent duplicate entries
+  const dedupedData = deduplicateById(data);
+  localStorage.setItem(key, JSON.stringify(dedupedData));
   // Invalidate the cache for this key so components get fresh data
   invalidateCache(key);
 }
@@ -188,7 +202,8 @@ async function syncUnitStructure(ruc: string): Promise<boolean> {
   );
   if (!data || !(data as { units?: unknown[] }).units) return false;
 
-  const remoteUnits = (data as { units: { id: string; ruc?: string }[] }).units;
+  // Add RUC field to each unit for proper filtering
+  const remoteUnits = (data as { units: { id: string }[] }).units.map(u => ({ ...u, ruc }));
   const localUnits = getLocalData<{ id: string; ruc?: string }>(KEYS.units);
 
   // Filter to only compare units from this RUC
@@ -258,28 +273,28 @@ async function syncDutyTypes(ruc: string): Promise<boolean> {
 
   // Sync duty types
   if (typesData.dutyTypes) {
-    const localDutyTypes = getLocalData(KEYS.dutyTypes);
+    const localDutyTypes = getLocalData<{ id: string }>(KEYS.dutyTypes);
     if (hasDataChanged(localDutyTypes, typesData.dutyTypes)) {
       // For now, replace all duty types (could be smarter with RUC filtering)
-      saveLocalData(KEYS.dutyTypes, typesData.dutyTypes);
+      saveLocalData(KEYS.dutyTypes, typesData.dutyTypes as { id: string }[]);
       changed = true;
     }
   }
 
   // Sync duty values
   if (typesData.dutyValues) {
-    const localDutyValues = getLocalData(KEYS.dutyValues);
+    const localDutyValues = getLocalData<{ id: string }>(KEYS.dutyValues);
     if (hasDataChanged(localDutyValues, typesData.dutyValues)) {
-      saveLocalData(KEYS.dutyValues, typesData.dutyValues);
+      saveLocalData(KEYS.dutyValues, typesData.dutyValues as { id: string }[]);
       changed = true;
     }
   }
 
   // Sync duty requirements
   if (typesData.dutyRequirements) {
-    const localDutyRequirements = getLocalData(KEYS.dutyRequirements);
+    const localDutyRequirements = getLocalData<{ id: string }>(KEYS.dutyRequirements);
     if (hasDataChanged(localDutyRequirements, typesData.dutyRequirements)) {
-      saveLocalData(KEYS.dutyRequirements, typesData.dutyRequirements);
+      saveLocalData(KEYS.dutyRequirements, typesData.dutyRequirements as { id: string }[]);
       changed = true;
     }
   }
@@ -296,8 +311,8 @@ async function syncDutyRoster(ruc: string): Promise<boolean> {
   );
   if (!data || !(data as { dutySlots?: unknown[] }).dutySlots) return false;
 
-  const remoteSlots = (data as { dutySlots: unknown[] }).dutySlots;
-  const localSlots = getLocalData(KEYS.dutySlots);
+  const remoteSlots = (data as { dutySlots: { id: string }[] }).dutySlots;
+  const localSlots = getLocalData<{ id: string }>(KEYS.dutySlots);
 
   if (hasDataChanged(localSlots, remoteSlots as unknown[])) {
     saveLocalData(KEYS.dutySlots, remoteSlots);
@@ -316,8 +331,8 @@ async function syncNonAvailability(ruc: string): Promise<boolean> {
   if (!data || !(data as { nonAvailability?: unknown[] }).nonAvailability)
     return false;
 
-  const remoteNA = (data as { nonAvailability: unknown[] }).nonAvailability;
-  const localNA = getLocalData(KEYS.nonAvailability);
+  const remoteNA = (data as { nonAvailability: { id: string }[] }).nonAvailability;
+  const localNA = getLocalData<{ id: string }>(KEYS.nonAvailability);
 
   if (hasDataChanged(localNA, remoteNA as unknown[])) {
     saveLocalData(KEYS.nonAvailability, remoteNA);
@@ -336,8 +351,8 @@ async function syncQualifications(ruc: string): Promise<boolean> {
   if (!data || !(data as { qualifications?: unknown[] }).qualifications)
     return false;
 
-  const remoteQuals = (data as { qualifications: unknown[] }).qualifications;
-  const localQuals = getLocalData(KEYS.qualifications);
+  const remoteQuals = (data as { qualifications: { id: string }[] }).qualifications;
+  const localQuals = getLocalData<{ id: string }>(KEYS.qualifications);
 
   if (hasDataChanged(localQuals, remoteQuals as unknown[])) {
     saveLocalData(KEYS.qualifications, remoteQuals);
