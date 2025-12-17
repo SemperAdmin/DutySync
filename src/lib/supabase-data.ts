@@ -483,8 +483,232 @@ export async function deletePersonnel(id: string): Promise<boolean> {
 }
 
 // ============================================================================
-// USERS & AUTHENTICATION
+// BATCH IMPORT FUNCTIONS
 // ============================================================================
+
+export interface ImportUnit {
+  unit_name: string;
+  hierarchy_level: HierarchyLevel;
+  parent_name?: string;
+  unit_code?: string;
+  description?: string;
+}
+
+export interface ImportPersonnel {
+  service_id: string;
+  first_name: string;
+  last_name: string;
+  rank: string;
+  unit_name: string; // Will be looked up to get unit_id
+}
+
+export interface ImportResult {
+  units: { created: number; updated: number; errors: string[] };
+  personnel: { created: number; updated: number; errors: string[] };
+}
+
+/**
+ * Import units to Supabase - creates or updates based on unit_name
+ */
+export async function importUnits(
+  organizationId: string,
+  units: ImportUnit[]
+): Promise<{ created: number; updated: number; errors: string[]; unitMap: Map<string, string> }> {
+  if (!isSupabaseConfigured()) {
+    return { created: 0, updated: 0, errors: ["Supabase not configured"], unitMap: new Map() };
+  }
+  const supabase = getSupabase();
+
+  const result = { created: 0, updated: 0, errors: [] as string[], unitMap: new Map<string, string>() };
+
+  // Get existing units for this organization
+  const { data: existingUnits } = await supabase
+    .from("units")
+    .select("*")
+    .eq("organization_id", organizationId);
+
+  const existingByName = new Map<string, Unit>();
+  const unitsList = (existingUnits || []) as Unit[];
+  unitsList.forEach(u => existingByName.set(u.unit_name, u));
+
+  // Process units in order: top-level first, then children
+  // Sort by hierarchy level to ensure parents are created first
+  const levelOrder: Record<string, number> = { unit: 0, company: 1, section: 2, work_section: 3 };
+  const sortedUnits = [...units].sort((a, b) =>
+    (levelOrder[a.hierarchy_level] || 0) - (levelOrder[b.hierarchy_level] || 0)
+  );
+
+  for (const unit of sortedUnits) {
+    try {
+      const existing = existingByName.get(unit.unit_name);
+
+      // Get parent ID if parent_name is specified
+      let parentId: string | null = null;
+      if (unit.parent_name) {
+        const parentUnit = existingByName.get(unit.parent_name) ||
+          (await getUnitByName(organizationId, unit.parent_name));
+        if (parentUnit) {
+          parentId = parentUnit.id;
+        }
+      }
+
+      if (existing) {
+        // Update existing unit
+        const { error } = await supabase
+          .from("units")
+          .update({
+            hierarchy_level: unit.hierarchy_level,
+            parent_id: parentId,
+            unit_code: unit.unit_code || existing.unit_code,
+            description: unit.description || existing.description,
+          } as never)
+          .eq("id", existing.id);
+
+        if (error) {
+          result.errors.push(`Failed to update unit ${unit.unit_name}: ${error.message}`);
+        } else {
+          result.updated++;
+          result.unitMap.set(unit.unit_name, existing.id);
+          existingByName.set(unit.unit_name, { ...existing, parent_id: parentId });
+        }
+      } else {
+        // Create new unit
+        const { data: newUnit, error } = await supabase
+          .from("units")
+          .insert({
+            organization_id: organizationId,
+            unit_name: unit.unit_name,
+            hierarchy_level: unit.hierarchy_level,
+            parent_id: parentId,
+            unit_code: unit.unit_code || unit.unit_name,
+            description: unit.description,
+          } as never)
+          .select()
+          .single();
+
+        if (error) {
+          result.errors.push(`Failed to create unit ${unit.unit_name}: ${error.message}`);
+        } else if (newUnit) {
+          const createdUnit = newUnit as Unit;
+          result.created++;
+          result.unitMap.set(unit.unit_name, createdUnit.id);
+          existingByName.set(unit.unit_name, createdUnit);
+        }
+      }
+    } catch (err) {
+      result.errors.push(`Error processing unit ${unit.unit_name}: ${err}`);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get unit by name within an organization
+ */
+async function getUnitByName(organizationId: string, unitName: string): Promise<Unit | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data } = await supabase
+    .from("units")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("unit_name", unitName)
+    .maybeSingle();
+
+  return data as Unit | null;
+}
+
+/**
+ * Import personnel to Supabase - uses upsert based on (organization_id, service_id)
+ */
+export async function importPersonnel(
+  organizationId: string,
+  personnel: ImportPersonnel[],
+  unitMap: Map<string, string>
+): Promise<{ created: number; updated: number; errors: string[] }> {
+  if (!isSupabaseConfigured()) {
+    return { created: 0, updated: 0, errors: ["Supabase not configured"] };
+  }
+  const supabase = getSupabase();
+
+  const result = { created: 0, updated: 0, errors: [] as string[] };
+
+  // Get all existing personnel for this organization to determine create vs update
+  const { data: existingPersonnel } = await supabase
+    .from("personnel")
+    .select("*")
+    .eq("organization_id", organizationId);
+
+  const existingByServiceId = new Map<string, Personnel>();
+  const personnelList = (existingPersonnel || []) as Personnel[];
+  personnelList.forEach(p => existingByServiceId.set(p.service_id, p));
+
+  for (const person of personnel) {
+    try {
+      // Look up unit ID from unit name
+      let unitId = unitMap.get(person.unit_name);
+
+      // If not in map, try to find it in the database
+      if (!unitId) {
+        const unit = await getUnitByName(organizationId, person.unit_name);
+        if (unit) {
+          unitId = unit.id;
+        }
+      }
+
+      if (!unitId) {
+        result.errors.push(`No unit found for ${person.service_id}: ${person.unit_name}`);
+        continue;
+      }
+
+      const existing = existingByServiceId.get(person.service_id);
+
+      if (existing) {
+        // Update existing personnel
+        const { error } = await supabase
+          .from("personnel")
+          .update({
+            unit_id: unitId,
+            first_name: person.first_name,
+            last_name: person.last_name,
+            rank: person.rank,
+          } as never)
+          .eq("id", existing.id);
+
+        if (error) {
+          result.errors.push(`Failed to update ${person.service_id}: ${error.message}`);
+        } else {
+          result.updated++;
+        }
+      } else {
+        // Create new personnel
+        const { error } = await supabase
+          .from("personnel")
+          .insert({
+            organization_id: organizationId,
+            unit_id: unitId,
+            service_id: person.service_id,
+            first_name: person.first_name,
+            last_name: person.last_name,
+            rank: person.rank,
+            current_duty_score: 0,
+          } as never);
+
+        if (error) {
+          result.errors.push(`Failed to create ${person.service_id}: ${error.message}`);
+        } else {
+          result.created++;
+        }
+      }
+    } catch (err) {
+      result.errors.push(`Error processing ${person.service_id}: ${err}`);
+    }
+  }
+
+  return result;
+}
 
 export async function getUserByEdipi(edipi: string): Promise<User | null> {
   if (!isSupabaseConfigured()) return null;

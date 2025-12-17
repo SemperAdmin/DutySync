@@ -722,3 +722,204 @@ export async function loadAllData(rucCode?: string): Promise<void> {
     loadUsers(),
   ]);
 }
+
+// ============================================================================
+// IMPORT FUNCTIONS - Import data from CSV/TSV files
+// ============================================================================
+
+export interface ManpowerRecord {
+  edipi: string;
+  name: string;
+  rank: string;
+  unit: string;
+  category?: string;
+  dutyStatus?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface ParsedUnitCode {
+  base: string | null;
+  company: string | null;
+  section: string | null;
+  workSection: string | null;
+}
+
+function parseUnitCode(unitCode: string): ParsedUnitCode {
+  const result: ParsedUnitCode = {
+    base: null,
+    company: null,
+    section: null,
+    workSection: null,
+  };
+
+  if (!unitCode) return result;
+
+  // Split by common delimiters
+  const parts = unitCode.split(/[\/\-\s]+/).filter(Boolean);
+  if (parts.length === 0) return result;
+
+  // First part is typically the RUC/base unit code (e.g., "02301")
+  result.base = parts[0];
+
+  // Look for company letter (single letter like A, B, C, HQ, etc.)
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i].toUpperCase();
+    if (/^[A-Z]$/.test(part) || part === "HQ" || part === "H&S") {
+      result.company = part;
+    } else if (part.length <= 4 && /^[A-Z0-9]+$/.test(part)) {
+      // Short alphanumeric codes are likely sections or work sections
+      if (!result.section) {
+        result.section = part;
+      } else if (!result.workSection) {
+        result.workSection = part;
+      }
+    }
+  }
+
+  return result;
+}
+
+function parseName(name: string): { first_name: string; last_name: string } {
+  if (!name) return { first_name: "", last_name: "" };
+
+  // Handle "LAST, FIRST MI" format
+  if (name.includes(",")) {
+    const [last, rest] = name.split(",").map(s => s.trim());
+    const first = rest?.split(" ")[0] || "";
+    return { first_name: first, last_name: last };
+  }
+
+  // Handle "FIRST LAST" format
+  const parts = name.split(" ").filter(Boolean);
+  if (parts.length >= 2) {
+    return { first_name: parts[0], last_name: parts[parts.length - 1] };
+  }
+
+  return { first_name: "", last_name: name };
+}
+
+export async function importManpowerToSupabase(
+  organizationId: string,
+  records: ManpowerRecord[]
+): Promise<{
+  units: { created: number; updated: number; errors: string[] };
+  personnel: { created: number; updated: number; errors: string[] };
+}> {
+  const result = {
+    units: { created: 0, updated: 0, errors: [] as string[] },
+    personnel: { created: 0, updated: 0, errors: [] as string[] },
+  };
+
+  if (records.length === 0) {
+    result.units.errors.push("No records to import");
+    return result;
+  }
+
+  // Extract unique units from records
+  const unitsToCreate: Array<{
+    unit_name: string;
+    hierarchy_level: "unit" | "company" | "section" | "work_section";
+    parent_name?: string;
+  }> = [];
+
+  const seenUnits = new Set<string>();
+
+  // First pass: collect all units from records
+  for (const record of records) {
+    if (!record.unit) continue;
+
+    const parsed = parseUnitCode(record.unit);
+
+    // Add base unit (top-level)
+    if (parsed.base && !seenUnits.has(parsed.base)) {
+      unitsToCreate.push({
+        unit_name: parsed.base,
+        hierarchy_level: "unit",
+      });
+      seenUnits.add(parsed.base);
+    }
+
+    // Add company under base
+    if (parsed.base && parsed.company) {
+      const companyName = `${parsed.company} Company`;
+      if (!seenUnits.has(companyName)) {
+        unitsToCreate.push({
+          unit_name: companyName,
+          hierarchy_level: "company",
+          parent_name: parsed.base,
+        });
+        seenUnits.add(companyName);
+      }
+
+      // Add section under company
+      if (parsed.section) {
+        if (!seenUnits.has(parsed.section)) {
+          unitsToCreate.push({
+            unit_name: parsed.section,
+            hierarchy_level: "section",
+            parent_name: companyName,
+          });
+          seenUnits.add(parsed.section);
+        }
+
+        // Add work section under section
+        if (parsed.workSection && !seenUnits.has(parsed.workSection)) {
+          unitsToCreate.push({
+            unit_name: parsed.workSection,
+            hierarchy_level: "work_section",
+            parent_name: parsed.section,
+          });
+          seenUnits.add(parsed.workSection);
+        }
+      }
+    }
+  }
+
+  // Import units first
+  const unitsResult = await supabase.importUnits(organizationId, unitsToCreate);
+  result.units = {
+    created: unitsResult.created,
+    updated: unitsResult.updated,
+    errors: unitsResult.errors,
+  };
+
+  // Convert records to personnel import format
+  const personnelToImport = records.map(record => {
+    const { first_name, last_name } = parseName(record.name);
+    const parsed = parseUnitCode(record.unit);
+
+    // Determine which unit to assign to (lowest level available)
+    let unitName = parsed.base || "";
+    if (parsed.workSection) {
+      unitName = parsed.workSection;
+    } else if (parsed.section) {
+      unitName = parsed.section;
+    } else if (parsed.company) {
+      unitName = `${parsed.company} Company`;
+    }
+
+    return {
+      service_id: record.edipi,
+      first_name,
+      last_name,
+      rank: record.rank,
+      unit_name: unitName,
+    };
+  }).filter(p => p.service_id && p.unit_name);
+
+  // Import personnel
+  const personnelResult = await supabase.importPersonnel(
+    organizationId,
+    personnelToImport,
+    unitsResult.unitMap
+  );
+  result.personnel = personnelResult;
+
+  // Refresh caches
+  await loadUnits(organizationId);
+  await loadPersonnel(organizationId);
+
+  return result;
+}
