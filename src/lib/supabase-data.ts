@@ -622,6 +622,28 @@ export async function addUserRole(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
+  // First check if this exact role already exists to avoid 409 conflict
+  let query = supabase
+    .from("user_roles")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("role_id", roleId);
+
+  // Handle scope_unit_id - need to check for null or matching value
+  if (scopeUnitId) {
+    query = query.eq("scope_unit_id", scopeUnitId);
+  } else {
+    query = query.is("scope_unit_id", null);
+  }
+
+  const { data: existingRole } = await query.maybeSingle();
+
+  if (existingRole) {
+    // Role already exists, return it
+    return existingRole as UserRole;
+  }
+
+  // Insert new role
   const { data, error } = await supabase
     .from("user_roles")
     .insert({

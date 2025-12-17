@@ -35,8 +35,8 @@ export default function Logo({
           <span className={`font-bold ${text} text-foreground leading-tight`}>
             Duty Sync
           </span>
-          <span className="text-xs text-foreground-muted uppercase tracking-wider">
-            Roster Management
+          <span className="text-xs text-highlight uppercase tracking-wider">
+            by Semper Admin
           </span>
         </div>
       )}
