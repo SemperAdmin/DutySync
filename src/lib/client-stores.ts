@@ -435,9 +435,10 @@ export async function loadSeedDataIfNeeded(): Promise<SeedDataResult> {
     const results = await Promise.all(fetchPromises);
 
     // Process all results after successful fetch
-    for (const { unitData, personnelData, dutyTypesData, dutyRosterData, nonAvailabilityData, qualificationsData, dutyChangeRequestsData } of results) {
-      // Add units
-      allUnits.push(...unitData.units);
+    for (const { ruc, unitData, personnelData, dutyTypesData, dutyRosterData, nonAvailabilityData, qualificationsData, dutyChangeRequestsData } of results) {
+      // Add units with RUC field for proper sync filtering
+      const unitsWithRuc = unitData.units.map((u: UnitSection) => ({ ...u, ruc }));
+      allUnits.push(...unitsWithRuc);
 
       // Process and add personnel with decrypted EDIPIs and timestamps
       // Use the encrypted flag from the JSON file instead of magic check
