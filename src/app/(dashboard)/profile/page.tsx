@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/supabase-auth";
-import { getUnitSections, getPersonnelById, getPersonnelByEdipi } from "@/lib/client-stores";
-import { useSyncRefresh } from "@/hooks/useSync";
+import { getUnitSections, getPersonnelByEdipi } from "@/lib/data-layer";
 import type { UnitSection, Personnel } from "@/types";
 
 export default function ProfilePage() {
@@ -24,6 +23,9 @@ export default function ProfilePage() {
         setPersonnel(person);
         const path = buildUnitPath(person.unit_section_id, allUnits);
         setFullUnitPath(path);
+      } else {
+        setPersonnel(null);
+        setFullUnitPath("");
       }
     }
   }, [user?.edipi]);
@@ -31,9 +33,6 @@ export default function ProfilePage() {
   useEffect(() => {
     loadProfileData();
   }, [loadProfileData]);
-
-  // Auto-refresh when sync service detects data changes
-  useSyncRefresh(["personnel", "units"], loadProfileData);
 
   // Build the full unit hierarchy path (e.g., "H Company > S1DV > CUST")
   function buildUnitPath(unitId: string, allUnits: UnitSection[]): string {

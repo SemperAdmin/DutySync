@@ -266,6 +266,27 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem("dutysync_user");
+
+    // Clear old cached data from localStorage
+    const keysToRemove = [
+      "dutysync_units",
+      "dutysync_personnel",
+      "dutysync_duty_types",
+      "dutysync_duty_values",
+      "dutysync_duty_requirements",
+      "dutysync_duty_slots",
+      "dutysync_non_availability",
+      "dutysync_duty_change_requests",
+      "dutysync_qualifications",
+      "dutysync_blocked_duties",
+      "dutysync_users",
+      "dutysync_rucs",
+      "dutysync_seed_loaded",
+    ];
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+
+    // Clear data layer caches
+    dataLayer.invalidateCache();
   };
 
   const refreshSession = async () => {
