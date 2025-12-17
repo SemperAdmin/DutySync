@@ -21,6 +21,8 @@ import {
   getAllRucs,
   updateRucName,
   getSeedUserByEdipi,
+  getPersonnelByRuc,
+  getAllDescendantUnitIds,
   type RucEntry,
 } from "@/lib/client-stores";
 import {
@@ -65,14 +67,21 @@ interface UserData {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const isAppAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
-  const [isAdminView, setIsAdminView] = useState(true);
+  const isUnitAdmin = user?.roles?.some((role) => role.role_name === "Unit Admin");
+  const [viewMode, setViewMode] = useState<string>("user");
   const [stats, setStats] = useState({ users: 0, personnel: 0, units: 0 });
+
+  // Get Unit Admin scope (RUC) - the unit ID where they have Unit Admin role
+  const unitAdminScopeId = useMemo(() => {
+    const unitAdminRole = user?.roles?.find((role) => role.role_name === "Unit Admin");
+    return unitAdminRole?.scope_unit_id || null;
+  }, [user?.roles]);
 
   // Sync with view mode from localStorage (set by DashboardLayout)
   useEffect(() => {
     const checkViewMode = () => {
       const stored = localStorage.getItem(VIEW_MODE_KEY);
-      setIsAdminView(stored !== "user");
+      setViewMode(stored || "user");
     };
 
     // Check on mount
@@ -92,7 +101,8 @@ export default function AdminDashboard() {
 
   // Load stats for admin dashboard
   const loadStats = useCallback(() => {
-    if (isAppAdmin && isAdminView) {
+    if (viewMode === "admin" && isAppAdmin) {
+      // App Admin view - show all data
       const users = getAllUsers();
       const personnel = getAllPersonnel();
       const units = getUnitSections();
@@ -101,8 +111,35 @@ export default function AdminDashboard() {
         personnel: personnel.length,
         units: units.length,
       });
+    } else if (viewMode === "unit-admin" && isUnitAdmin && unitAdminScopeId) {
+      // Unit Admin view - filter to their RUC scope
+      const allUsers = getAllUsers();
+      const allUnits = getUnitSections();
+
+      // Get all descendant unit IDs within scope
+      const scopeUnitIds = new Set(getAllDescendantUnitIds(unitAdminScopeId));
+
+      // Filter personnel by units in scope
+      const personnel = getPersonnelByRuc(unitAdminScopeId);
+
+      // Filter units by scope
+      const units = allUnits.filter(u => scopeUnitIds.has(u.id));
+
+      // Filter users who have roles scoped to this RUC or its units
+      const users = allUsers.filter(u => {
+        return u.roles?.some(r => {
+          if (!r.scope_unit_id) return false;
+          return r.scope_unit_id === unitAdminScopeId || scopeUnitIds.has(r.scope_unit_id);
+        });
+      });
+
+      setStats({
+        users: users.length,
+        personnel: personnel.length,
+        units: units.length,
+      });
     }
-  }, [isAppAdmin, isAdminView]);
+  }, [viewMode, isAppAdmin, isUnitAdmin, unitAdminScopeId]);
 
   useEffect(() => {
     loadStats();
@@ -111,19 +148,35 @@ export default function AdminDashboard() {
   // Auto-refresh when sync service detects data changes
   useSyncRefresh(["users", "personnel", "units"], loadStats);
 
-  // If App Admin in admin view mode, show App Admin Dashboard
-  // Otherwise, show UserDashboard (Manager Dashboard is on its own route /admin/manager)
-  if (!isAppAdmin || !isAdminView) {
+  // If in user view mode, show UserDashboard
+  if (viewMode === "user") {
     return <UserDashboard />;
   }
+
+  // If in unit-admin view mode but user is not a Unit Admin, show UserDashboard
+  if (viewMode === "unit-admin" && !isUnitAdmin) {
+    return <UserDashboard />;
+  }
+
+  // If in admin view mode but user is not an App Admin, show UserDashboard
+  if (viewMode === "admin" && !isAppAdmin) {
+    return <UserDashboard />;
+  }
+
+  // Determine dashboard title and description based on view mode
+  const isUnitAdminView = viewMode === "unit-admin";
+  const dashboardTitle = isUnitAdminView ? "Unit Admin Dashboard" : "App Admin Dashboard";
+  const dashboardDescription = isUnitAdminView
+    ? `Overview of your unit (RUC: ${unitAdminScopeId || "N/A"})`
+    : "Overview of all units and users across the application";
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">App Admin Dashboard</h1>
+        <h1 className="text-3xl font-bold text-foreground">{dashboardTitle}</h1>
         <p className="text-foreground-muted mt-1">
-          Overview of all units and users across the application
+          {dashboardDescription}
         </p>
       </div>
 
