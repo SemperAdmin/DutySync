@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 
 // Environment variables (set in GitHub Secrets for production)
@@ -15,35 +15,40 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create Supabase client (singleton)
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
+let supabaseInstance: SupabaseClient<Database> | null = null;
+
+if (supabaseUrl && supabaseAnonKey) {
+  supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
       },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    })
-  : null;
+    },
+  });
+}
+
+export const supabase = supabaseInstance;
 
 // Helper to check if Supabase is configured
 export function isSupabaseConfigured(): boolean {
-  return supabase !== null;
+  return supabaseInstance !== null;
 }
 
 // Helper to get the Supabase client (throws if not configured)
-export function getSupabase() {
-  if (!supabase) {
+export function getSupabase(): SupabaseClient<Database> {
+  if (!supabaseInstance) {
     throw new Error(
       "Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables."
     );
   }
-  return supabase;
+  return supabaseInstance;
 }
 
 // Export types for convenience
 export type { Database } from "@/types/supabase";
+export type { SupabaseClient } from "@supabase/supabase-js";
