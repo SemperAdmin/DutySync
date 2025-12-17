@@ -18,6 +18,7 @@ import {
   deleteUser,
   getAllDescendantUnitIds,
   loadUsers,
+  loadUnits,
 } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
 
@@ -52,8 +53,8 @@ export default function UsersPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Reload users from Supabase
-      await loadUsers();
+      // Reload users and units from Supabase
+      await Promise.all([loadUsers(), loadUnits()]);
 
       const usersData = getAllUsers();
       const unitsData = getUnitSections();
