@@ -131,6 +131,7 @@ function convertNonAvailability(na: SupabaseNonAvailability): NonAvailability {
 // ============================================================================
 
 export interface RucEntry {
+  id: string;
   ruc: string;
   name: string | null;
 }
@@ -142,6 +143,7 @@ export async function loadRucs(): Promise<RucEntry[]> {
   const orgs = await supabase.getOrganizations();
   organizationsCache = orgs;
   rucEntriesCache = orgs.map(org => ({
+    id: org.id,
     ruc: org.ruc_code,
     name: org.name,
   }));
