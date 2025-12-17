@@ -226,8 +226,8 @@ function RucManagementView() {
     }
   };
 
-  const handleSaveRucName = (rucCode: string, name: string | null) => {
-    const success = updateRucName(rucCode, name);
+  const handleSaveRucName = async (rucCode: string, name: string | null) => {
+    const success = await updateRucName(rucCode, name);
     if (success) {
       // Refresh from cache (spread to create new array reference for React)
       setRucs([...getAllRucs()]);
