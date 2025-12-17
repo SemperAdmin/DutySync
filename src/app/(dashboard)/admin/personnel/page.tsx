@@ -12,8 +12,6 @@ import Input from "@/components/ui/Input";
 import type { Personnel, UnitSection, RoleName } from "@/types";
 import { useAuth } from "@/lib/supabase-auth";
 import {
-  getAllPersonnel,
-  getUnitSections,
   createPersonnel,
   parseManpowerTsv,
   importManpowerData,
@@ -22,6 +20,12 @@ import {
   getPersonnelByEdipi,
   invalidateCache,
 } from "@/lib/client-stores";
+import {
+  getAllPersonnel,
+  getUnitSections,
+  loadPersonnel,
+  loadUnits,
+} from "@/lib/data-layer";
 import { useSyncRefresh } from "@/hooks/useSync";
 import {
   isGitHubConfigured,
@@ -64,13 +68,13 @@ export default function PersonnelPage() {
   const [viewMode, setViewMode] = useState<"self" | "scope">("scope"); // Default to scope for managers/admins
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
 
-  const fetchData = useCallback(() => {
-    // Invalidate cache to ensure we get fresh data
-    invalidateCache("dutysync_personnel");
-    invalidateCache("dutysync_units");
+  const fetchData = useCallback(async () => {
     try {
-      const personnelData = getAllPersonnel();
-      const unitsData = getUnitSections();
+      // Load data from Supabase
+      const [personnelData, unitsData] = await Promise.all([
+        loadPersonnel(),
+        loadUnits(),
+      ]);
 
       setPersonnel(personnelData);
       setUnits(unitsData);
