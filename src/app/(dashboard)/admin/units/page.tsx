@@ -23,6 +23,10 @@ import {
   deleteUnitSection,
   invalidateCache,
   loadUnits,
+  loadUsers,
+  assignUserRole,
+  removeUserRole,
+  getSeedUserByEdipi,
   type RucEntry,
 } from "@/lib/data-layer";
 import {
@@ -272,12 +276,37 @@ function RucManagementView() {
         </div>
       )}
 
-      {/* Edit RUC Name Modal */}
+      {/* Edit RUC Settings Modal */}
       {editingRuc && (
         <RucEditModal
           ruc={editingRuc}
+          currentAdmins={unitAdminsByRuc.get(editingRuc.id) || []}
           onClose={() => setEditingRuc(null)}
           onSave={handleSaveRucName}
+          onRefresh={() => {
+            // Refresh the users list to update the Unit Admin display
+            const usersData = getAllUsers();
+            const personnelList = getAllPersonnel();
+            const personnelByEdipi = new Map(
+              personnelList.map((p) => [p.service_id, p])
+            );
+            setUsers(usersData.map(u => {
+              const personnel = personnelByEdipi.get(u.edipi);
+              return {
+                id: u.id,
+                edipi: u.edipi,
+                email: u.email,
+                rank: personnel?.rank,
+                firstName: personnel?.first_name,
+                lastName: personnel?.last_name,
+                roles: (u.roles || []).map(r => ({
+                  id: r.id,
+                  role_name: r.role_name as RoleName,
+                  scope_unit_id: r.scope_unit_id,
+                })),
+              };
+            }));
+          }}
         />
       )}
 
@@ -1038,26 +1067,108 @@ function UnitFormModal({
 // RUC Name Edit Modal
 function RucEditModal({
   ruc,
+  currentAdmins,
   onClose,
   onSave,
+  onRefresh,
 }: {
   ruc: RucEntry;
+  currentAdmins: UserData[];
   onClose: () => void;
   onSave: (rucCode: string, name: string | null) => void;
+  onRefresh: () => void;
 }) {
   const [name, setName] = useState(ruc.name || "");
+  const [adminEdipi, setAdminEdipi] = useState("");
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(ruc.ruc, name.trim() || null);
   };
 
+  const handleAssignAdmin = async () => {
+    if (!adminEdipi.trim()) {
+      setAdminError("Please enter an EDIPI");
+      return;
+    }
+
+    setIsAssigning(true);
+    setAdminError(null);
+
+    try {
+      // Look up user by EDIPI
+      const user = getSeedUserByEdipi(adminEdipi.trim());
+      if (!user) {
+        setAdminError("User not found with that EDIPI. User must be registered first.");
+        setIsAssigning(false);
+        return;
+      }
+
+      // Check if user already has Unit Admin role for this RUC
+      const existingRole = user.roles.find(
+        r => r.role_name === "Unit Admin" && r.scope_unit_id === ruc.id
+      );
+      if (existingRole) {
+        setAdminError("User is already a Unit Admin for this RUC");
+        setIsAssigning(false);
+        return;
+      }
+
+      // Remove any existing Unit Admin role for other RUCs (a user can only admin one RUC)
+      const otherUnitAdminRole = user.roles.find(
+        r => r.role_name === "Unit Admin" && r.scope_unit_id !== ruc.id
+      );
+      if (otherUnitAdminRole) {
+        await removeUserRole(user.id, "Unit Admin", otherUnitAdminRole.scope_unit_id);
+      }
+
+      // Assign the Unit Admin role
+      const success = await assignUserRole(user.id, "Unit Admin", ruc.id);
+      if (!success) {
+        setAdminError("Failed to assign Unit Admin role");
+        setIsAssigning(false);
+        return;
+      }
+
+      // Refresh the user list
+      await loadUsers();
+      setAdminEdipi("");
+      onRefresh();
+    } catch (err) {
+      setAdminError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (admin: UserData) => {
+    setIsAssigning(true);
+    setAdminError(null);
+
+    try {
+      const unitAdminRole = admin.roles.find(
+        r => r.role_name === "Unit Admin" && r.scope_unit_id === ruc.id
+      );
+      if (unitAdminRole) {
+        await removeUserRole(admin.id, "Unit Admin", ruc.id);
+        await loadUsers();
+        onRefresh();
+      }
+    } catch (err) {
+      setAdminError(err instanceof Error ? err.message : "Failed to remove admin");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card variant="elevated" className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Edit RUC Name</CardTitle>
-          <CardDescription>Set a display name for RUC {ruc.ruc}</CardDescription>
+          <CardTitle>Edit RUC Settings</CardTitle>
+          <CardDescription>Configure RUC {ruc.ruc}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -1072,6 +1183,74 @@ function RucEditModal({
               onChange={(e) => setName(e.target.value)}
               autoFocus
             />
+
+            {/* Unit Admin Section */}
+            <div className="pt-4 border-t border-border">
+              <label className="block text-sm font-medium text-foreground mb-2">Unit Administrator</label>
+
+              {/* Current Admins */}
+              {currentAdmins.length > 0 ? (
+                <div className="space-y-2 mb-3">
+                  {currentAdmins.map((admin) => (
+                    <div
+                      key={admin.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-surface border border-border"
+                    >
+                      <div>
+                        <span className="text-sm text-foreground">
+                          {admin.rank && admin.lastName
+                            ? `${admin.rank} ${admin.lastName}, ${admin.firstName || ""}`
+                            : admin.email}
+                        </span>
+                        <span className="text-xs text-foreground-muted ml-2">({admin.edipi})</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveAdmin(admin)}
+                        disabled={isAssigning}
+                        className="text-error hover:bg-error/10"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-foreground-muted mb-3">No Unit Admin assigned</p>
+              )}
+
+              {/* Add Admin by EDIPI */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter EDIPI..."
+                  value={adminEdipi}
+                  onChange={(e) => {
+                    setAdminEdipi(e.target.value);
+                    setAdminError(null);
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleAssignAdmin}
+                  disabled={isAssigning || !adminEdipi.trim()}
+                >
+                  {isAssigning ? "..." : "Add"}
+                </Button>
+              </div>
+              {adminError && (
+                <p className="text-xs text-error mt-1">{adminError}</p>
+              )}
+              <p className="text-xs text-foreground-muted mt-1">
+                Enter the EDIPI of a registered user to assign as Unit Admin
+              </p>
+            </div>
+
             <div className="flex gap-3 pt-2">
               <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
                 Cancel
