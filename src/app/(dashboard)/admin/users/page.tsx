@@ -18,9 +18,11 @@ import {
   updateUserApprovalPermission,
   deleteUser,
   invalidateCache,
+  getChildUnits,
 } from "@/lib/client-stores";
 import { triggerUpdateRolesWorkflow, triggerDeleteUserWorkflow } from "@/lib/client-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
+import { useAuth } from "@/lib/client-auth";
 
 interface UserRole {
   id?: string;
@@ -38,12 +40,18 @@ interface UserData {
 }
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+
+  // Check if user is App Admin (can see all users) or Unit Admin (limited scope)
+  const isAppAdmin = currentUser?.roles?.some(r => r.role_name === "App Admin") ?? false;
+  const unitAdminRole = currentUser?.roles?.find(r => r.role_name === "Unit Admin");
+  const unitAdminScopeId = unitAdminRole?.scope_unit_id ?? null;
 
   const fetchData = useCallback(() => {
     try {
@@ -92,6 +100,36 @@ export default function UsersPage() {
     });
     return map;
   }, [personnel]);
+
+  // Get all child unit IDs for the Unit Admin's scope
+  const scopeUnitIds = useMemo(() => {
+    if (isAppAdmin || !unitAdminScopeId) {
+      // App Admin sees all, or no scope defined
+      return null;
+    }
+    // Get all child units recursively
+    const childUnits = getChildUnits(unitAdminScopeId);
+    const unitIds = new Set<string>([unitAdminScopeId, ...childUnits.map(u => u.id)]);
+    return unitIds;
+  }, [isAppAdmin, unitAdminScopeId]);
+
+  // Filter users based on scope - Unit Admins only see users in their RUC/unit hierarchy
+  const filteredUsers = useMemo(() => {
+    if (isAppAdmin || !scopeUnitIds) {
+      // App Admin sees all users
+      return users;
+    }
+    // Unit Admin: filter to users whose linked personnel is in their scope
+    return users.filter(user => {
+      const person = personnelByEdipi.get(user.edipi);
+      if (!person) {
+        // User not linked to personnel - don't show to Unit Admins
+        return false;
+      }
+      // Check if personnel's unit is within scope
+      return scopeUnitIds.has(person.unit_section_id);
+    });
+  }, [users, isAppAdmin, scopeUnitIds, personnelByEdipi]);
 
   const getPersonnelInfo = (edipi: string) => {
     return personnelByEdipi.get(edipi);
@@ -196,11 +234,12 @@ export default function UsersPage() {
         <CardHeader>
           <CardTitle>Registered Users</CardTitle>
           <CardDescription>
-            {users.length} user{users.length !== 1 ? "s" : ""} registered
+            {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""} registered
+            {!isAppAdmin && unitAdminScopeId && " (within your unit scope)"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {users.length === 0 ? (
+          {filteredUsers.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-foreground-muted">No users found</p>
             </div>
@@ -233,7 +272,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => {
+                  {filteredUsers.map((user) => {
                     const personnelInfo = getPersonnelInfo(user.edipi);
                     return (
                       <tr
