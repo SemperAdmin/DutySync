@@ -563,7 +563,7 @@ export default function DashboardLayout({
             {/* Right side actions - auto-save status, role badge and view toggle */}
             <div className="flex items-center gap-3 ml-auto">
               {/* Auto-save status indicator */}
-              <AutoSaveStatus ruc="02301" showControls={actuallyIsAppAdmin} />
+              <AutoSaveStatus ruc="02301" />
 
               {/* Sync indicator */}
               <SyncIndicator />
