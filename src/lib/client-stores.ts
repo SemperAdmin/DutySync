@@ -121,6 +121,48 @@ const KEYS = {
   approvedRosters: "dutysync_approved_rosters",
 };
 
+// ============ In-Memory Cache Layer ============
+// Caches parsed localStorage data to avoid repeated JSON.parse calls
+
+interface CacheEntry<T> {
+  data: T[];
+  version: number;
+}
+
+// Global cache with version tracking for invalidation
+const dataCache = new Map<string, CacheEntry<unknown>>();
+const cacheVersions = new Map<string, number>();
+
+// Initialize cache versions
+for (const key of Object.values(KEYS)) {
+  cacheVersions.set(key, 0);
+}
+
+/**
+ * Invalidate cache for a specific key
+ * Call this when data is modified from external sources (sync, import)
+ */
+export function invalidateCache(key?: string): void {
+  if (key) {
+    const currentVersion = cacheVersions.get(key) || 0;
+    cacheVersions.set(key, currentVersion + 1);
+    dataCache.delete(key);
+  } else {
+    // Invalidate all caches
+    dataCache.clear();
+    for (const k of cacheVersions.keys()) {
+      cacheVersions.set(k, (cacheVersions.get(k) || 0) + 1);
+    }
+  }
+}
+
+/**
+ * Invalidate all data caches - useful after sync or import operations
+ */
+export function invalidateAllCaches(): void {
+  invalidateCache();
+}
+
 // ============ RUC Reference Data ============
 
 // RUC entry structure
@@ -559,9 +601,24 @@ export async function reloadSeedData(): Promise<{
 // Helper to safely get from localStorage
 function getFromStorage<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
+
+  // Check cache first
+  const currentVersion = cacheVersions.get(key) || 0;
+  const cached = dataCache.get(key) as CacheEntry<T> | undefined;
+
+  if (cached && cached.version === currentVersion) {
+    return cached.data;
+  }
+
+  // Cache miss - parse from localStorage
   try {
     const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
+    const parsed: T[] = data ? JSON.parse(data) : [];
+
+    // Store in cache
+    dataCache.set(key, { data: parsed, version: currentVersion });
+
+    return parsed;
   } catch (error) {
     console.error(`Failed to parse ${key} from localStorage. Clearing item.`, error);
     localStorage.removeItem(key);
@@ -569,10 +626,14 @@ function getFromStorage<T>(key: string): T[] {
   }
 }
 
-// Helper to save to localStorage
+// Helper to save to localStorage and update cache
 function saveToStorage<T>(key: string, data: T[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(key, JSON.stringify(data));
+
+  // Update cache with new data
+  const currentVersion = cacheVersions.get(key) || 0;
+  dataCache.set(key, { data, version: currentVersion });
 }
 
 // Deduplicate array by ID

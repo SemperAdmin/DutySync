@@ -126,6 +126,40 @@ export default function PersonnelPage() {
     return map;
   }, [units]);
 
+  // Pre-compute full hierarchy for each unit ID (major performance optimization)
+  // This avoids walking the tree 3-6 times per row during render
+  const unitHierarchyMap = useMemo(() => {
+    const map = new Map<string, { company: string; section: string; workSection: string }>();
+
+    // Helper to walk up the tree and find parent at level
+    const findParentAtLevel = (
+      unitId: string,
+      level: "company" | "section" | "work_section"
+    ): string => {
+      let currentUnit = unitMap.get(unitId);
+      while (currentUnit) {
+        if (currentUnit.hierarchy_level === level) {
+          return currentUnit.unit_name;
+        }
+        currentUnit = currentUnit.parent_id
+          ? unitMap.get(currentUnit.parent_id)
+          : undefined;
+      }
+      return "-";
+    };
+
+    // Pre-compute hierarchy for all units
+    for (const unit of units) {
+      map.set(unit.id, {
+        company: findParentAtLevel(unit.id, "company"),
+        section: findParentAtLevel(unit.id, "section"),
+        workSection: unit.unit_name,
+      });
+    }
+
+    return map;
+  }, [units, unitMap]);
+
   // Get the current user's personnel record
   const currentUserPersonnel = useMemo(() => {
     if (!user?.edipi) return null;
@@ -571,35 +605,39 @@ export default function PersonnelPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPersonnel.map((person) => (
-                    <tr
-                      key={person.id}
-                      className="border-b border-border hover:bg-surface-elevated"
-                    >
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-foreground">
-                          {person.last_name}, {person.first_name}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-foreground-muted">
-                        {person.rank}
-                      </td>
-                      <td className="py-3 px-4 text-foreground-muted">
-                        {getParentAtLevel(person.unit_section_id, "company")}
-                      </td>
-                      <td className="py-3 px-4 text-foreground-muted">
-                        {getParentAtLevel(person.unit_section_id, "section")}
-                      </td>
-                      <td className="py-3 px-4 text-foreground-muted">
-                        {getUnitName(person.unit_section_id)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-highlight font-medium">
-                          {person.current_duty_score.toFixed(1)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredPersonnel.map((person) => {
+                    // Use pre-computed hierarchy (O(1) lookup instead of tree traversal)
+                    const hierarchy = unitHierarchyMap.get(person.unit_section_id);
+                    return (
+                      <tr
+                        key={person.id}
+                        className="border-b border-border hover:bg-surface-elevated"
+                      >
+                        <td className="py-3 px-4">
+                          <span className="font-medium text-foreground">
+                            {person.last_name}, {person.first_name}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {person.rank}
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {hierarchy?.company ?? "-"}
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {hierarchy?.section ?? "-"}
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {hierarchy?.workSection ?? getUnitName(person.unit_section_id)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-highlight font-medium">
+                            {person.current_duty_score.toFixed(1)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
