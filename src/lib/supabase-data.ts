@@ -623,24 +623,46 @@ export async function addUserRole(
   const supabase = getSupabase();
 
   // First check if this exact role already exists to avoid 409 conflict
-  let query = supabase
+  const { data: existingRoles, error: fetchError } = await supabase
     .from("user_roles")
     .select("*")
     .eq("user_id", userId)
     .eq("role_id", roleId);
 
-  // Handle scope_unit_id - need to check for null or matching value
-  if (scopeUnitId) {
-    query = query.eq("scope_unit_id", scopeUnitId);
-  } else {
-    query = query.is("scope_unit_id", null);
+  if (fetchError) {
+    console.error("Error checking existing roles:", fetchError);
   }
 
-  const { data: existingRole } = await query.maybeSingle();
+  // Check if we already have this role (with same or any scope)
+  const roles = existingRoles as UserRole[] | null;
+  if (roles && roles.length > 0) {
+    // Find exact match (same scope)
+    const exactMatch = roles.find(r =>
+      (scopeUnitId && r.scope_unit_id === scopeUnitId) ||
+      (!scopeUnitId && r.scope_unit_id === null)
+    );
+    if (exactMatch) {
+      console.log("Role already exists with exact scope, returning existing");
+      return exactMatch;
+    }
 
-  if (existingRole) {
-    // Role already exists, return it
-    return existingRole as UserRole;
+    // If there's a unique constraint on (user_id, role_id), we can't add another
+    // This handles cases where the constraint doesn't include scope_unit_id
+    console.log("Role exists with different scope, attempting to update scope");
+    // Update the existing role's scope instead of inserting
+    const existingRole = roles[0];
+    const { data: updated, error: updateError } = await supabase
+      .from("user_roles")
+      .update({ scope_unit_id: scopeUnitId || null } as never)
+      .eq("id", existingRole.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error("Error updating role scope:", updateError);
+      return null;
+    }
+    return updated as UserRole;
   }
 
   // Insert new role
@@ -655,6 +677,19 @@ export async function addUserRole(
     .single();
 
   if (error) {
+    // If we get a 409 conflict, try to fetch and return the existing role
+    if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("conflict")) {
+      console.log("Insert conflict, fetching existing role");
+      const { data: existing } = await supabase
+        .from("user_roles")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("role_id", roleId)
+        .maybeSingle();
+      if (existing) {
+        return existing as UserRole;
+      }
+    }
     console.error("Error adding user role:", error);
     return null;
   }
