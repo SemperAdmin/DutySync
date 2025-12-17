@@ -283,7 +283,9 @@ export function initAutoSave(ruc: string, options?: Partial<AutoSaveConfig>): vo
   const savedSettings = loadAutoSaveSettings();
 
   config = {
-    enabled: savedSettings?.enabled ?? true,
+    // Disabled by default since Supabase is now the source of truth
+    // Users can enable manually if they want to sync to GitHub
+    enabled: savedSettings?.enabled ?? false,
     debounceMs: savedSettings?.debounceMs ?? options?.debounceMs ?? 5000,
     ruc,
   };

@@ -30,7 +30,8 @@ export interface UseAutoSaveReturn {
 export function useAutoSave(ruc: string): UseAutoSaveReturn {
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
   const [message, setMessage] = useState<string>('');
-  const [isEnabled, setIsEnabled] = useState<boolean>(true);
+  // Default to disabled since Supabase is the source of truth
+  const [isEnabled, setIsEnabled] = useState<boolean>(false);
   const [hasUnsaved, setHasUnsaved] = useState<boolean>(false);
   const [dirtyTypes, setDirtyTypes] = useState<SaveableDataType[]>([]);
 
