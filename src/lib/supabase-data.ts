@@ -178,6 +178,7 @@ export async function getTopLevelUnitForOrganization(organizationId: string): Pr
 
   if (topError) {
     console.error("Error fetching top-level unit:", topError);
+    return null;
   }
 
   if (topLevel) {
@@ -195,6 +196,7 @@ export async function getTopLevelUnitForOrganization(organizationId: string): Pr
 
   if (anyError) {
     console.error("Error fetching any unit for org:", anyError);
+    return null;
   }
 
   if (anyUnit) {
@@ -203,14 +205,24 @@ export async function getTopLevelUnitForOrganization(organizationId: string): Pr
 
   // No units exist for this organization - auto-create a top-level unit
   // First get the organization to use its name
-  const { data: org } = await supabase
+  const { data: org, error: orgError } = await supabase
     .from("organizations")
-    .select("*")
+    .select("name, ruc_code")
     .eq("id", organizationId)
-    .single();
+    .maybeSingle();
 
-  const orgData = org as Organization | null;
-  const unitName = orgData?.name || orgData?.ruc_code || "Organization Unit";
+  if (orgError) {
+    console.error("Error fetching organization for unit creation:", orgError);
+    return null;
+  }
+
+  if (!org) {
+    console.error(`Organization with id ${organizationId} not found. Cannot create unit.`);
+    return null;
+  }
+
+  const orgData = org as { name: string | null; ruc_code: string | null };
+  const unitName = orgData.name || orgData.ruc_code || "Organization Unit";
 
   const { data: newUnit, error: createError } = await supabase
     .from("units")
