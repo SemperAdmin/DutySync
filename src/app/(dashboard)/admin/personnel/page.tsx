@@ -12,19 +12,20 @@ import Input from "@/components/ui/Input";
 import type { Personnel, UnitSection, RoleName } from "@/types";
 import { useAuth } from "@/lib/supabase-auth";
 import {
-  createPersonnel,
   parseManpowerTsv,
-  importManpowerData,
   exportUnitStructure,
   exportUnitMembers,
   getPersonnelByEdipi,
-  invalidateCache,
+  createPersonnel,
 } from "@/lib/client-stores";
 import {
   getAllPersonnel,
   getUnitSections,
   loadPersonnel,
   loadUnits,
+  getOrganizationByRuc,
+  importManpowerToSupabase,
+  type ManpowerRecord,
 } from "@/lib/data-layer";
 import { useSyncRefresh } from "@/hooks/useSync";
 import {
@@ -767,35 +768,43 @@ function ImportModal({
         throw new Error("No valid records found in file. Make sure it contains Rank, Name, EDIPI columns.");
       }
 
-      const data = importManpowerData(records);
+      // Extract RUC from first record's unit code
+      const firstUnit = records[0]?.unit;
+      const rucMatch = firstUnit?.match(/^(\d{5})/);
+      const ruc = rucMatch ? rucMatch[1] : null;
+
+      if (!ruc) {
+        throw new Error("Could not determine RUC from unit codes. Make sure unit codes start with a 5-digit RUC.");
+      }
+
+      // Get organization ID from RUC
+      const org = await getOrganizationByRuc(ruc);
+      if (!org) {
+        throw new Error(`Organization not found for RUC ${ruc}. Please create the organization first.`);
+      }
+
+      // Convert parsed records to ManpowerRecord format
+      const manpowerRecords: ManpowerRecord[] = records.map(r => ({
+        edipi: r.edipi,
+        name: r.name,
+        rank: r.rank,
+        unit: r.unit,
+        category: r.category,
+        dutyStatus: r.dutyStatus,
+        location: r.location,
+        startDate: r.startDate,
+        endDate: r.endDate,
+      }));
+
+      // Import to Supabase
+      const data = await importManpowerToSupabase(org.id, manpowerRecords);
 
       setResult({
         personnel: data.personnel,
-        units: data.units,
-        nonAvailability: data.nonAvailability,
-        errors: data.errors || [],
+        units: { created: data.units.created },
+        nonAvailability: { created: 0 },
+        errors: [...data.units.errors, ...data.personnel.errors],
       });
-
-      // Auto-push to GitHub if configured
-      if ((data.personnel.created > 0 || data.units?.created) && isGitHubConfigured()) {
-        setGitHubStatus("pushing");
-        setGitHubMessage("Pushing to GitHub...");
-
-        const unitStructure = exportUnitStructure();
-        const unitMembers = exportUnitMembers();
-        // Pass the detected RUC to push to the correct unit folder
-        const pushResult = await pushSeedFilesToGitHub(unitStructure, unitMembers, data.ruc);
-
-        if (pushResult.success) {
-          setGitHubStatus("success");
-          setGitHubMessage("Successfully pushed to GitHub. Changes will deploy automatically.");
-        } else {
-          setGitHubStatus("error");
-          setGitHubMessage(
-            `Push failed: ${pushResult.structureResult.message || pushResult.membersResult.message}`
-          );
-        }
-      }
 
       if (data.personnel.created > 0 || data.personnel.updated > 0) {
         setTimeout(() => {
