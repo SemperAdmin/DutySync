@@ -8,7 +8,7 @@ import Card, {
   CardContent,
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import { useAuth } from "@/lib/client-auth";
+import { useAuth } from "@/lib/supabase-auth";
 import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, RoleName, DutyChangeRequest } from "@/types";
 import {
   getAllPersonnel,

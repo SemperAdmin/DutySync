@@ -5,7 +5,7 @@ import Link from "next/link";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { useAuth } from "@/lib/client-auth";
+import { useAuth } from "@/lib/supabase-auth";
 import type { UnitSection, HierarchyLevel, RoleName, Personnel } from "@/types";
 import {
   getUnitSections,
@@ -21,7 +21,7 @@ import {
   getAllRucs,
   updateRucName,
   getSeedUserByEdipi,
-  getPersonnelByRuc,
+  getPersonnelByUnitWithDescendants,
   getAllDescendantUnitIds,
   type RucEntry,
 } from "@/lib/client-stores";
@@ -120,7 +120,7 @@ export default function AdminDashboard() {
       const scopeUnitIds = new Set(getAllDescendantUnitIds(unitAdminScopeId));
 
       // Filter personnel by units in scope
-      const personnel = getPersonnelByRuc(unitAdminScopeId);
+      const personnel = getPersonnelByUnitWithDescendants(unitAdminScopeId);
 
       // Filter units by scope
       const units = allUnits.filter(u => scopeUnitIds.has(u.id));

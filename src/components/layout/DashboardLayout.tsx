@@ -3,7 +3,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/client-auth";
+import { useAuth } from "@/lib/supabase-auth";
 import Logo from "@/components/ui/Logo";
 import Button from "@/components/ui/Button";
 import {

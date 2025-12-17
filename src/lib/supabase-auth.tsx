@@ -376,3 +376,11 @@ export async function deleteUserAccount(
     return { success: false, error: "Failed to delete user" };
   }
 }
+
+// ============================================================================
+// ALIASES FOR BACKWARD COMPATIBILITY
+// These allow the rest of the app to import { AuthProvider, useAuth } from this file
+// ============================================================================
+
+export const AuthProvider = SupabaseAuthProvider;
+export const useAuth = useSupabaseAuth;
