@@ -138,41 +138,43 @@ function RucManagementView() {
   const [pageSize, setPageSize] = useState<PageSize>(10);
   const [goToPage, setGoToPage] = useState("");
 
+  // Helper to map users data with personnel info
+  const mapUsersWithPersonnel = useCallback(() => {
+    const personnelList = getAllPersonnel();
+    const personnelByEdipi = new Map(
+      personnelList.map((p) => [p.service_id, p])
+    );
+    const usersData = getAllUsers();
+    return usersData.map(u => {
+      const personnel = personnelByEdipi.get(u.edipi);
+      return {
+        id: u.id,
+        edipi: u.edipi,
+        email: u.email,
+        rank: personnel?.rank,
+        firstName: personnel?.first_name,
+        lastName: personnel?.last_name,
+        roles: (u.roles || []).map(r => ({
+          id: r.id,
+          role_name: r.role_name as RoleName,
+          scope_unit_id: r.scope_unit_id,
+        })),
+      };
+    });
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
-      const data = await loadRucs();
+      // Load both RUCs and users from Supabase
+      const [data] = await Promise.all([loadRucs(), loadUsers()]);
       setRucs(data);
-
-      // Build personnel lookup map by EDIPI for O(1) lookups
-      const personnelList = getAllPersonnel();
-      const personnelByEdipi = new Map(
-        personnelList.map((p) => [p.service_id, p])
-      );
-
-      // Load users to show Unit Admins with personnel data
-      const usersData = getAllUsers();
-      setUsers(usersData.map(u => {
-        const personnel = personnelByEdipi.get(u.edipi);
-        return {
-          id: u.id,
-          edipi: u.edipi,
-          email: u.email,
-          rank: personnel?.rank,
-          firstName: personnel?.first_name,
-          lastName: personnel?.last_name,
-          roles: (u.roles || []).map(r => ({
-            id: r.id,
-            role_name: r.role_name as RoleName,
-            scope_unit_id: r.scope_unit_id,
-          })),
-        };
-      }));
+      setUsers(mapUsersWithPersonnel());
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [mapUsersWithPersonnel]);
 
   useEffect(() => {
     fetchData();
@@ -283,30 +285,8 @@ function RucManagementView() {
           currentAdmins={unitAdminsByRuc.get(editingRuc.id) || []}
           onClose={() => setEditingRuc(null)}
           onSave={handleSaveRucName}
-          onRefresh={() => {
-            // Refresh the users list to update the Unit Admin display
-            const usersData = getAllUsers();
-            const personnelList = getAllPersonnel();
-            const personnelByEdipi = new Map(
-              personnelList.map((p) => [p.service_id, p])
-            );
-            setUsers(usersData.map(u => {
-              const personnel = personnelByEdipi.get(u.edipi);
-              return {
-                id: u.id,
-                edipi: u.edipi,
-                email: u.email,
-                rank: personnel?.rank,
-                firstName: personnel?.first_name,
-                lastName: personnel?.last_name,
-                roles: (u.roles || []).map(r => ({
-                  id: r.id,
-                  role_name: r.role_name as RoleName,
-                  scope_unit_id: r.scope_unit_id,
-                })),
-              };
-            }));
-          }}
+          onRefresh={() => setUsers(mapUsersWithPersonnel())}
+          getAdminDisplay={getAdminDisplay}
         />
       )}
 
@@ -1064,6 +1044,9 @@ function UnitFormModal({
   );
 }
 
+// Role constant to avoid magic strings
+const UNIT_ADMIN_ROLE: RoleName = "Unit Admin";
+
 // RUC Name Edit Modal
 function RucEditModal({
   ruc,
@@ -1071,12 +1054,14 @@ function RucEditModal({
   onClose,
   onSave,
   onRefresh,
+  getAdminDisplay,
 }: {
   ruc: RucEntry;
   currentAdmins: UserData[];
   onClose: () => void;
   onSave: (rucCode: string, name: string | null) => void;
   onRefresh: () => void;
+  getAdminDisplay: (user: UserData) => string;
 }) {
   const [name, setName] = useState(ruc.name || "");
   const [adminEdipi, setAdminEdipi] = useState("");
@@ -1102,33 +1087,30 @@ function RucEditModal({
       const user = getSeedUserByEdipi(adminEdipi.trim());
       if (!user) {
         setAdminError("User not found with that EDIPI. User must be registered first.");
-        setIsAssigning(false);
         return;
       }
 
       // Check if user already has Unit Admin role for this RUC
       const existingRole = user.roles.find(
-        r => r.role_name === "Unit Admin" && r.scope_unit_id === ruc.id
+        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id === ruc.id
       );
       if (existingRole) {
         setAdminError("User is already a Unit Admin for this RUC");
-        setIsAssigning(false);
         return;
       }
 
       // Remove any existing Unit Admin role for other RUCs (a user can only admin one RUC)
       const otherUnitAdminRole = user.roles.find(
-        r => r.role_name === "Unit Admin" && r.scope_unit_id !== ruc.id
+        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id !== ruc.id
       );
       if (otherUnitAdminRole) {
-        await removeUserRole(user.id, "Unit Admin", otherUnitAdminRole.scope_unit_id);
+        await removeUserRole(user.id, UNIT_ADMIN_ROLE, otherUnitAdminRole.scope_unit_id);
       }
 
       // Assign the Unit Admin role
-      const success = await assignUserRole(user.id, "Unit Admin", ruc.id);
+      const success = await assignUserRole(user.id, UNIT_ADMIN_ROLE, ruc.id);
       if (!success) {
         setAdminError("Failed to assign Unit Admin role");
-        setIsAssigning(false);
         return;
       }
 
@@ -1149,10 +1131,10 @@ function RucEditModal({
 
     try {
       const unitAdminRole = admin.roles.find(
-        r => r.role_name === "Unit Admin" && r.scope_unit_id === ruc.id
+        r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id === ruc.id
       );
       if (unitAdminRole) {
-        await removeUserRole(admin.id, "Unit Admin", ruc.id);
+        await removeUserRole(admin.id, UNIT_ADMIN_ROLE, ruc.id);
         await loadUsers();
         onRefresh();
       }
@@ -1198,9 +1180,7 @@ function RucEditModal({
                     >
                       <div>
                         <span className="text-sm text-foreground">
-                          {admin.rank && admin.lastName
-                            ? `${admin.rank} ${admin.lastName}, ${admin.firstName || ""}`
-                            : admin.email}
+                          {getAdminDisplay(admin)}
                         </span>
                         <span className="text-xs text-foreground-muted ml-2">({admin.edipi})</span>
                       </div>
