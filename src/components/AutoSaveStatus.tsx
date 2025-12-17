@@ -4,22 +4,18 @@ import { useAutoSave } from '@/hooks/useAutoSave';
 
 interface AutoSaveStatusProps {
   ruc: string;
-  showControls?: boolean;
 }
 
 /**
  * Auto-save status indicator component
  *
- * Shows the current save status and optionally provides controls
+ * Shows the current save status (auto-save is always enabled)
  */
-export function AutoSaveStatus({ ruc, showControls = false }: AutoSaveStatusProps) {
+export function AutoSaveStatus({ ruc }: AutoSaveStatusProps) {
   const {
     status,
     message,
-    isEnabled,
     hasUnsavedChanges,
-    enable,
-    disable,
     saveNow,
   } = useAutoSave(ruc);
 
@@ -81,7 +77,7 @@ export function AutoSaveStatus({ ruc, showControls = false }: AutoSaveStatusProp
     if (message) return message;
     switch (status) {
       case 'idle':
-        return isEnabled ? 'Auto-save on' : 'Auto-save off';
+        return 'Auto-save on';
       case 'pending':
         return 'Unsaved changes';
       case 'saving':
@@ -103,32 +99,15 @@ export function AutoSaveStatus({ ruc, showControls = false }: AutoSaveStatusProp
         <span>{getStatusText()}</span>
       </div>
 
-      {/* Controls */}
-      {showControls && (
-        <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
-          {/* Toggle */}
-          <button
-            onClick={() => (isEnabled ? disable() : enable())}
-            className={`text-xs px-2 py-1 rounded ${
-              isEnabled
-                ? 'bg-success/20 text-success hover:bg-success/30'
-                : 'bg-foreground-muted/20 text-foreground-muted hover:bg-foreground-muted/30'
-            }`}
-          >
-            {isEnabled ? 'On' : 'Off'}
-          </button>
-
-          {/* Manual save button */}
-          {hasUnsavedChanges && (
-            <button
-              onClick={() => saveNow()}
-              disabled={status === 'saving'}
-              className="text-xs px-2 py-1 rounded bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-50"
-            >
-              Save Now
-            </button>
-          )}
-        </div>
+      {/* Manual save button - only show if there are unsaved changes */}
+      {hasUnsavedChanges && (
+        <button
+          onClick={() => saveNow()}
+          disabled={status === 'saving'}
+          className="text-xs px-2 py-1 rounded bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-50 ml-2"
+        >
+          Save Now
+        </button>
       )}
     </div>
   );

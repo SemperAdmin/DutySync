@@ -17,6 +17,7 @@ import {
   removeUserRole,
   updateUserApprovalPermission,
   deleteUser,
+  invalidateCache,
 } from "@/lib/client-stores";
 import { triggerUpdateRolesWorkflow, triggerDeleteUserWorkflow } from "@/lib/client-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
@@ -46,6 +47,10 @@ export default function UsersPage() {
 
   const fetchData = useCallback(() => {
     try {
+      // Invalidate cache to ensure fresh data
+      invalidateCache("dutysync_personnel");
+      invalidateCache("dutysync_users");
+
       const usersData = getAllUsers();
       const unitsData = getUnitSections();
       const personnelData = getAllPersonnel();
