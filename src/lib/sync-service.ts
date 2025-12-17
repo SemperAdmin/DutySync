@@ -6,6 +6,7 @@
  */
 
 import { getGitHubSettings } from "./github-api";
+import { invalidateCache } from "./client-stores";
 
 // Sync configuration
 const DEFAULT_SYNC_INTERVAL = 30000; // 30 seconds
@@ -169,11 +170,13 @@ function getLocalData<T>(key: string): T[] {
 }
 
 /**
- * Save data to localStorage
+ * Save data to localStorage and invalidate the in-memory cache
  */
 function saveLocalData<T>(key: string, data: T[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(key, JSON.stringify(data));
+  // Invalidate the cache for this key so components get fresh data
+  invalidateCache(key);
 }
 
 /**
