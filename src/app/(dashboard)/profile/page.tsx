@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { useAuth } from "@/lib/client-auth";
+import { useAuth } from "@/lib/supabase-auth";
 import { getUnitSections, getPersonnelById, getPersonnelByEdipi } from "@/lib/client-stores";
 import { useSyncRefresh } from "@/hooks/useSync";
 import type { UnitSection, Personnel } from "@/types";

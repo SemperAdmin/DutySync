@@ -20,7 +20,7 @@ import {
   deleteBlockedDuty,
   type EnrichedDutyType,
 } from "@/lib/client-stores";
-import { useAuth } from "@/lib/client-auth";
+import { useAuth } from "@/lib/supabase-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
 
 // USMC rank order for sorting (E1-E9, W1-W5, O1-O10)

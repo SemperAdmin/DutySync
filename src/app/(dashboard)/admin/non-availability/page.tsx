@@ -15,7 +15,7 @@ import {
   getPersonnelByEdipi,
   getChildUnits,
 } from "@/lib/client-stores";
-import { useAuth } from "@/lib/client-auth";
+import { useAuth } from "@/lib/supabase-auth";
 import {
   VIEW_MODE_KEY,
   VIEW_MODE_CHANGE_EVENT,

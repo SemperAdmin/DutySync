@@ -21,9 +21,8 @@ import {
   getAllDescendantUnitIds,
   loadSeedUsers,
 } from "@/lib/client-stores";
-import { triggerUpdateRolesWorkflow, triggerDeleteUserWorkflow } from "@/lib/client-auth";
+import { updateUserRoles, deleteUserAccount, useAuth } from "@/lib/supabase-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
-import { useAuth } from "@/lib/client-auth";
 
 interface UserRole {
   id?: string;
@@ -497,15 +496,11 @@ function RoleAssignmentModal({
         finalRoles.push({ role_name: managerRole, scope_unit_id: managerScope });
       }
 
-      // Trigger GitHub workflow to persist all changes
-      const workflowResult = await triggerUpdateRolesWorkflow(
-        user.id,
-        finalRoles,
-        canApproveNA
-      );
+      // Update roles in Supabase
+      const result = await updateUserRoles(user.id, finalRoles);
 
-      if (!workflowResult.success) {
-        console.warn("Failed to persist changes to GitHub:", workflowResult.error);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update roles");
       }
 
       onSuccess();
@@ -521,15 +516,14 @@ function RoleAssignmentModal({
     setError(null);
 
     try {
-      const success = deleteUser(user.id);
-      if (!success) {
-        throw new Error("Failed to delete user");
+      // Delete user from Supabase
+      const result = await deleteUserAccount(user.id);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to delete user");
       }
 
-      const workflowResult = await triggerDeleteUserWorkflow(user.id);
-      if (!workflowResult.success) {
-        console.warn("Failed to persist deletion to GitHub:", workflowResult.error);
-      }
+      // Also remove from local cache
+      deleteUser(user.id);
 
       onSuccess();
     } catch (err) {

@@ -10,7 +10,7 @@ import Card, {
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import type { Personnel, UnitSection, RoleName } from "@/types";
-import { useAuth } from "@/lib/client-auth";
+import { useAuth } from "@/lib/supabase-auth";
 import {
   getAllPersonnel,
   getUnitSections,

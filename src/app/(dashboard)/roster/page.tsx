@@ -33,7 +33,7 @@ import {
   type ApprovedRoster,
 } from "@/lib/client-stores";
 import type { DutyChangeRequest } from "@/types";
-import { useAuth } from "@/lib/client-auth";
+import { useAuth } from "@/lib/supabase-auth";
 import {
   VIEW_MODE_KEY,
   VIEW_MODE_CHANGE_EVENT,
