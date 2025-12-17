@@ -450,22 +450,22 @@ function RoleAssignmentModal({
     try {
       // Remove old Unit Admin role if it exists and changed
       if (currentUnitAdminRole) {
-        removeUserRole(user.id, "Unit Admin", currentUnitAdminRole.scope_unit_id);
+        await removeUserRole(user.id, "Unit Admin", currentUnitAdminRole.scope_unit_id);
       }
 
       // Remove old Manager role if it exists
       if (currentManagerRole) {
-        removeUserRole(user.id, currentManagerRole.role_name, currentManagerRole.scope_unit_id);
+        await removeUserRole(user.id, currentManagerRole.role_name, currentManagerRole.scope_unit_id);
       }
 
       // Add new Unit Admin role if enabled
       if (isUnitAdmin && unitAdminScope) {
-        assignUserRole(user.id, "Unit Admin", unitAdminScope);
+        await assignUserRole(user.id, "Unit Admin", unitAdminScope);
       }
 
       // Add new Manager role if selected
       if (managerRole && managerScope) {
-        assignUserRole(user.id, managerRole, managerScope);
+        await assignUserRole(user.id, managerRole, managerScope);
       }
 
       // Ensure user has Standard User role if they have no other roles
@@ -473,7 +473,7 @@ function RoleAssignmentModal({
         // Check if they already have Standard User
         const hasStandardUser = user.roles.some(r => r.role_name === "Standard User");
         if (!hasStandardUser) {
-          assignUserRole(user.id, "Standard User", null);
+          await assignUserRole(user.id, "Standard User", null);
         }
       }
 
