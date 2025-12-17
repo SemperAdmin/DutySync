@@ -26,6 +26,7 @@ export interface UnitSection {
   unit_code?: string; // Short code (e.g., "02301", "H", "S1DV", "CUST")
   hierarchy_level: HierarchyLevel;
   description?: string;
+  ruc?: string; // RUC code this unit belongs to (added during data loading)
   created_at: Date;
   updated_at: Date;
 }

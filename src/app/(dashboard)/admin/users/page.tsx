@@ -18,7 +18,8 @@ import {
   updateUserApprovalPermission,
   deleteUser,
   invalidateCache,
-  getChildUnits,
+  getAllDescendantUnitIds,
+  loadSeedUsers,
 } from "@/lib/client-stores";
 import { triggerUpdateRolesWorkflow, triggerDeleteUserWorkflow } from "@/lib/client-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
@@ -53,11 +54,12 @@ export default function UsersPage() {
   const unitAdminRole = currentUser?.roles?.find(r => r.role_name === "Unit Admin");
   const unitAdminScopeId = unitAdminRole?.scope_unit_id ?? null;
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback(async () => {
     try {
-      // Invalidate cache to ensure fresh data
+      // Reload seed users to ensure fresh data (invalidateCache doesn't work for users)
+      await loadSeedUsers(true);
+      // Invalidate personnel cache
       invalidateCache("dutysync_personnel");
-      invalidateCache("dutysync_users");
 
       const usersData = getAllUsers();
       const unitsData = getUnitSections();
@@ -101,16 +103,15 @@ export default function UsersPage() {
     return map;
   }, [personnel]);
 
-  // Get all child unit IDs for the Unit Admin's scope
+  // Get all descendant unit IDs for the Unit Admin's scope (includes nested sub-units)
   const scopeUnitIds = useMemo(() => {
     if (isAppAdmin || !unitAdminScopeId) {
       // App Admin sees all, or no scope defined
       return null;
     }
-    // Get all child units recursively
-    const childUnits = getChildUnits(unitAdminScopeId);
-    const unitIds = new Set<string>([unitAdminScopeId, ...childUnits.map(u => u.id)]);
-    return unitIds;
+    // Get all descendant unit IDs recursively (includes the scope unit itself)
+    const allDescendantIds = getAllDescendantUnitIds(unitAdminScopeId);
+    return new Set<string>(allDescendantIds);
   }, [isAppAdmin, unitAdminScopeId]);
 
   // Filter users based on scope - Unit Admins only see users in their RUC/unit hierarchy
