@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { isSupabaseConfigured, getSupabase } from "./supabase";
 import * as supabaseData from "./supabase-data";
+import * as dataLayer from "./data-layer";
 import type { SessionUser, UserRole, RoleName } from "@/types";
 import type { User, Personnel, Unit } from "@/types/supabase";
 
@@ -143,6 +144,11 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
             const refreshedUser = await buildSessionUser(dbUser, personnel, unit);
             setUser(refreshedUser);
             localStorage.setItem("dutysync_user", JSON.stringify(refreshedUser));
+
+            // Load all data from Supabase into the data layer cache
+            console.log("[Auth] Restoring session - loading data from Supabase...");
+            await dataLayer.loadAllData();
+            console.log("[Auth] Data loaded successfully");
           } else {
             // User no longer exists in database
             localStorage.removeItem("dutysync_user");
@@ -195,6 +201,11 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       const sessionUser = await buildSessionUser(dbUser, personnel, unit);
       setUser(sessionUser);
       localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
+
+      // Load all data from Supabase into the data layer cache
+      console.log("[Auth] Loading data from Supabase...");
+      await dataLayer.loadAllData();
+      console.log("[Auth] Data loaded successfully");
 
       return true;
     } catch (error) {

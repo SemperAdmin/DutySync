@@ -24,12 +24,7 @@ import {
   getPersonnelByUnitWithDescendants,
   getAllDescendantUnitIds,
   type RucEntry,
-} from "@/lib/client-stores";
-import {
-  isGitHubConfigured,
-  triggerUpdateUserRolesWorkflow,
-  triggerDeleteUserWorkflow,
-} from "@/lib/github-api";
+} from "@/lib/data-layer";
 
 // Manager role names - a user can only have one of these at a time
 const MANAGER_ROLES: RoleName[] = [
@@ -41,7 +36,6 @@ const MANAGER_ROLES: RoleName[] = [
 import { levelColors } from "@/lib/unit-constants";
 import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 import UserDashboard from "@/components/dashboard/UserDashboard";
-import { useSyncRefresh } from "@/hooks/useSync";
 
 type PageSize = 10 | 25 | 50 | 100;
 const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
@@ -100,7 +94,7 @@ export default function AdminDashboard() {
   }, []);
 
   // Load stats for admin dashboard
-  const loadStats = useCallback(() => {
+  const loadStats = useCallback(async () => {
     if (viewMode === "admin" && isAppAdmin) {
       // App Admin view - show all data
       const users = getAllUsers();
@@ -117,10 +111,11 @@ export default function AdminDashboard() {
       const allUnits = getUnitSections();
 
       // Get all descendant unit IDs within scope
-      const scopeUnitIds = new Set(getAllDescendantUnitIds(unitAdminScopeId));
+      const descendantIds = await getAllDescendantUnitIds(unitAdminScopeId);
+      const scopeUnitIds = new Set(descendantIds);
 
       // Filter personnel by units in scope
-      const personnel = getPersonnelByUnitWithDescendants(unitAdminScopeId);
+      const personnel = await getPersonnelByUnitWithDescendants(unitAdminScopeId);
 
       // Filter units by scope
       const units = allUnits.filter(u => scopeUnitIds.has(u.id));
@@ -144,9 +139,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadStats();
   }, [loadStats]);
-
-  // Auto-refresh when sync service detects data changes
-  useSyncRefresh(["users", "personnel", "units"], loadStats);
 
   // If in user view mode, show UserDashboard
   if (viewMode === "user") {
@@ -1166,10 +1158,10 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     });
 
     try {
-      // Process removals first (local cache update)
+      // Process removals first
       for (const remove of pendingRemoves) {
         console.log("[RoleAssignment] Removing role:", remove);
-        const success = removeUserRole(user.id, remove.role_name, remove.scope_unit_id);
+        const success = await removeUserRole(user.id, remove.role_name, remove.scope_unit_id);
         console.log("[RoleAssignment] Remove result:", success);
         if (!success) throw new Error(`Failed to remove role: ${remove.role_name}`);
       }
@@ -1177,43 +1169,13 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
       // Then process adds (local cache update)
       for (const add of pendingAdds) {
         console.log("[RoleAssignment] Adding role:", add);
-        const success = assignUserRole(user.id, add.role_name, add.scope_unit_id);
+        const success = await assignUserRole(user.id, add.role_name, add.scope_unit_id);
         console.log("[RoleAssignment] Add result:", success);
         if (!success) throw new Error(`Failed to assign role: ${add.role_name}`);
       }
 
-      // Trigger GitHub workflow to persist changes if configured
-      const gitHubConfigured = isGitHubConfigured();
-      console.log("[RoleAssignment] GitHub configured:", gitHubConfigured);
-
-      if (gitHubConfigured) {
-        const updatedUser = getSeedUserByEdipi(user.edipi);
-        console.log("[RoleAssignment] Updated user from cache:", updatedUser?.id, "roles:", updatedUser?.roles?.length);
-
-        if (updatedUser && updatedUser.roles) {
-          // Build roles array for workflow (just role_name and scope_unit_id)
-          const rolesForWorkflow = updatedUser.roles.map(r => ({
-            role_name: r.role_name,
-            scope_unit_id: r.scope_unit_id,
-          }));
-
-          console.log("[RoleAssignment] Triggering workflow with roles:", rolesForWorkflow);
-          const workflowResult = await triggerUpdateUserRolesWorkflow(
-            user.id,
-            rolesForWorkflow,
-            updatedUser.can_approve_non_availability
-          );
-          console.log("[RoleAssignment] Workflow trigger result:", workflowResult);
-
-          if (!workflowResult.success) {
-            // Show error to user
-            throw new Error(`GitHub sync failed: ${workflowResult.message}`);
-          }
-        } else {
-          console.warn("[RoleAssignment] Could not find updated user in cache");
-        }
-      }
-
+      // Changes are persisted directly to Supabase
+      console.log("[RoleAssignment] Roles saved to Supabase");
       onSuccess();
     } catch (err) {
       console.error("[RoleAssignment] Error:", err);
@@ -1228,21 +1190,11 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
     setError(null);
 
     try {
-      // Delete from local cache
-      const success = deleteUser(user.id);
+      // Delete user from Supabase
+      const success = await deleteUser(user.id);
       if (!success) throw new Error("Failed to delete user");
 
-      // Trigger GitHub workflow to delete user file if configured
-      if (isGitHubConfigured()) {
-        console.log("[RoleAssignment] Triggering delete workflow for user:", user.id);
-        const deleteResult = await triggerDeleteUserWorkflow(user.id);
-        console.log("[RoleAssignment] Delete workflow result:", deleteResult);
-        if (!deleteResult.success) {
-          // Show error to user
-          throw new Error(`GitHub sync failed: ${deleteResult.message}`);
-        }
-      }
-
+      console.log("[RoleAssignment] User deleted from Supabase");
       onSuccess();
     } catch (err) {
       console.error("[RoleAssignment] Delete error:", err);
