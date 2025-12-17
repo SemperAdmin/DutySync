@@ -162,6 +162,27 @@ export async function getChildUnits(parentId: string): Promise<Unit[]> {
   return data || [];
 }
 
+export async function getTopLevelUnitForOrganization(organizationId: string): Promise<Unit | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  // Find unit with organization_id and no parent (top-level unit)
+  const { data, error } = await supabase
+    .from("units")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .is("parent_id", null)
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching top-level unit:", error);
+    return null;
+  }
+  return data;
+}
+
 export async function getDescendantUnitIds(parentId: string): Promise<string[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = getSupabase();

@@ -21,6 +21,7 @@ import {
   loadUnits,
   loadRucs,
   getAllRucs,
+  getTopLevelUnitForOrganization,
   type RucEntry,
 } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
@@ -402,9 +403,25 @@ function RoleAssignmentModal({
   const currentUnitAdminRole = user.roles.find(r => r.role_name === "Unit Admin");
   const currentManagerRole = user.roles.find(r => MANAGER_ROLES.includes(r.role_name));
 
+  // Convert unit ID to org ID for dropdown initialization
+  // scope_unit_id is now a unit ID, but dropdown uses org IDs
+  const getOrgIdFromUnitId = useCallback((unitId: string | null): string => {
+    if (!unitId) return "";
+    const unit = units.find(u => u.id === unitId);
+    if (unit) {
+      // Get organization_id from unit (added in data layer)
+      const orgId = (unit as UnitSection & { organization_id?: string }).organization_id;
+      if (orgId) return orgId;
+    }
+    // Fallback: return empty string if no mapping found
+    return "";
+  }, [units]);
+
   // Local state for the form
   const [isUnitAdmin, setIsUnitAdmin] = useState(!!currentUnitAdminRole);
-  const [unitAdminScope, setUnitAdminScope] = useState(currentUnitAdminRole?.scope_unit_id || "");
+  const [unitAdminScope, setUnitAdminScope] = useState(
+    getOrgIdFromUnitId(currentUnitAdminRole?.scope_unit_id || null)
+  );
   const [managerRole, setManagerRole] = useState<RoleName | "">(currentManagerRole?.role_name || "");
   const [managerScope, setManagerScope] = useState(currentManagerRole?.scope_unit_id || "");
   const [canApproveNA, setCanApproveNA] = useState(user.can_approve_non_availability);
@@ -413,7 +430,8 @@ function RoleAssignmentModal({
   const hasChanges = useMemo(() => {
     // Check Unit Admin change
     const originalUnitAdmin = !!currentUnitAdminRole;
-    const originalUnitAdminScope = currentUnitAdminRole?.scope_unit_id || "";
+    // Convert unit ID to org ID for comparison
+    const originalUnitAdminScope = getOrgIdFromUnitId(currentUnitAdminRole?.scope_unit_id || null);
     const unitAdminChanged = isUnitAdmin !== originalUnitAdmin ||
       (isUnitAdmin && unitAdminScope !== originalUnitAdminScope);
 
@@ -428,7 +446,7 @@ function RoleAssignmentModal({
 
     return unitAdminChanged || managerChanged || approvalChanged;
   }, [isUnitAdmin, unitAdminScope, managerRole, managerScope, canApproveNA,
-      currentUnitAdminRole, currentManagerRole, user.can_approve_non_availability]);
+      currentUnitAdminRole, currentManagerRole, user.can_approve_non_availability, getOrgIdFromUnitId]);
 
   // Check if user has any scoped role that could have approval permissions
   const hasScopedRole = isUnitAdmin || !!managerRole;
@@ -459,8 +477,15 @@ function RoleAssignmentModal({
       }
 
       // Add new Unit Admin role if enabled
+      // Note: unitAdminScope is an organization ID from the dropdown, we need to convert to unit ID
       if (isUnitAdmin && unitAdminScope) {
-        await assignUserRole(user.id, "Unit Admin", unitAdminScope);
+        const topLevelUnit = await getTopLevelUnitForOrganization(unitAdminScope);
+        if (!topLevelUnit) {
+          setError("No top-level unit found for this organization. Please create a unit first.");
+          setIsSaving(false);
+          return;
+        }
+        await assignUserRole(user.id, "Unit Admin", topLevelUnit.id);
       }
 
       // Add new Manager role if selected

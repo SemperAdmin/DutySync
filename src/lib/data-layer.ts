@@ -34,7 +34,7 @@ import type {
 // TYPE CONVERTERS - Convert Supabase types to local types
 // ============================================================================
 
-function convertUnit(unit: SupabaseUnit, ruc?: string): UnitSection {
+function convertUnit(unit: SupabaseUnit, ruc?: string): UnitSection & { organization_id?: string } {
   return {
     id: unit.id,
     parent_id: unit.parent_id,
@@ -43,6 +43,7 @@ function convertUnit(unit: SupabaseUnit, ruc?: string): UnitSection {
     hierarchy_level: unit.hierarchy_level,
     description: unit.description || undefined,
     ruc: ruc,
+    organization_id: unit.organization_id,
     created_at: new Date(unit.created_at),
     updated_at: new Date(unit.updated_at),
   };
@@ -308,6 +309,12 @@ export async function deleteUnitSection(id: string): Promise<boolean> {
     unitsByIdCache.delete(id);
   }
   return success;
+}
+
+export async function getTopLevelUnitForOrganization(organizationId: string): Promise<UnitSection | null> {
+  const unit = await supabase.getTopLevelUnitForOrganization(organizationId);
+  if (!unit) return null;
+  return convertUnit(unit);
 }
 
 // ============================================================================
