@@ -43,6 +43,7 @@ import {
   type ViewMode,
 } from "@/lib/constants";
 import { matchesFilter } from "@/lib/duty-thruster";
+import { useSyncRefresh } from "@/hooks/useSync";
 
 // Manager role names that can assign duties within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -284,6 +285,9 @@ export default function RosterPage() {
   useEffect(() => {
     fetchData();
   }, [selectedUnit, startDate, endDate]);
+
+  // Listen for sync updates and refresh automatically
+  useSyncRefresh(["personnel", "units", "dutySlots", "nonAvailability", "dutyTypes"], fetchData);
 
   function fetchData() {
     try {

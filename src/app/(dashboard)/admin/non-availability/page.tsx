@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
 import type { NonAvailability, Personnel, RoleName } from "@/types";
 import {
@@ -24,6 +24,7 @@ import {
   VIEW_MODE_USER,
   type ViewMode,
 } from "@/lib/constants";
+import { useSyncRefresh } from "@/hooks/useSync";
 
 // Manager role names
 const MANAGER_ROLES: RoleName[] = [
@@ -201,11 +202,7 @@ export default function NonAvailabilityAdminPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, [statusFilter]);
-
-  function fetchData() {
+  const fetchData = useCallback(() => {
     try {
       setLoading(true);
 
@@ -221,7 +218,14 @@ export default function NonAvailabilityAdminPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Auto-refresh when sync service detects data changes
+  useSyncRefresh(["personnel", "nonAvailability", "units"], fetchData);
 
   function handleStatusChange(requestId: string, newStatus: "approved" | "rejected") {
     setProcessingId(requestId);

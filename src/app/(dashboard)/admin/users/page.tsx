@@ -19,6 +19,7 @@ import {
   deleteUser,
 } from "@/lib/client-stores";
 import { triggerUpdateRolesWorkflow, triggerDeleteUserWorkflow } from "@/lib/client-auth";
+import { useSyncRefresh } from "@/hooks/useSync";
 
 interface UserRole {
   id?: string;
@@ -73,6 +74,9 @@ export default function UsersPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Auto-refresh when sync service detects data changes
+  useSyncRefresh(["users", "units", "personnel"], fetchData);
 
   // Create a map of EDIPI to personnel for O(1) lookups
   const personnelByEdipi = useMemo(() => {
