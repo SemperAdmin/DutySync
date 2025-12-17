@@ -21,8 +21,10 @@ import {
   createUnitSection,
   updateUnitSection,
   deleteUnitSection,
+  invalidateCache,
   type RucEntry,
 } from "@/lib/client-stores";
+import { useSyncRefresh } from "@/hooks/useSync";
 import {
   VIEW_MODE_KEY,
   VIEW_MODE_CHANGE_EVENT,
@@ -171,6 +173,9 @@ function RucManagementView() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Listen for sync updates to units data and refresh automatically
+  useSyncRefresh(["units"], fetchData);
 
   // Build map of RUC code -> Unit Admin(s)
   const unitAdminsByRuc = useMemo(() => {
@@ -450,6 +455,8 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
   const [filterUnit, setFilterUnit] = useState<UnitSection | null>(null);
 
   const fetchData = useCallback(() => {
+    // Invalidate cache to ensure we get fresh data
+    invalidateCache("dutysync_units");
     try {
       const unitsData = getUnitSections();
 
@@ -491,6 +498,9 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Listen for sync updates to units data and refresh automatically
+  useSyncRefresh(["units"], fetchData);
 
   // Group units by hierarchy level
   const unitsByLevel = useMemo(() => {

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/client-auth";
 import { getUnitSections, getPersonnelById, getPersonnelByEdipi } from "@/lib/client-stores";
+import { useSyncRefresh } from "@/hooks/useSync";
 import type { UnitSection, Personnel } from "@/types";
 
 export default function ProfilePage() {
@@ -12,7 +13,7 @@ export default function ProfilePage() {
   const [fullUnitPath, setFullUnitPath] = useState<string>("");
   const [personnel, setPersonnel] = useState<Personnel | null>(null);
 
-  useEffect(() => {
+  const loadProfileData = useCallback(() => {
     const allUnits = getUnitSections();
     setUnits(allUnits);
 
@@ -26,6 +27,13 @@ export default function ProfilePage() {
       }
     }
   }, [user?.edipi]);
+
+  useEffect(() => {
+    loadProfileData();
+  }, [loadProfileData]);
+
+  // Auto-refresh when sync service detects data changes
+  useSyncRefresh(["personnel", "units"], loadProfileData);
 
   // Build the full unit hierarchy path (e.g., "H Company > S1DV > CUST")
   function buildUnitPath(unitId: string, allUnits: UnitSection[]): string {

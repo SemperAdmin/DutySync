@@ -39,6 +39,7 @@ const MANAGER_ROLES: RoleName[] = [
 import { levelColors } from "@/lib/unit-constants";
 import { VIEW_MODE_KEY, VIEW_MODE_CHANGE_EVENT } from "@/lib/constants";
 import UserDashboard from "@/components/dashboard/UserDashboard";
+import { useSyncRefresh } from "@/hooks/useSync";
 
 type PageSize = 10 | 25 | 50 | 100;
 const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
@@ -90,7 +91,7 @@ export default function AdminDashboard() {
   }, []);
 
   // Load stats for admin dashboard
-  useEffect(() => {
+  const loadStats = useCallback(() => {
     if (isAppAdmin && isAdminView) {
       const users = getAllUsers();
       const personnel = getAllPersonnel();
@@ -102,6 +103,13 @@ export default function AdminDashboard() {
       });
     }
   }, [isAppAdmin, isAdminView]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  // Auto-refresh when sync service detects data changes
+  useSyncRefresh(["users", "personnel", "units"], loadStats);
 
   // If App Admin in admin view mode, show App Admin Dashboard
   // Otherwise, show UserDashboard (Manager Dashboard is on its own route /admin/manager)

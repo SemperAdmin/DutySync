@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
 import type { Personnel, RoleName, DutyType, DutyChangeRequest, SwapRecommendation } from "@/types";
 import {
@@ -37,6 +37,7 @@ import {
   VIEW_MODE_USER,
   type ViewMode,
 } from "@/lib/constants";
+import { useSyncRefresh } from "@/hooks/useSync";
 
 // Manager role names
 const MANAGER_ROLES: RoleName[] = [
@@ -160,35 +161,39 @@ export default function DutySwapsPage() {
     return allUnitIds;
   }, [user?.roles]);
 
-  // Fetch data
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const personnelData = getAllPersonnel();
-        setPersonnel(personnelData);
+  // Fetch data function
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    try {
+      const personnelData = getAllPersonnel();
+      setPersonnel(personnelData);
 
-        const dutyTypesData = getAllDutyTypes();
-        setDutyTypes(dutyTypesData);
+      const dutyTypesData = getAllDutyTypes();
+      setDutyTypes(dutyTypesData);
 
-        const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
-        setRequests(requestsData);
+      const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
+      setRequests(requestsData);
 
-        // Fetch slots for current and next month (for swap requests)
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-        const slotsData = getEnrichedSlots(startOfMonth, endOfNextMonth);
-        setAllSlots(slotsData);
-      } catch (err) {
-        console.error("Error fetching duty swap data:", err);
-      } finally {
-        setLoading(false);
-      }
+      // Fetch slots for current and next month (for swap requests)
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      const slotsData = getEnrichedSlots(startOfMonth, endOfNextMonth);
+      setAllSlots(slotsData);
+    } catch (err) {
+      console.error("Error fetching duty swap data:", err);
+    } finally {
+      setLoading(false);
     }
-
-    fetchData();
   }, [statusFilter]);
+
+  // Initial fetch and re-fetch on filter change
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Listen for sync updates and refresh automatically
+  useSyncRefresh(["personnel", "dutyTypes", "dutySlots"], fetchData);
 
   // Check if user can approve a specific request
   const canApproveRequest = (request: EnrichedDutyChangeRequest): boolean => {

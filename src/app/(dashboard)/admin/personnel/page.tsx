@@ -20,7 +20,9 @@ import {
   exportUnitStructure,
   exportUnitMembers,
   getPersonnelByEdipi,
+  invalidateCache,
 } from "@/lib/client-stores";
+import { useSyncRefresh } from "@/hooks/useSync";
 import {
   isGitHubConfigured,
   getGitHubSettings,
@@ -63,6 +65,9 @@ export default function PersonnelPage() {
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
 
   const fetchData = useCallback(() => {
+    // Invalidate cache to ensure we get fresh data
+    invalidateCache("dutysync_personnel");
+    invalidateCache("dutysync_units");
     try {
       const personnelData = getAllPersonnel();
       const unitsData = getUnitSections();
@@ -79,6 +84,9 @@ export default function PersonnelPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Listen for sync updates to personnel/units data and refresh automatically
+  useSyncRefresh(["personnel", "units"], fetchData);
 
   // Load and listen for view mode toggle changes
   useEffect(() => {

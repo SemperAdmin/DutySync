@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Button from "@/components/ui/Button";
 import type { UnitSection } from "@/types";
 import {
@@ -10,6 +10,7 @@ import {
   type EnrichedSlot,
 } from "@/lib/client-stores";
 import { generateSchedule, previewSchedule } from "@/lib/duty-thruster";
+import { useSyncRefresh } from "@/hooks/useSync";
 
 interface ScheduleResult {
   success: boolean;
@@ -36,17 +37,7 @@ export default function SchedulerPage() {
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchUnits();
-    // Set default dates (next 30 days)
-    const today = new Date();
-    const thirtyDaysLater = new Date(today);
-    thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
-    setStartDate(today.toISOString().split("T")[0]);
-    setEndDate(thirtyDaysLater.toISOString().split("T")[0]);
-  }, []);
-
-  function fetchUnits() {
+  const fetchUnits = useCallback(() => {
     try {
       const data = getUnitSections();
       setUnits(data);
@@ -55,7 +46,20 @@ export default function SchedulerPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchUnits();
+    // Set default dates (next 30 days)
+    const today = new Date();
+    const thirtyDaysLater = new Date(today);
+    thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+    setStartDate(today.toISOString().split("T")[0]);
+    setEndDate(thirtyDaysLater.toISOString().split("T")[0]);
+  }, [fetchUnits]);
+
+  // Auto-refresh when sync service detects data changes
+  useSyncRefresh(["units", "dutyTypes", "personnel"], fetchUnits);
 
   function handleGenerate(preview: boolean) {
     if (!selectedUnit || !startDate || !endDate) {

@@ -18,6 +18,7 @@ import {
   getAllDutyTypes,
   getDutyChangeRequestsByPersonnel,
 } from "@/lib/client-stores";
+import { useSyncRefresh } from "@/hooks/useSync";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
 
 interface DutyHistoryEntry {
@@ -97,6 +98,9 @@ export default function UserDashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Listen for sync updates and refresh automatically
+  useSyncRefresh(["personnel", "dutySlots", "nonAvailability", "units", "dutyTypes"], fetchData);
 
   // Calculate unit statistics
   const unitStats = useMemo(() => {

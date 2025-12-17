@@ -19,6 +19,7 @@ import {
   getAllDutyChangeRequests,
   updateNonAvailability,
 } from "@/lib/client-stores";
+import { useSyncRefresh } from "@/hooks/useSync";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
 
 // Manager role names - should match DashboardLayout
@@ -73,6 +74,9 @@ export default function ManagerDashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Listen for sync updates and refresh automatically
+  useSyncRefresh(["personnel", "units", "dutySlots", "nonAvailability", "dutyTypes"], fetchData);
 
   // Create a Map of units for O(1) lookups
   const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);

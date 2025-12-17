@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
 import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty } from "@/types";
 import {
@@ -21,6 +21,7 @@ import {
   type EnrichedDutyType,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/client-auth";
+import { useSyncRefresh } from "@/hooks/useSync";
 
 // USMC rank order for sorting (E1-E9, W1-W5, O1-O10)
 const RANK_ORDER = [
@@ -108,11 +109,7 @@ export default function DutyTypesPage() {
     reason: "",
   });
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedUnitFilter]);
-
-  function fetchData() {
+  const fetchData = useCallback(() => {
     try {
       setLoading(true);
       const unitsData = getUnitSections();
@@ -133,7 +130,14 @@ export default function DutyTypesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedUnitFilter]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Listen for sync updates and refresh automatically
+  useSyncRefresh(["units", "dutyTypes", "personnel"], fetchData);
 
   // Get unique ranks from personnel in the selected unit and its descendants
   const availableRanks = useMemo(() => {
