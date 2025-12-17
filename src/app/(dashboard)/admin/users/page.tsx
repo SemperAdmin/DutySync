@@ -15,14 +15,11 @@ import {
   getAllPersonnel,
   assignUserRole,
   removeUserRole,
-  updateUserApprovalPermission,
   deleteUser,
-  invalidateCache,
   getAllDescendantUnitIds,
-  loadSeedUsers,
-} from "@/lib/client-stores";
-import { updateUserRoles, deleteUserAccount, useAuth } from "@/lib/supabase-auth";
-import { useSyncRefresh } from "@/hooks/useSync";
+  loadUsers,
+} from "@/lib/data-layer";
+import { useAuth } from "@/lib/supabase-auth";
 
 interface UserRole {
   id?: string;
@@ -55,10 +52,8 @@ export default function UsersPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Reload seed users to ensure fresh data (invalidateCache doesn't work for users)
-      await loadSeedUsers(true);
-      // Invalidate personnel cache
-      invalidateCache("dutysync_personnel");
+      // Reload users from Supabase
+      await loadUsers();
 
       const usersData = getAllUsers();
       const unitsData = getUnitSections();
@@ -69,7 +64,7 @@ export default function UsersPage() {
         edipi: u.edipi,
         email: u.email,
         personnel_id: u.personnel_id || null,
-        can_approve_non_availability: u.can_approve_non_availability || false,
+        can_approve_non_availability: false,
         roles: (u.roles || []).map(r => ({
           id: r.id,
           role_name: r.role_name as RoleName,
@@ -89,9 +84,6 @@ export default function UsersPage() {
     fetchData();
   }, [fetchData]);
 
-  // Auto-refresh when sync service detects data changes
-  useSyncRefresh(["users", "units", "personnel"], fetchData);
-
   // Create a map of EDIPI to personnel for O(1) lookups
   const personnelByEdipi = useMemo(() => {
     const map = new Map<string, Personnel>();
@@ -103,14 +95,19 @@ export default function UsersPage() {
   }, [personnel]);
 
   // Get all descendant unit IDs for the Unit Admin's scope (includes nested sub-units)
-  const scopeUnitIds = useMemo(() => {
-    if (isAppAdmin || !unitAdminScopeId) {
-      // App Admin sees all, or no scope defined
-      return null;
+  const [scopeUnitIds, setScopeUnitIds] = useState<Set<string> | null>(null);
+
+  useEffect(() => {
+    async function loadScopeUnitIds() {
+      if (isAppAdmin || !unitAdminScopeId) {
+        setScopeUnitIds(null);
+        return;
+      }
+      // Get all descendant unit IDs recursively (includes the scope unit itself)
+      const allDescendantIds = await getAllDescendantUnitIds(unitAdminScopeId);
+      setScopeUnitIds(new Set<string>(allDescendantIds));
     }
-    // Get all descendant unit IDs recursively (includes the scope unit itself)
-    const allDescendantIds = getAllDescendantUnitIds(unitAdminScopeId);
-    return new Set<string>(allDescendantIds);
+    loadScopeUnitIds();
   }, [isAppAdmin, unitAdminScopeId]);
 
   // Filter users based on scope - Unit Admins only see users in their RUC/unit hierarchy
@@ -470,38 +467,9 @@ function RoleAssignmentModal({
         }
       }
 
-      // Update approval permission
-      if (canApproveNA !== user.can_approve_non_availability) {
-        updateUserApprovalPermission(user.id, canApproveNA);
-      }
-
-      // Build the final roles array for the workflow
-      const finalRoles: Array<{ role_name: RoleName; scope_unit_id: string | null }> = [];
-
-      // Always include Standard User
-      finalRoles.push({ role_name: "Standard User", scope_unit_id: null });
-
-      // Include App Admin if user has it
-      if (isAppAdmin) {
-        finalRoles.push({ role_name: "App Admin", scope_unit_id: null });
-      }
-
-      // Include Unit Admin if enabled
-      if (isUnitAdmin && unitAdminScope) {
-        finalRoles.push({ role_name: "Unit Admin", scope_unit_id: unitAdminScope });
-      }
-
-      // Include Manager role if selected
-      if (managerRole && managerScope) {
-        finalRoles.push({ role_name: managerRole, scope_unit_id: managerScope });
-      }
-
-      // Update roles in Supabase
-      const result = await updateUserRoles(user.id, finalRoles);
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to update roles");
-      }
+      // Roles are now managed directly via assignUserRole/removeUserRole in data-layer
+      // The role changes were already applied above, just refresh data
+      await loadUsers();
 
       onSuccess();
     } catch (err) {
@@ -516,14 +484,11 @@ function RoleAssignmentModal({
     setError(null);
 
     try {
-      // Delete user from Supabase
-      const result = await deleteUserAccount(user.id);
-      if (!result.success) {
-        throw new Error(result.error || "Failed to delete user");
+      // Delete user from Supabase (data-layer handles both DB and cache)
+      const success = await deleteUser(user.id);
+      if (!success) {
+        throw new Error("Failed to delete user");
       }
-
-      // Also remove from local cache
-      deleteUser(user.id);
 
       onSuccess();
     } catch (err) {

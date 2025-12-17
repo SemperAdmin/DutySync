@@ -22,9 +22,9 @@ import {
   updateUnitSection,
   deleteUnitSection,
   invalidateCache,
+  loadUnits,
   type RucEntry,
-} from "@/lib/client-stores";
-import { useSyncRefresh } from "@/hooks/useSync";
+} from "@/lib/data-layer";
 import {
   VIEW_MODE_KEY,
   VIEW_MODE_CHANGE_EVENT,
@@ -173,9 +173,6 @@ function RucManagementView() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // Listen for sync updates to units data and refresh automatically
-  useSyncRefresh(["units"], fetchData);
 
   // Build map of RUC code -> Unit Admin(s)
   const unitAdminsByRuc = useMemo(() => {
@@ -498,9 +495,6 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // Listen for sync updates to units data and refresh automatically
-  useSyncRefresh(["units"], fetchData);
 
   // Group units by hierarchy level
   const unitsByLevel = useMemo(() => {
