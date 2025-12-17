@@ -166,8 +166,8 @@ export async function getTopLevelUnitForOrganization(organizationId: string): Pr
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
-  // Find unit with organization_id and no parent (top-level unit)
-  const { data, error } = await supabase
+  // First try to find a unit with no parent (true top-level)
+  const { data: topLevel, error: topError } = await supabase
     .from("units")
     .select("*")
     .eq("organization_id", organizationId)
@@ -176,11 +176,59 @@ export async function getTopLevelUnitForOrganization(organizationId: string): Pr
     .limit(1)
     .maybeSingle();
 
-  if (error) {
-    console.error("Error fetching top-level unit:", error);
+  if (topError) {
+    console.error("Error fetching top-level unit:", topError);
+  }
+
+  if (topLevel) {
+    return topLevel;
+  }
+
+  // If no unit with null parent, find any unit for this org (fallback)
+  const { data: anyUnit, error: anyError } = await supabase
+    .from("units")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+
+  if (anyError) {
+    console.error("Error fetching any unit for org:", anyError);
+  }
+
+  if (anyUnit) {
+    return anyUnit;
+  }
+
+  // No units exist for this organization - auto-create a top-level unit
+  // First get the organization to use its name
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("*")
+    .eq("id", organizationId)
+    .single();
+
+  const orgData = org as Organization | null;
+  const unitName = orgData?.name || orgData?.ruc_code || "Organization Unit";
+
+  const { data: newUnit, error: createError } = await supabase
+    .from("units")
+    .insert({
+      organization_id: organizationId,
+      unit_name: unitName,
+      hierarchy_level: "unit",
+      parent_id: null,
+    } as never)
+    .select()
+    .single();
+
+  if (createError) {
+    console.error("Error creating top-level unit:", createError);
     return null;
   }
-  return data;
+
+  return newUnit as Unit;
 }
 
 export async function getDescendantUnitIds(parentId: string): Promise<string[]> {
