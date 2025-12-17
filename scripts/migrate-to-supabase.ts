@@ -135,15 +135,58 @@ interface QualificationsData {
 
 interface UserData {
   id: string;
-  edipi: string;
+  edipi_encrypted: string;
   email: string;
-  personnel_id?: string;
+  password_hash: string;
+  personnel_id?: string | null;
   can_approve_non_availability?: boolean;
   roles?: {
     id?: string;
     role_name: string;
-    scope_unit_id?: string;
+    scope_unit_id?: string | null;
+    created_at?: string;
   }[];
+  created_at?: string;
+}
+
+// EDIPI decryption (same logic as client-stores.ts)
+const EDIPI_KEY = process.env.NEXT_PUBLIC_EDIPI_KEY || "DutySync2024";
+
+function decryptEdipi(encrypted: string): string {
+  if (!encrypted) return "";
+
+  const tryDecrypt = (key: string): string | null => {
+    try {
+      const decoded = Buffer.from(encrypted, "base64").toString("binary");
+      let result = "";
+      for (let i = 0; i < decoded.length; i++) {
+        const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+        result += String.fromCharCode(charCode);
+      }
+      // Validate result is a 10-digit EDIPI
+      if (/^\d{10}$/.test(result)) {
+        return result;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Try with the configured key first
+  const result = tryDecrypt(EDIPI_KEY);
+  if (result) return result;
+
+  // Try default key as fallback
+  const defaultKey = "DutySync2024";
+  if (EDIPI_KEY !== defaultKey) {
+    const fallbackResult = tryDecrypt(defaultKey);
+    if (fallbackResult) return fallbackResult;
+  }
+
+  // Return empty if decryption fails
+  console.warn(`Failed to decrypt EDIPI: ${encrypted.substring(0, 10)}...`);
+  return "";
 }
 
 // Helper to read JSON file
@@ -542,23 +585,62 @@ async function migrateUsers(): Promise<void> {
     const userData = readJsonFile<UserData>(path.join(userDir, file));
     if (!userData) continue;
 
-    // Note: Users table references auth.users, so we need to handle this differently
-    // For now, we'll just log what would be migrated
-    console.log(`  ⚠️  User ${userData.email} (${userData.edipi}) - requires Supabase Auth setup`);
+    // Decrypt the EDIPI (stored as plain text in Supabase)
+    const plainEdipi = decryptEdipi(userData.edipi_encrypted);
+    if (!plainEdipi) {
+      console.warn(`  ⚠️  Skipping user ${userData.email} - could not decrypt EDIPI`);
+      continue;
+    }
 
-    // If you want to migrate users, you'd need to:
-    // 1. Create auth user via Supabase Admin API
-    // 2. Then insert into users table with the auth user ID
-    // 3. Then insert user_roles
+    // Insert user with plain EDIPI and password_hash
+    const { error: userError } = await supabase
+      .from("users")
+      .upsert({
+        id: userData.id,
+        edipi: plainEdipi,
+        email: userData.email,
+        password_hash: userData.password_hash,
+        personnel_id: userData.personnel_id || null,
+        can_approve_non_availability: userData.can_approve_non_availability ?? false,
+      }, { onConflict: "id" });
+
+    if (userError) {
+      handleError(`user ${userData.email}`, userError);
+      continue;
+    }
 
     stats.users++;
-    if (userData.roles) {
-      stats.userRoles += userData.roles.length;
+    console.log(`  ✓ User: ${userData.email} (EDIPI: ${plainEdipi})`);
+
+    // Migrate user roles
+    if (userData.roles && userData.roles.length > 0) {
+      for (const role of userData.roles) {
+        const roleId = roleMap.get(role.role_name);
+        if (!roleId) {
+          console.warn(`    ⚠️  Unknown role: ${role.role_name}`);
+          continue;
+        }
+
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .upsert({
+            id: role.id || `role-${userData.id}-${role.role_name.toLowerCase().replace(/\s+/g, "-")}`,
+            user_id: userData.id,
+            role_id: roleId,
+            scope_unit_id: role.scope_unit_id || null,
+          }, { onConflict: "id" });
+
+        if (roleError) {
+          handleError(`role ${role.role_name} for user ${userData.email}`, roleError);
+        } else {
+          stats.userRoles++;
+        }
+      }
     }
   }
 
-  console.log(`\n  ℹ️  User migration requires manual Supabase Auth setup.`);
-  console.log(`     Found ${stats.users} users with ${stats.userRoles} role assignments.`);
+  console.log(`\n  ✓ Users migrated: ${stats.users}`);
+  console.log(`  ✓ User roles migrated: ${stats.userRoles}`);
 }
 
 // Main migration function

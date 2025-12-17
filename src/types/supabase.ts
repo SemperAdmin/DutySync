@@ -132,6 +132,7 @@ export interface Database {
           id: string;
           edipi: string;
           email: string;
+          password_hash: string;
           personnel_id: string | null;
           can_approve_non_availability: boolean;
           created_at: string;
@@ -141,6 +142,7 @@ export interface Database {
           id: string;
           edipi: string;
           email: string;
+          password_hash: string;
           personnel_id?: string | null;
           can_approve_non_availability?: boolean;
           created_at?: string;
@@ -150,6 +152,7 @@ export interface Database {
           id?: string;
           edipi?: string;
           email?: string;
+          password_hash?: string;
           personnel_id?: string | null;
           can_approve_non_availability?: boolean;
           created_at?: string;
