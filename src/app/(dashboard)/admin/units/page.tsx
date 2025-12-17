@@ -331,7 +331,7 @@ function RucManagementView() {
                 </thead>
                 <tbody>
                   {paginatedRucs.map((ruc) => {
-                    const admins = unitAdminsByRuc.get(ruc.ruc) || [];
+                    const admins = unitAdminsByRuc.get(ruc.id) || [];
                     return (
                       <tr key={ruc.ruc} className="border-b border-border hover:bg-surface-elevated">
                         <td className="py-3 px-4">
