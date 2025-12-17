@@ -15,7 +15,6 @@ import {
   parseManpowerTsv,
   exportUnitStructure,
   exportUnitMembers,
-  getPersonnelByEdipi,
   createPersonnel,
 } from "@/lib/client-stores";
 import {
@@ -25,6 +24,8 @@ import {
   loadUnits,
   getOrganizationByRuc,
   importManpowerToSupabase,
+  getPersonnelByEdipi,
+  invalidateCache,
   type ManpowerRecord,
 } from "@/lib/data-layer";
 import { useSyncRefresh } from "@/hooks/useSync";

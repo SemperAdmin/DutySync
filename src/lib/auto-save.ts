@@ -413,6 +413,16 @@ function saveAutoSaveSettings(): void {
 }
 
 /**
+ * Get the initial enabled state from localStorage synchronously.
+ * This is useful for initializing React state without flicker.
+ * Returns false by default since Supabase is the source of truth.
+ */
+export function getInitialEnabledState(): boolean {
+  const settings = loadAutoSaveSettings();
+  return settings?.enabled ?? false;
+}
+
+/**
  * Auto-save convenience object for importing
  */
 export const autoSave = {

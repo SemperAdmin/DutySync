@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   autoSave,
   initAutoSave,
+  getInitialEnabledState,
   AutoSaveStatus,
   SaveableDataType,
 } from '@/lib/auto-save';
@@ -30,8 +31,8 @@ export interface UseAutoSaveReturn {
 export function useAutoSave(ruc: string): UseAutoSaveReturn {
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
   const [message, setMessage] = useState<string>('');
-  // Default to disabled since Supabase is the source of truth
-  const [isEnabled, setIsEnabled] = useState<boolean>(false);
+  // Initialize from localStorage synchronously to avoid UI flicker
+  const [isEnabled, setIsEnabled] = useState<boolean>(() => getInitialEnabledState());
   const [hasUnsaved, setHasUnsaved] = useState<boolean>(false);
   const [dirtyTypes, setDirtyTypes] = useState<SaveableDataType[]>([]);
 
