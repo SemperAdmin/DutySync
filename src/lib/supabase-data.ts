@@ -78,6 +78,24 @@ export async function createOrganization(rucCode: string, name: string, descript
   return data as Organization;
 }
 
+export async function updateOrganization(rucCode: string, updates: { name?: string; description?: string }): Promise<Organization | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .update(updates as never)
+    .eq("ruc_code", rucCode)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating organization:", error);
+    return null;
+  }
+  return data as Organization;
+}
+
 // ============================================================================
 // UNITS
 // ============================================================================

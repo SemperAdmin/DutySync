@@ -653,13 +653,17 @@ export function getAllBlockedDuties(): BlockedDuty[] {
 // UTILITY FUNCTIONS
 // ============================================================================
 
-export function updateRucName(rucCode: string, name: string | null): boolean {
+export async function updateRucName(rucCode: string, name: string | null): Promise<boolean> {
+  // Update in Supabase
+  const result = await supabase.updateOrganization(rucCode, { name: name || undefined });
+  if (!result) return false;
+
+  // Update local cache
   const idx = rucEntriesCache.findIndex(r => r.ruc === rucCode);
   if (idx >= 0) {
     rucEntriesCache[idx].name = name;
-    return true;
   }
-  return false;
+  return true;
 }
 
 export function invalidateCache(key?: string): void {
