@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getSyncStatus,
   forceSync,
@@ -67,16 +67,30 @@ export function useSyncRefresh(
   dataTypes: SyncDataType[],
   onRefresh: () => void
 ) {
+  // Use refs to store the latest values without causing re-subscriptions
+  const dataTypesRef = useRef<SyncDataType[]>(dataTypes);
+  const onRefreshRef = useRef<() => void>(onRefresh);
+
+  // Update refs when values change
+  useEffect(() => {
+    dataTypesRef.current = dataTypes;
+  }, [dataTypes]);
+
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  // Subscribe once and use refs for the latest values
   useEffect(() => {
     const cleanup = onDataChanged((updatedTypes) => {
       // Check if any of the updated types match what we're watching
-      const shouldRefresh = dataTypes.some((type) =>
+      const shouldRefresh = dataTypesRef.current.some((type) =>
         updatedTypes.includes(type)
       );
       if (shouldRefresh) {
-        onRefresh();
+        onRefreshRef.current();
       }
     });
     return cleanup;
-  }, [dataTypes, onRefresh]);
+  }, []); // Empty deps - subscribe only once
 }

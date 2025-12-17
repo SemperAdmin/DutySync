@@ -138,6 +138,25 @@ for (const key of Object.values(KEYS)) {
   cacheVersions.set(key, 0);
 }
 
+// Cross-tab cache invalidation via storage events
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    // When a key is updated in another tab, invalidate its cache entry
+    if (event.key && cacheVersions.has(event.key)) {
+      const currentVersion = cacheVersions.get(event.key) || 0;
+      cacheVersions.set(event.key, currentVersion + 1);
+      dataCache.delete(event.key);
+    }
+    // When localStorage.clear() is called, event.key is null
+    else if (event.key === null) {
+      dataCache.clear();
+      for (const k of cacheVersions.keys()) {
+        cacheVersions.set(k, (cacheVersions.get(k) || 0) + 1);
+      }
+    }
+  });
+}
+
 /**
  * Invalidate cache for a specific key
  * Call this when data is modified from external sources (sync, import)
