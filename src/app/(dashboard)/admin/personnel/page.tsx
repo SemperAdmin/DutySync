@@ -161,7 +161,8 @@ export default function PersonnelPage() {
       map.set(unit.id, {
         company: findParentAtLevel(unit.id, "company"),
         section: findParentAtLevel(unit.id, "section"),
-        workSection: unit.unit_name,
+        // Only show work section if unit is actually a work_section level
+        workSection: unit.hierarchy_level === "work_section" ? unit.unit_name : "-",
       });
     }
 
@@ -636,7 +637,7 @@ export default function PersonnelPage() {
                           {hierarchy?.section ?? "-"}
                         </td>
                         <td className="py-3 px-4 text-foreground-muted">
-                          {hierarchy?.workSection ?? getUnitName(person.unit_section_id)}
+                          {hierarchy?.workSection ?? "-"}
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-highlight font-medium">
