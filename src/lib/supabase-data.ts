@@ -1151,6 +1151,7 @@ export async function getDutyRequirements(dutyTypeId: string): Promise<DutyRequi
 // DUTY VALUES (write operations)
 // ============================================================================
 
+// Create or update a duty value (upsert)
 export async function createDutyValue(
   dutyTypeId: string,
   options: {
@@ -1173,19 +1174,20 @@ export async function createDutyValue(
     );
   }
 
+  // Use upsert to handle both create and update cases
   const { data, error } = await supabase
     .from("duty_values")
-    .insert({
+    .upsert({
       id: options.id,
       duty_type_id: dutyTypeId,
       day_of_week: 0, // Base value - schema stores per-day values, app uses base weight
       value: options.baseWeight ?? 1,
-    } as never)
+    } as never, { onConflict: 'id' })
     .select()
     .single();
 
   if (error) {
-    console.error("Error creating duty value:", error);
+    console.error("Error upserting duty value:", error);
     return null;
   }
   return data as DutyValue;
@@ -1413,7 +1415,7 @@ export async function deleteDutyChangeRequest(id: string): Promise<boolean> {
   return true;
 }
 
-// Create a new duty type
+// Create or update a duty type (upsert)
 export async function createDutyType(
   organizationId: string,
   unitId: string,
@@ -1431,9 +1433,11 @@ export async function createDutyType(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
+  // Use upsert to handle both create and update cases
+  // This ensures sync works even if the record was created locally first
   const { data, error } = await supabase
     .from("duty_types")
-    .insert({
+    .upsert({
       id: options?.id,
       organization_id: organizationId,
       unit_id: unitId,
@@ -1444,12 +1448,12 @@ export async function createDutyType(
       rank_filter_values: options?.rankFilterValues || null,
       section_filter_mode: options?.sectionFilterMode ?? "none",
       section_filter_values: options?.sectionFilterValues || null,
-    } as never)
+    } as never, { onConflict: 'id' })
     .select()
     .single();
 
   if (error) {
-    console.error("Error creating duty type:", error);
+    console.error("Error upserting duty type:", error);
     return null;
   }
   return data as DutyType;

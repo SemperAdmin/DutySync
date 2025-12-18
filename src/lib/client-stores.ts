@@ -992,26 +992,30 @@ export function updateDutyType(id: string, updates: Partial<DutyType>): DutyType
   const types = getFromStorage<DutyType>(KEYS.dutyTypes);
   const idx = types.findIndex((dt) => dt.id === id);
   if (idx === -1) return null;
-  types[idx] = { ...types[idx], ...updates, updated_at: new Date() };
+  const updatedType = { ...types[idx], ...updates, updated_at: new Date() };
+  types[idx] = updatedType;
   saveToStorage(KEYS.dutyTypes, types);
   triggerAutoSave('dutyTypes');
 
-  // Sync to Supabase in background
-  // Map null (app's "any" value) to "none" (database default)
-  syncToSupabase(
-    () => supabaseUpdateDutyType(id, {
-      name: updates.duty_name,
-      description: updates.description,
-      personnelRequired: updates.slots_needed,
-      rankFilterMode: updates.rank_filter_mode === null ? "none" : updates.rank_filter_mode,
-      rankFilterValues: updates.rank_filter_values,
-      sectionFilterMode: updates.section_filter_mode === null ? "none" : updates.section_filter_mode,
-      sectionFilterValues: updates.section_filter_values,
-    }),
-    "updateDutyType"
-  );
+  // Sync to Supabase using upsert (createDutyType now uses upsert)
+  // This handles both cases: record exists in Supabase, or was created locally first
+  const orgId = getOrganizationIdFromUnit(updatedType.unit_section_id);
+  if (orgId) {
+    syncToSupabase(
+      () => supabaseCreateDutyType(orgId, updatedType.unit_section_id, updatedType.duty_name, {
+        id: updatedType.id,
+        description: updatedType.description,
+        personnelRequired: updatedType.slots_needed,
+        rankFilterMode: updatedType.rank_filter_mode === null ? "none" : updatedType.rank_filter_mode,
+        rankFilterValues: updatedType.rank_filter_values,
+        sectionFilterMode: updatedType.section_filter_mode === null ? "none" : updatedType.section_filter_mode,
+        sectionFilterValues: updatedType.section_filter_values,
+      }),
+      "updateDutyType"
+    );
+  }
 
-  return types[idx];
+  return updatedType;
 }
 
 export function deleteDutyType(id: string): boolean {
@@ -1056,21 +1060,24 @@ export function updateDutyValue(id: string, updates: Partial<DutyValue>): DutyVa
   const values = getFromStorage<DutyValue>(KEYS.dutyValues);
   const idx = values.findIndex((dv) => dv.id === id);
   if (idx === -1) return null;
-  values[idx] = { ...values[idx], ...updates };
+  const updatedValue = { ...values[idx], ...updates };
+  values[idx] = updatedValue;
   saveToStorage(KEYS.dutyValues, values);
   triggerAutoSave('dutyTypes');
 
-  // Sync to Supabase in background
+  // Sync to Supabase using upsert (createDutyValue now uses upsert)
+  // This handles both cases: record exists in Supabase, or was created locally first
   syncToSupabase(
-    () => supabaseUpdateDutyValue(id, {
-      baseWeight: updates.base_weight,
-      weekendMultiplier: updates.weekend_multiplier,
-      holidayMultiplier: updates.holiday_multiplier,
+    () => supabaseCreateDutyValue(updatedValue.duty_type_id, {
+      id: updatedValue.id,
+      baseWeight: updatedValue.base_weight,
+      weekendMultiplier: updatedValue.weekend_multiplier,
+      holidayMultiplier: updatedValue.holiday_multiplier,
     }),
     "updateDutyValue"
   );
 
-  return values[idx];
+  return updatedValue;
 }
 
 export function deleteDutyValue(id: string): boolean {
