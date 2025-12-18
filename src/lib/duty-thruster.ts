@@ -126,6 +126,26 @@ function addAssignmentToContext(ctx: SchedulingContext, personnelId: string, dat
   ctx.assignmentsByDate.get(dateStr)!.add(personnelId);
 }
 
+/**
+ * Get existing slot count for a duty type on a specific date (O(1) lookup)
+ */
+function getExistingSlotsForDutyType(ctx: SchedulingContext, dutyTypeId: string, date: Date): number {
+  const dateStr = date.toISOString().split("T")[0];
+  const slotsOnDate = ctx.slotsByDate.get(dateStr) || [];
+  return slotsOnDate.filter(slot => slot.duty_type_id === dutyTypeId).length;
+}
+
+/**
+ * Add a slot to the context for tracking (prevents exceeding slot limits)
+ */
+function addSlotToContext(ctx: SchedulingContext, slot: DutySlot): void {
+  const dateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+  if (!ctx.slotsByDate.has(dateStr)) {
+    ctx.slotsByDate.set(dateStr, []);
+  }
+  ctx.slotsByDate.get(dateStr)!.push(slot);
+}
+
 export interface ScheduleRequest {
   unitId: string;
   startDate: Date;
@@ -389,14 +409,23 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
       const dutyValue = getDutyValueByDutyType(dutyType.id);
       const pointsForDay = calculateDutyPoints(date, dutyValue);
 
-      // Fill required slots
-      for (let slot = 0; slot < dutyType.slots_needed; slot++) {
+      // Check how many slots already exist for this duty type on this date
+      const existingSlotCount = getExistingSlotsForDutyType(ctx, dutyType.id, date);
+      const slotsToCreate = dutyType.slots_needed - existingSlotCount;
+
+      if (slotsToCreate <= 0) {
+        // Already have enough slots for this duty type on this date
+        continue;
+      }
+
+      // Fill remaining required slots
+      for (let slot = 0; slot < slotsToCreate; slot++) {
         // Get eligible personnel using indexed context (O(1) lookups)
         const eligible = getEligiblePersonnel(dutyType, date, ctx);
 
         if (eligible.length === 0) {
           result.warnings.push(
-            `No eligible personnel for ${dutyType.duty_name} on ${date.toISOString().split("T")[0]} (slot ${slot + 1})`
+            `No eligible personnel for ${dutyType.duty_name} on ${date.toISOString().split("T")[0]} (slot ${existingSlotCount + slot + 1})`
           );
           result.slotsSkipped++;
           continue;
@@ -423,8 +452,9 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
         result.slots.push(newSlot);
         result.slotsCreated++;
 
-        // Update context to track this new assignment for subsequent iterations
+        // Update context to track this new assignment and slot
         addAssignmentToContext(ctx, selected.personnel.id, date);
+        addSlotToContext(ctx, newSlot);
 
         // Update personnel's duty score
         const currentScore = scoreUpdates.get(selected.personnel.id) ?? selected.personnel.current_duty_score;
@@ -489,11 +519,20 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
       const dutyValue = getDutyValueByDutyType(dutyType.id);
       const pointsForDay = calculateDutyPoints(date, dutyValue);
 
+      // Check how many slots already exist for this duty type on this date
+      const existingSlotCount = getExistingSlotsForDutyType(ctx, dutyType.id, date);
+      const slotsToCreate = dutyType.slots_needed - existingSlotCount;
+
+      if (slotsToCreate <= 0) {
+        // Already have enough slots for this duty type on this date
+        continue;
+      }
+
       // Get personnel for this duty type's unit ONCE per duty type (not per slot)
       const unitPersonnel = getPersonnelByUnitWithDescendants(dutyType.unit_section_id);
 
-      // Fill required slots
-      for (let slot = 0; slot < dutyType.slots_needed; slot++) {
+      // Fill remaining required slots
+      for (let slot = 0; slot < slotsToCreate; slot++) {
         // Get eligible personnel with temp scores
         const eligibleList: EligiblePersonnel[] = [];
 
@@ -536,7 +575,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
 
         if (eligibleList.length === 0) {
           result.warnings.push(
-            `No eligible personnel for ${dutyType.duty_name} on ${dateKey} (slot ${slot + 1})`
+            `No eligible personnel for ${dutyType.duty_name} on ${dateKey} (slot ${existingSlotCount + slot + 1})`
           );
           result.slotsSkipped++;
           continue;
@@ -565,8 +604,9 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
         const currentScore = tempScores.get(selected.personnel.id) ?? 0;
         tempScores.set(selected.personnel.id, currentScore + pointsForDay);
 
-        // Update context to track this preview assignment
+        // Update context to track this preview assignment and slot
         addAssignmentToContext(ctx, selected.personnel.id, date);
+        addSlotToContext(ctx, previewSlot);
       }
     }
   }
