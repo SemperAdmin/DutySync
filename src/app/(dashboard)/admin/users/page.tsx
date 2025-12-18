@@ -25,6 +25,7 @@ import {
   type RucEntry,
 } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
+import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 
 interface UserRole {
   id?: string;
@@ -101,6 +102,11 @@ export default function UsersPage() {
     });
     return map;
   }, [personnel]);
+
+  // Build hierarchical unit options for dropdowns
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(units);
+  }, [units]);
 
   // Get all descendant unit IDs for the Unit Admin's scope (includes nested sub-units)
   const [scopeUnitIds, setScopeUnitIds] = useState<Set<string> | null>(null);
@@ -388,6 +394,11 @@ function RoleAssignmentModal({
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Build hierarchical unit options for the dropdown
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(units);
+  }, [units]);
+
   // Manager role options
   const MANAGER_ROLES: RoleName[] = [
     "Unit Manager",
@@ -651,15 +662,15 @@ function RoleAssignmentModal({
                     Unit Scope (RUC)
                   </label>
                   <select
-                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                     value={managerScope}
                     onChange={(e) => setManagerScope(e.target.value)}
                     disabled={isSaving}
                   >
                     <option value="">Select a unit...</option>
-                    {units.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.unit_name} ({unit.hierarchy_level})
+                    {hierarchicalUnits.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {formatUnitOptionLabel(option, true)}
                       </option>
                     ))}
                   </select>

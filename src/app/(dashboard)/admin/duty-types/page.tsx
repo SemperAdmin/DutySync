@@ -22,6 +22,7 @@ import {
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/supabase-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
+import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 
 // USMC rank order for sorting (E1-E9, W1-W5, O1-O10)
 const RANK_ORDER = [
@@ -138,6 +139,11 @@ export default function DutyTypesPage() {
 
   // Listen for sync updates and refresh automatically
   useSyncRefresh(["units", "dutyTypes", "personnel"], fetchData);
+
+  // Build hierarchical unit options for dropdowns
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(units);
+  }, [units]);
 
   // Get unique ranks from personnel in the selected unit and its descendants
   const availableRanks = useMemo(() => {
@@ -554,12 +560,12 @@ export default function DutyTypesPage() {
         <select
           value={selectedUnitFilter}
           onChange={(e) => setSelectedUnitFilter(e.target.value)}
-          className="px-3 py-2 bg-surface border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          className="px-3 py-2 bg-surface border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
         >
           <option value="">All Sections</option>
-          {units.map((unit) => (
-            <option key={unit.id} value={unit.id}>
-              {unit.unit_name} ({unit.hierarchy_level})
+          {hierarchicalUnits.map((option) => (
+            <option key={option.id} value={option.id}>
+              {formatUnitOptionLabel(option, true)}
             </option>
           ))}
         </select>
@@ -745,12 +751,12 @@ export default function DutyTypesPage() {
                       })
                     }
                     required
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                   >
                     <option value="">Select Unit</option>
-                    {units.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.unit_name}
+                    {hierarchicalUnits.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {formatUnitOptionLabel(option)}
                       </option>
                     ))}
                   </select>

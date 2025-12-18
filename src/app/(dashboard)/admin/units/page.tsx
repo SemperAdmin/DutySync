@@ -505,22 +505,34 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
         // Get organization_id from the scope unit to include ALL units for this org
         const orgId = (scopeUnitRef as UnitSection & { organization_id?: string }).organization_id;
 
-        // Get all units for this organization
-        const orgUnits = orgId
-          ? unitsData.filter(u => (u as UnitSection & { organization_id?: string }).organization_id === orgId)
-          : [scopeUnitRef];
+        if (orgId) {
+          // Get all units for this organization
+          const orgUnits = unitsData.filter(u => (u as UnitSection & { organization_id?: string }).organization_id === orgId);
 
-        // Find the top-level unit(s) - those without parent or whose parent isn't in this org
-        const orgUnitIds = new Set(orgUnits.map(u => u.id));
-        const topLevelUnits = orgUnits.filter(u => !u.parent_id || !orgUnitIds.has(u.parent_id));
+          // Find the top-level unit(s) - those without parent or whose parent isn't in this org
+          const orgUnitIds = new Set(orgUnits.map(u => u.id));
+          const topLevelUnits = orgUnits.filter(u => !u.parent_id || !orgUnitIds.has(u.parent_id));
 
-        // Use the first top-level unit as the scope unit for display
-        const topUnit = topLevelUnits.find(u =>
-          u.hierarchy_level === "unit" || u.hierarchy_level === "battalion" || u.hierarchy_level === "ruc"
-        ) || topLevelUnits[0] || scopeUnitRef;
+          // Use the first top-level unit as the scope unit for display
+          const topUnit = topLevelUnits.find(u =>
+            ["unit", "battalion", "ruc"].includes(u.hierarchy_level)
+          ) || topLevelUnits[0] || scopeUnitRef;
 
-        setScopeUnit(topUnit);
-        setUnits(orgUnits);
+          setScopeUnit(topUnit);
+          setUnits(orgUnits);
+        } else {
+          // Fallback to old logic: show scope unit and its descendants if orgId is missing
+          setScopeUnit(scopeUnitRef);
+          const getDescendants = (parentId: string): UnitSection[] => {
+            const children = unitsData.filter(u => u.parent_id === parentId);
+            return [
+              ...children,
+              ...children.flatMap(child => getDescendants(child.id))
+            ];
+          };
+          const scopedUnits = [scopeUnitRef, ...getDescendants(scopeUnitRef.id)];
+          setUnits(scopedUnits);
+        }
       } else {
         setScopeUnit(null);
         setUnits([]);
