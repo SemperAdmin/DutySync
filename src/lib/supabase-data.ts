@@ -1146,6 +1146,255 @@ export async function getDutyRequirements(dutyTypeId: string): Promise<DutyRequi
   return data || [];
 }
 
+// ============================================================================
+// DUTY VALUES (write operations)
+// ============================================================================
+
+export async function createDutyValue(
+  dutyTypeId: string,
+  options: {
+    id?: string;
+    baseWeight?: number;
+    weekendMultiplier?: number;
+    holidayMultiplier?: number;
+  }
+): Promise<DutyValue | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  // The database uses day_of_week and value, but app uses base_weight/multipliers
+  // For now, store base_weight as day_of_week=0, value=base_weight
+  const { data, error } = await supabase
+    .from("duty_values")
+    .insert({
+      id: options.id,
+      duty_type_id: dutyTypeId,
+      day_of_week: 0, // Base value
+      value: options.baseWeight ?? 1,
+    } as never)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating duty value:", error);
+    return null;
+  }
+  return data as DutyValue;
+}
+
+export async function updateDutyValue(
+  id: string,
+  updates: {
+    baseWeight?: number;
+    weekendMultiplier?: number;
+    holidayMultiplier?: number;
+  }
+): Promise<DutyValue | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const supabaseUpdates: Record<string, unknown> = {};
+  if (updates.baseWeight !== undefined) supabaseUpdates.value = updates.baseWeight;
+
+  if (Object.keys(supabaseUpdates).length === 0) return null;
+
+  const { data, error } = await supabase
+    .from("duty_values")
+    .update(supabaseUpdates as never)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating duty value:", error);
+    return null;
+  }
+  return data as DutyValue;
+}
+
+export async function deleteDutyValue(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("duty_values")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error deleting duty value:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function deleteDutyValuesByDutyType(dutyTypeId: string): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("duty_values")
+    .delete()
+    .eq("duty_type_id", dutyTypeId)
+    .select();
+
+  if (error) {
+    console.error("Error deleting duty values:", error);
+    return 0;
+  }
+  return data?.length || 0;
+}
+
+// ============================================================================
+// DUTY REQUIREMENTS (write operations)
+// ============================================================================
+
+export async function createDutyRequirement(
+  dutyTypeId: string,
+  qualificationId: string,
+  isRequired: boolean = true
+): Promise<DutyRequirement | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("duty_requirements")
+    .insert({
+      duty_type_id: dutyTypeId,
+      qualification_id: qualificationId,
+      is_required: isRequired,
+    } as never)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating duty requirement:", error);
+    return null;
+  }
+  return data as DutyRequirement;
+}
+
+export async function deleteDutyRequirement(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("duty_requirements")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error deleting duty requirement:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function deleteDutyRequirementsByDutyType(dutyTypeId: string): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("duty_requirements")
+    .delete()
+    .eq("duty_type_id", dutyTypeId)
+    .select();
+
+  if (error) {
+    console.error("Error deleting duty requirements:", error);
+    return 0;
+  }
+  return data?.length || 0;
+}
+
+// ============================================================================
+// DUTY CHANGE REQUESTS (write operations)
+// ============================================================================
+
+export async function createDutyChangeRequest(
+  organizationId: string,
+  request: {
+    id?: string;
+    originalSlotId: string;
+    originalPersonnelId: string;
+    targetPersonnelId: string;
+    requestedBy?: string;
+    reason?: string;
+  }
+): Promise<unknown | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("duty_change_requests")
+    .insert({
+      id: request.id,
+      organization_id: organizationId,
+      original_slot_id: request.originalSlotId,
+      original_personnel_id: request.originalPersonnelId,
+      target_personnel_id: request.targetPersonnelId,
+      status: "pending",
+      requested_by: request.requestedBy || null,
+      reason: request.reason || null,
+    } as never)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating duty change request:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateDutyChangeRequest(
+  id: string,
+  updates: {
+    status?: "pending" | "approved" | "rejected";
+    approvedBy?: string;
+    reason?: string;
+  }
+): Promise<unknown | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const supabaseUpdates: Record<string, unknown> = {};
+  if (updates.status !== undefined) supabaseUpdates.status = updates.status;
+  if (updates.approvedBy !== undefined) supabaseUpdates.approved_by = updates.approvedBy;
+  if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
+
+  if (Object.keys(supabaseUpdates).length === 0) return null;
+
+  const { data, error } = await supabase
+    .from("duty_change_requests")
+    .update(supabaseUpdates as never)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating duty change request:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteDutyChangeRequest(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("duty_change_requests")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error deleting duty change request:", error);
+    return false;
+  }
+  return true;
+}
+
 // Create a new duty type
 export async function createDutyType(
   organizationId: string,
@@ -1481,23 +1730,34 @@ export async function createNonAvailability(
   personnelId: string,
   startDate: string,
   endDate: string,
-  reason?: string,
-  submittedBy?: string
+  options?: {
+    id?: string;
+    reason?: string;
+    status?: string;
+    submittedBy?: string;
+    approvedBy?: string;
+  }
 ): Promise<NonAvailability | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
+  const insertData: Record<string, unknown> = {
+    organization_id: organizationId,
+    personnel_id: personnelId,
+    start_date: startDate,
+    end_date: endDate,
+    reason: options?.reason || null,
+    status: options?.status || "pending",
+    submitted_by: options?.submittedBy || null,
+    approved_by: options?.approvedBy || null,
+  };
+  if (options?.id) {
+    insertData.id = options.id;
+  }
+
   const { data, error } = await supabase
     .from("non_availability")
-    .insert({
-      organization_id: organizationId,
-      personnel_id: personnelId,
-      start_date: startDate,
-      end_date: endDate,
-      reason: reason || null,
-      status: "pending",
-      submitted_by: submittedBy || null,
-    } as never)
+    .insert(insertData as never)
     .select()
     .single();
 

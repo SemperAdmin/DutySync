@@ -29,6 +29,21 @@ import {
   deleteDutySlotsInRange as supabaseDeleteDutySlotsInRange,
   createDutyScoreEvents as supabaseCreateDutyScoreEvents,
   updatePersonnel as supabaseUpdatePersonnel,
+  // Duty values
+  createDutyValue as supabaseCreateDutyValue,
+  updateDutyValue as supabaseUpdateDutyValue,
+  deleteDutyValue as supabaseDeleteDutyValue,
+  // Duty requirements
+  createDutyRequirement as supabaseCreateDutyRequirement,
+  deleteDutyRequirementsByDutyType as supabaseDeleteDutyRequirementsByDutyType,
+  // Non-availability
+  createNonAvailability as supabaseCreateNonAvailability,
+  updateNonAvailability as supabaseUpdateNonAvailability,
+  deleteNonAvailability as supabaseDeleteNonAvailability,
+  // Duty change requests
+  createDutyChangeRequest as supabaseCreateDutyChangeRequest,
+  updateDutyChangeRequest as supabaseUpdateDutyChangeRequest,
+  deleteDutyChangeRequest as supabaseDeleteDutyChangeRequest,
 } from "@/lib/supabase-data";
 
 // Import sync status tracking
@@ -967,6 +982,18 @@ export function createDutyValue(dutyValue: DutyValue): DutyValue {
   values.push(dutyValue);
   saveToStorage(KEYS.dutyValues, values);
   triggerAutoSave('dutyTypes');
+
+  // Sync to Supabase in background
+  syncToSupabase(
+    () => supabaseCreateDutyValue(dutyValue.duty_type_id, {
+      id: dutyValue.id,
+      baseWeight: dutyValue.base_weight,
+      weekendMultiplier: dutyValue.weekend_multiplier,
+      holidayMultiplier: dutyValue.holiday_multiplier,
+    }),
+    "createDutyValue"
+  );
+
   return dutyValue;
 }
 
@@ -977,7 +1004,31 @@ export function updateDutyValue(id: string, updates: Partial<DutyValue>): DutyVa
   values[idx] = { ...values[idx], ...updates };
   saveToStorage(KEYS.dutyValues, values);
   triggerAutoSave('dutyTypes');
+
+  // Sync to Supabase in background
+  syncToSupabase(
+    () => supabaseUpdateDutyValue(id, {
+      baseWeight: updates.base_weight,
+      weekendMultiplier: updates.weekend_multiplier,
+      holidayMultiplier: updates.holiday_multiplier,
+    }),
+    "updateDutyValue"
+  );
+
   return values[idx];
+}
+
+export function deleteDutyValue(id: string): boolean {
+  const values = getFromStorage<DutyValue>(KEYS.dutyValues);
+  const filtered = values.filter((dv) => dv.id !== id);
+  if (filtered.length === values.length) return false;
+  saveToStorage(KEYS.dutyValues, filtered);
+  triggerAutoSave('dutyTypes');
+
+  // Sync to Supabase in background
+  syncToSupabase(() => supabaseDeleteDutyValue(id), "deleteDutyValue");
+
+  return true;
 }
 
 // Duty Requirements
@@ -996,6 +1047,19 @@ export function addDutyRequirement(dutyTypeId: string, qualName: string): DutyRe
   requirements.push(requirement);
   saveToStorage(KEYS.dutyRequirements, requirements);
   triggerAutoSave('dutyTypes');
+
+  // Sync to Supabase in background (need to find qualification ID by name)
+  // Note: This requires a qualification lookup - for now just log
+  syncToSupabase(
+    async () => {
+      // The app uses qual_name but database uses qualification_id
+      // This would need a lookup - leaving as placeholder
+      console.log(`[Supabase Sync] Duty requirement sync requires qualification lookup: ${qualName}`);
+      return null;
+    },
+    "addDutyRequirement"
+  );
+
   return requirement;
 }
 
@@ -1004,6 +1068,12 @@ export function clearDutyRequirements(dutyTypeId: string): void {
   const filtered = requirements.filter((dr) => dr.duty_type_id !== dutyTypeId);
   saveToStorage(KEYS.dutyRequirements, filtered);
   triggerAutoSave('dutyTypes');
+
+  // Sync to Supabase in background
+  syncToSupabase(
+    () => supabaseDeleteDutyRequirementsByDutyType(dutyTypeId),
+    "clearDutyRequirements"
+  );
 }
 
 // Duty Slots
@@ -1549,6 +1619,30 @@ export function createNonAvailability(na: NonAvailability): NonAvailability {
   list.push(na);
   saveToStorage(KEYS.nonAvailability, list);
   triggerAutoSave('nonAvailability');
+
+  // Sync to Supabase in background
+  const personnel = getPersonnelById(na.personnel_id);
+  if (personnel) {
+    const orgId = getOrganizationIdFromUnit(personnel.unit_section_id);
+    if (orgId) {
+      syncToSupabase(
+        () => supabaseCreateNonAvailability(
+          orgId,
+          na.personnel_id,
+          formatDateToString(new Date(na.start_date)),
+          formatDateToString(new Date(na.end_date)),
+          {
+            id: na.id,
+            reason: na.reason,
+            status: na.status,
+            approvedBy: na.approved_by || undefined,
+          }
+        ),
+        "createNonAvailability"
+      );
+    }
+  }
+
   return na;
 }
 
@@ -1559,6 +1653,22 @@ export function updateNonAvailability(id: string, updates: Partial<NonAvailabili
   list[idx] = { ...list[idx], ...updates };
   saveToStorage(KEYS.nonAvailability, list);
   triggerAutoSave('nonAvailability');
+
+  // Sync to Supabase in background
+  const supabaseUpdates: Record<string, unknown> = {};
+  if (updates.start_date) supabaseUpdates.start_date = formatDateToString(new Date(updates.start_date));
+  if (updates.end_date) supabaseUpdates.end_date = formatDateToString(new Date(updates.end_date));
+  if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
+  if (updates.status !== undefined) supabaseUpdates.status = updates.status;
+  if (updates.approved_by !== undefined) supabaseUpdates.approved_by = updates.approved_by;
+
+  if (Object.keys(supabaseUpdates).length > 0) {
+    syncToSupabase(
+      () => supabaseUpdateNonAvailability(id, supabaseUpdates),
+      "updateNonAvailability"
+    );
+  }
+
   return list[idx];
 }
 
@@ -1568,6 +1678,10 @@ export function deleteNonAvailability(id: string): boolean {
   if (filtered.length === list.length) return false;
   saveToStorage(KEYS.nonAvailability, filtered);
   triggerAutoSave('nonAvailability');
+
+  // Sync to Supabase in background
+  syncToSupabase(() => supabaseDeleteNonAvailability(id), "deleteNonAvailability");
+
   return true;
 }
 
@@ -1896,6 +2010,26 @@ export function createDutyChangeRequest(request: DutyChangeRequest): DutyChangeR
   list.push(request);
   saveToStorage(KEYS.dutyChangeRequests, list);
   triggerAutoSave('dutyChangeRequests');
+
+  // Sync to Supabase in background
+  const originalPersonnel = getPersonnelById(request.original_personnel_id);
+  if (originalPersonnel) {
+    const orgId = getOrganizationIdFromUnit(originalPersonnel.unit_section_id);
+    if (orgId) {
+      syncToSupabase(
+        () => supabaseCreateDutyChangeRequest(orgId, {
+          id: request.id,
+          originalSlotId: request.original_slot_id,
+          originalPersonnelId: request.original_personnel_id,
+          targetPersonnelId: request.target_personnel_id,
+          requestedBy: request.requester_id,
+          reason: request.reason || undefined,
+        }),
+        "createDutyChangeRequest"
+      );
+    }
+  }
+
   return request;
 }
 
@@ -1909,6 +2043,25 @@ export function updateDutyChangeRequest(
   list[idx] = { ...list[idx], ...updates, updated_at: new Date() };
   saveToStorage(KEYS.dutyChangeRequests, list);
   triggerAutoSave('dutyChangeRequests');
+
+  // Sync to Supabase in background
+  const supabaseUpdates: {
+    status?: "pending" | "approved" | "rejected";
+    approvedBy?: string;
+    reason?: string;
+  } = {};
+  if (updates.status !== undefined) {
+    supabaseUpdates.status = updates.status as "pending" | "approved" | "rejected";
+  }
+  if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
+
+  if (Object.keys(supabaseUpdates).length > 0) {
+    syncToSupabase(
+      () => supabaseUpdateDutyChangeRequest(id, supabaseUpdates),
+      "updateDutyChangeRequest"
+    );
+  }
+
   return list[idx];
 }
 
@@ -2040,6 +2193,10 @@ export function deleteDutyChangeRequest(id: string): boolean {
   if (filtered.length === list.length) return false;
   saveToStorage(KEYS.dutyChangeRequests, filtered);
   triggerAutoSave('dutyChangeRequests');
+
+  // Sync to Supabase in background
+  syncToSupabase(() => supabaseDeleteDutyChangeRequest(id), "deleteDutyChangeRequest");
+
   return true;
 }
 
