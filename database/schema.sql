@@ -212,6 +212,28 @@ CREATE TABLE historic_rosters (
 CREATE INDEX idx_historic_rosters_unit ON historic_rosters(unit_id);
 CREATE INDEX idx_historic_rosters_month ON historic_rosters(roster_month);
 
+-- Duty Score Events (Historical duty point tracking)
+-- Tracks individual duty assignments and points earned for fairness calculations
+CREATE TABLE duty_score_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    personnel_id UUID NOT NULL REFERENCES personnel(id) ON DELETE CASCADE,
+    duty_slot_id UUID REFERENCES duty_slots(id) ON DELETE SET NULL,
+    unit_section_id UUID NOT NULL REFERENCES unit_sections(id) ON DELETE CASCADE,
+    duty_type_name VARCHAR(255) NOT NULL,  -- Denormalized for history
+    points NUMERIC(10, 2) NOT NULL,
+    date_earned DATE NOT NULL,
+    roster_month VARCHAR(7) NOT NULL,      -- Format: YYYY-MM (which approval period)
+    approved_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for score queries
+CREATE INDEX idx_score_events_personnel ON duty_score_events(personnel_id);
+CREATE INDEX idx_score_events_date ON duty_score_events(date_earned);
+CREATE INDEX idx_score_events_personnel_date ON duty_score_events(personnel_id, date_earned);
+CREATE INDEX idx_score_events_unit ON duty_score_events(unit_section_id);
+CREATE INDEX idx_score_events_roster_month ON duty_score_events(roster_month);
+
 -- ============================================
 -- SECTION 4: AUDIT LOGGING
 -- ============================================

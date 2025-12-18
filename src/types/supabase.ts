@@ -461,6 +461,44 @@ export interface Database {
           updated_at?: string;
         };
       };
+      duty_score_events: {
+        Row: {
+          id: string;
+          personnel_id: string;
+          duty_slot_id: string | null;
+          unit_section_id: string;
+          duty_type_name: string;
+          points: number;
+          date_earned: string;
+          roster_month: string;
+          approved_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          personnel_id: string;
+          duty_slot_id?: string | null;
+          unit_section_id: string;
+          duty_type_name: string;
+          points: number;
+          date_earned: string;
+          roster_month: string;
+          approved_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          personnel_id?: string;
+          duty_slot_id?: string | null;
+          unit_section_id?: string;
+          duty_type_name?: string;
+          points?: number;
+          date_earned?: string;
+          roster_month?: string;
+          approved_by?: string | null;
+          created_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
@@ -510,6 +548,7 @@ export type DutyRequirement = Database["public"]["Tables"]["duty_requirements"][
 export type DutySlot = Database["public"]["Tables"]["duty_slots"]["Row"];
 export type NonAvailability = Database["public"]["Tables"]["non_availability"]["Row"];
 export type DutyChangeRequest = Database["public"]["Tables"]["duty_change_requests"]["Row"];
+export type DutyScoreEvent = Database["public"]["Tables"]["duty_score_events"]["Row"];
 
 // Insert types
 export type OrganizationInsert = Database["public"]["Tables"]["organizations"]["Insert"];
@@ -520,3 +559,4 @@ export type UserRoleInsert = Database["public"]["Tables"]["user_roles"]["Insert"
 export type DutySlotInsert = Database["public"]["Tables"]["duty_slots"]["Insert"];
 export type NonAvailabilityInsert = Database["public"]["Tables"]["non_availability"]["Insert"];
 export type DutyChangeRequestInsert = Database["public"]["Tables"]["duty_change_requests"]["Insert"];
+export type DutyScoreEventInsert = Database["public"]["Tables"]["duty_score_events"]["Insert"];

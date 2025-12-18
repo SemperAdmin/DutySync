@@ -11,6 +11,7 @@ import type {
   Qualification,
   BlockedDuty,
   DutyChangeRequest,
+  DutyScoreEvent,
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
@@ -119,6 +120,7 @@ const KEYS = {
   rucs: "dutysync_rucs",
   seedDataLoaded: "dutysync_seed_loaded",
   approvedRosters: "dutysync_approved_rosters",
+  dutyScoreEvents: "dutysync_duty_score_events",
 };
 
 // ============ In-Memory Cache Layer ============
@@ -1043,12 +1045,15 @@ export function approveRoster(
   year: number,
   month: number,
   approvedBy: string
-): { approval: ApprovedRoster; scoresApplied: number } {
+): { approval: ApprovedRoster; scoresApplied: number; eventsCreated: number } {
   // Check if already approved
   const existing = isRosterApproved(unitId, year, month);
   if (existing) {
     throw new Error("This roster has already been approved.");
   }
+
+  // Format roster month for score events (YYYY-MM)
+  const rosterMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
 
   // Get the date range for the month
   const startDate = new Date(year, month, 1);
@@ -1057,6 +1062,7 @@ export function approveRoster(
   // Get all duty slots for this month and unit (including descendant units)
   const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
   const dutyTypes = getAllDutyTypes();
+  const dutyTypesById = new Map(dutyTypes.map((dt) => [dt.id, dt]));
   const allUnitIdsInScope = getAllDescendantUnitIds(unitId);
   const unitDutyTypeIds = new Set(
     dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map((dt) => dt.id)
@@ -1071,11 +1077,16 @@ export function approveRoster(
     );
   });
 
-  // Calculate and apply duty scores to personnel
+  // Create duty score events and calculate personnel totals
   const personnelScores = new Map<string, number>();
+  const scoreEvents: DutyScoreEvent[] = [];
 
   for (const slot of monthSlots) {
     if (!slot.personnel_id) continue;
+
+    // Get duty type info
+    const dutyType = dutyTypesById.get(slot.duty_type_id);
+    if (!dutyType) continue;
 
     // Get duty value for this duty type
     const dutyValue = getDutyValueByDutyType(slot.duty_type_id);
@@ -1094,18 +1105,38 @@ export function approveRoster(
       points = baseWeight * weekendMultiplier;
     }
 
-    // Add to personnel's total
+    // Create score event for this duty
+    const event: DutyScoreEvent = {
+      id: crypto.randomUUID(),
+      personnel_id: slot.personnel_id,
+      duty_slot_id: slot.id,
+      unit_section_id: dutyType.unit_section_id,
+      duty_type_name: dutyType.duty_name,
+      points,
+      date_earned: slotDate,
+      roster_month: rosterMonth,
+      approved_by: approvedBy,
+      created_at: new Date(),
+    };
+    scoreEvents.push(event);
+
+    // Add to personnel's total for cached score update
     const currentTotal = personnelScores.get(slot.personnel_id) || 0;
     personnelScores.set(slot.personnel_id, currentTotal + points);
   }
 
-  // Apply scores to personnel records
+  // Save all score events
+  const eventsCreated = createDutyScoreEvents(scoreEvents);
+
+  // Update cached scores on personnel records (for quick lookups)
+  // This recalculates the entire score from events for accuracy
   const personnel = getFromStorage<Personnel>(KEYS.personnel);
   let scoresApplied = 0;
 
   for (const [personnelId, points] of personnelScores) {
     const idx = personnel.findIndex((p) => p.id === personnelId);
     if (idx !== -1) {
+      // Add points to existing score (events track the history)
       personnel[idx].current_duty_score = (personnel[idx].current_duty_score || 0) + points;
       personnel[idx].updated_at = new Date();
       scoresApplied++;
@@ -1131,7 +1162,7 @@ export function approveRoster(
   saveToStorage(KEYS.approvedRosters, approvals);
   triggerAutoSave('approvedRosters');
 
-  return { approval, scoresApplied };
+  return { approval, scoresApplied, eventsCreated };
 }
 
 // Unapprove a roster (for corrections - does NOT reverse scores)
@@ -1144,6 +1175,169 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
   saveToStorage(KEYS.approvedRosters, filtered);
   triggerAutoSave('approvedRosters');
   return true;
+}
+
+// ============ Duty Score Events ============
+// Historical tracking of duty points earned
+
+// Get all duty score events
+export function getAllDutyScoreEvents(): DutyScoreEvent[] {
+  return getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents).sort(
+    (a, b) => new Date(b.date_earned).getTime() - new Date(a.date_earned).getTime()
+  );
+}
+
+// Get score events for a specific personnel
+export function getScoreEventsByPersonnel(personnelId: string): DutyScoreEvent[] {
+  return getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents)
+    .filter((e) => e.personnel_id === personnelId)
+    .sort((a, b) => new Date(b.date_earned).getTime() - new Date(a.date_earned).getTime());
+}
+
+// Get score events for a roster month
+export function getScoreEventsByRosterMonth(rosterMonth: string): DutyScoreEvent[] {
+  return getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents)
+    .filter((e) => e.roster_month === rosterMonth)
+    .sort((a, b) => new Date(a.date_earned).getTime() - new Date(b.date_earned).getTime());
+}
+
+// Create a duty score event
+export function createDutyScoreEvent(event: DutyScoreEvent): DutyScoreEvent {
+  const events = getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents);
+  events.push(event);
+  saveToStorage(KEYS.dutyScoreEvents, events);
+  triggerAutoSave('dutyScoreEvents');
+  return event;
+}
+
+// Create multiple duty score events (batch insert)
+export function createDutyScoreEvents(newEvents: DutyScoreEvent[]): number {
+  if (newEvents.length === 0) return 0;
+  const events = getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents);
+  events.push(...newEvents);
+  saveToStorage(KEYS.dutyScoreEvents, events);
+  triggerAutoSave('dutyScoreEvents');
+  return newEvents.length;
+}
+
+// Delete score events for a roster month (useful if un-approving and re-approving)
+export function deleteScoreEventsByRosterMonth(rosterMonth: string): number {
+  const events = getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents);
+  const filtered = events.filter((e) => e.roster_month !== rosterMonth);
+  const deletedCount = events.length - filtered.length;
+  if (deletedCount > 0) {
+    saveToStorage(KEYS.dutyScoreEvents, filtered);
+    triggerAutoSave('dutyScoreEvents');
+  }
+  return deletedCount;
+}
+
+// Calculate personnel duty score from events within a date range
+// Default: last 12 months
+export function calculatePersonnelScore(
+  personnelId: string,
+  options?: {
+    startDate?: Date;
+    endDate?: Date;
+    monthsBack?: number;
+  }
+): number {
+  const events = getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents)
+    .filter((e) => e.personnel_id === personnelId);
+
+  // Determine date range
+  let startDate: Date;
+  let endDate: Date = new Date();
+
+  if (options?.startDate && options?.endDate) {
+    startDate = options.startDate;
+    endDate = options.endDate;
+  } else {
+    // Default: last 12 months
+    const monthsBack = options?.monthsBack ?? 12;
+    startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - monthsBack);
+  }
+
+  // Sum points within date range
+  return events
+    .filter((e) => {
+      const eventDate = new Date(e.date_earned);
+      return eventDate >= startDate && eventDate <= endDate;
+    })
+    .reduce((sum, e) => sum + e.points, 0);
+}
+
+// Calculate scores for all personnel (returns Map of personnelId -> score)
+export function calculateAllPersonnelScores(
+  options?: {
+    startDate?: Date;
+    endDate?: Date;
+    monthsBack?: number;
+  }
+): Map<string, number> {
+  const events = getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents);
+
+  // Determine date range
+  let startDate: Date;
+  let endDate: Date = new Date();
+
+  if (options?.startDate && options?.endDate) {
+    startDate = options.startDate;
+    endDate = options.endDate;
+  } else {
+    const monthsBack = options?.monthsBack ?? 12;
+    startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - monthsBack);
+  }
+
+  // Build scores map
+  const scores = new Map<string, number>();
+
+  for (const event of events) {
+    const eventDate = new Date(event.date_earned);
+    if (eventDate >= startDate && eventDate <= endDate) {
+      const current = scores.get(event.personnel_id) || 0;
+      scores.set(event.personnel_id, current + event.points);
+    }
+  }
+
+  return scores;
+}
+
+// Get personnel score breakdown (grouped by month)
+export function getPersonnelScoreBreakdown(
+  personnelId: string,
+  options?: { monthsBack?: number }
+): { month: string; points: number; events: DutyScoreEvent[] }[] {
+  const monthsBack = options?.monthsBack ?? 12;
+  const startDate = new Date();
+  startDate.setMonth(startDate.getMonth() - monthsBack);
+
+  const events = getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents)
+    .filter((e) => {
+      if (e.personnel_id !== personnelId) return false;
+      const eventDate = new Date(e.date_earned);
+      return eventDate >= startDate;
+    })
+    .sort((a, b) => new Date(a.date_earned).getTime() - new Date(b.date_earned).getTime());
+
+  // Group by roster_month
+  const byMonth = new Map<string, DutyScoreEvent[]>();
+  for (const event of events) {
+    const existing = byMonth.get(event.roster_month) || [];
+    existing.push(event);
+    byMonth.set(event.roster_month, existing);
+  }
+
+  // Convert to array and calculate totals
+  return Array.from(byMonth.entries())
+    .map(([month, monthEvents]) => ({
+      month,
+      points: monthEvents.reduce((sum, e) => sum + e.points, 0),
+      events: monthEvents,
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 }
 
 // Non-Availability
