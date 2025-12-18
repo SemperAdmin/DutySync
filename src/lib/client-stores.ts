@@ -993,6 +993,25 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
   return count;
 }
 
+export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, endDate: Date): number {
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  let count = 0;
+  const filtered = slots.filter((slot) => {
+    // Keep slots that don't match this duty type
+    if (slot.duty_type_id !== dutyTypeId) return true;
+    // Keep slots outside the date range
+    const slotDate = new Date(slot.date_assigned);
+    const inRange = slotDate >= startDate && slotDate <= endDate;
+    if (!inRange) return true;
+    // This slot matches - remove it
+    count++;
+    return false;
+  });
+  saveToStorage(KEYS.dutySlots, filtered);
+  if (count > 0) triggerAutoSave('dutyRoster');
+  return count;
+}
+
 // ============ Roster Approval ============
 
 export interface ApprovedRoster {
