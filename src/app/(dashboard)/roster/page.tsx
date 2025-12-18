@@ -432,22 +432,31 @@ export default function RosterPage() {
     setCurrentDate(new Date());
   }
 
+  // Memoized index of slots by date for O(1) lookups (performance optimization)
+  const slotsByDate = useMemo(() => {
+    const map = new Map<string, EnrichedSlot[]>();
+    for (const slot of slots) {
+      const dateStr = formatDateToString(new Date(slot.date_assigned));
+      if (!map.has(dateStr)) {
+        map.set(dateStr, []);
+      }
+      map.get(dateStr)!.push(slot);
+    }
+    return map;
+  }, [slots]);
+
   // Get slot for a specific date and duty type (returns first match - for backward compatibility)
   function getSlotForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot | null {
     const dateStr = formatDateToString(date);
-    return slots.find((slot) => {
-      const slotDateStr = formatDateToString(new Date(slot.date_assigned));
-      return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
-    }) || null;
+    const slotsOnDate = slotsByDate.get(dateStr) || [];
+    return slotsOnDate.find(slot => slot.duty_type_id === dutyTypeId) || null;
   }
 
   // Get ALL slots for a specific date and duty type (for multi-slot duties)
   function getSlotsForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot[] {
     const dateStr = formatDateToString(date);
-    return slots.filter((slot) => {
-      const slotDateStr = formatDateToString(new Date(slot.date_assigned));
-      return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
-    });
+    const slotsOnDate = slotsByDate.get(dateStr) || [];
+    return slotsOnDate.filter(slot => slot.duty_type_id === dutyTypeId);
   }
 
   // Check if date is a liberty/holiday day
