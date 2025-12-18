@@ -8,6 +8,7 @@
  */
 
 import * as supabase from "./supabase-data";
+import { setDefaultOrganizationId } from "./client-stores";
 import type {
   UnitSection,
   Personnel,
@@ -710,6 +711,14 @@ export async function loadAllData(rucCode?: string): Promise<void> {
   if (rucCode) {
     const org = await getOrganizationByRuc(rucCode);
     organizationId = org?.id;
+  } else if (organizationsCache.length > 0) {
+    // If no RUC specified, use the first organization as default
+    organizationId = organizationsCache[0].id;
+  }
+
+  // Set the default organization ID for client-stores sync operations
+  if (organizationId) {
+    setDefaultOrganizationId(organizationId);
   }
 
   // Load all other data
