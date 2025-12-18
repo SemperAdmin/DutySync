@@ -8,7 +8,12 @@
  */
 
 import * as supabase from "./supabase-data";
-import { setDefaultOrganizationId } from "./client-stores";
+import {
+  setDefaultOrganizationId,
+  syncUnitsToLocalStorage,
+  syncDutyTypesToLocalStorage,
+  syncPersonnelToLocalStorage,
+} from "./client-stores";
 import type {
   UnitSection,
   Personnel,
@@ -202,6 +207,10 @@ export async function loadUnits(organizationId?: string): Promise<UnitSection[]>
   for (const unit of unitsCache) {
     unitsByIdCache.set(unit.id, unit);
   }
+
+  // Sync to localStorage so client-stores uses valid Supabase IDs
+  syncUnitsToLocalStorage(unitsCache);
+
   return unitsCache;
 }
 
@@ -332,6 +341,10 @@ export async function loadPersonnel(organizationId?: string): Promise<Personnel[
   for (const p of personnelCache) {
     personnelByIdCache.set(p.id, p);
   }
+
+  // Sync to localStorage so client-stores uses valid Supabase IDs
+  syncPersonnelToLocalStorage(personnelCache);
+
   return personnelCache;
 }
 
@@ -416,6 +429,10 @@ export async function loadDutyTypes(organizationId?: string): Promise<DutyType[]
   for (const dt of dutyTypesCache) {
     dutyTypesByIdCache.set(dt.id, dt);
   }
+
+  // Sync to localStorage so client-stores uses valid Supabase IDs
+  syncDutyTypesToLocalStorage(dutyTypesCache);
+
   return dutyTypesCache;
 }
 
