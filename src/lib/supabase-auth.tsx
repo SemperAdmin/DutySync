@@ -134,6 +134,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
             let unit: Unit | null = null;
 
             if (dbUser.personnel_id) {
+              console.log("[Auth] Session restore - user has personnel_id:", dbUser.personnel_id);
               personnel = await supabaseData.getPersonnelById(dbUser.personnel_id);
               if (personnel) {
                 unit = await supabaseData.getUnitById(personnel.unit_id);
@@ -141,11 +142,15 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
             } else {
               // Try to find personnel by service_id (EDIPI) - handles case where
               // personnel were imported after user was created
+              console.log("[Auth] Session restore - looking up personnel by EDIPI:", dbUser.edipi);
               personnel = await supabaseData.getPersonnelByServiceId(dbUser.edipi);
               if (personnel) {
+                console.log("[Auth] Session restore - found personnel:", personnel.rank, personnel.last_name);
                 unit = await supabaseData.getUnitById(personnel.unit_id);
                 // Link personnel to user for future sessions
                 await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
+              } else {
+                console.log("[Auth] Session restore - no personnel found with EDIPI:", dbUser.edipi);
               }
             }
 
@@ -192,17 +197,22 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       let unit: Unit | null = null;
 
       if (dbUser.personnel_id) {
+        console.log("[Auth] User has personnel_id:", dbUser.personnel_id);
         personnel = await supabaseData.getPersonnelById(dbUser.personnel_id);
         if (personnel) {
           unit = await supabaseData.getUnitById(personnel.unit_id);
         }
       } else {
         // Try to find personnel by service_id (EDIPI)
+        console.log("[Auth] Looking up personnel by EDIPI:", edipi);
         personnel = await supabaseData.getPersonnelByServiceId(edipi);
         if (personnel) {
+          console.log("[Auth] Found personnel:", personnel.rank, personnel.last_name, "- linking to user");
           unit = await supabaseData.getUnitById(personnel.unit_id);
           // Link personnel to user
           await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
+        } else {
+          console.log("[Auth] No personnel found with EDIPI:", edipi);
         }
       }
 
