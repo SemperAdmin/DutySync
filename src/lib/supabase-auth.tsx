@@ -138,6 +138,15 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
               if (personnel) {
                 unit = await supabaseData.getUnitById(personnel.unit_id);
               }
+            } else {
+              // Try to find personnel by service_id (EDIPI) - handles case where
+              // personnel were imported after user was created
+              personnel = await supabaseData.getPersonnelByServiceId(dbUser.edipi);
+              if (personnel) {
+                unit = await supabaseData.getUnitById(personnel.unit_id);
+                // Link personnel to user for future sessions
+                await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
+              }
             }
 
             // Rebuild session with fresh data
@@ -303,6 +312,14 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
         personnel = await supabaseData.getPersonnelById(dbUser.personnel_id);
         if (personnel) {
           unit = await supabaseData.getUnitById(personnel.unit_id);
+        }
+      } else {
+        // Try to find personnel by service_id (EDIPI)
+        personnel = await supabaseData.getPersonnelByServiceId(dbUser.edipi);
+        if (personnel) {
+          unit = await supabaseData.getUnitById(personnel.unit_id);
+          // Link personnel to user
+          await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
         }
       }
 
