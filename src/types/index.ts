@@ -144,6 +144,21 @@ export interface HistoricRoster {
   created_at: Date;
 }
 
+// Duty Score Event (historical duty point tracking)
+// Tracks individual duty assignments and points earned for fairness calculations
+export interface DutyScoreEvent {
+  id: UUID;
+  personnel_id: UUID;
+  duty_slot_id: UUID | null;  // May be null if slot was deleted
+  unit_section_id: UUID;
+  duty_type_name: string;     // Denormalized for history
+  points: number;
+  date_earned: Date;
+  roster_month: string;       // Format: YYYY-MM (which approval period)
+  approved_by: UUID | null;
+  created_at: Date;
+}
+
 // Blocked Duty (Unit Admin can block specific duties on specific days)
 export interface BlockedDuty {
   id: UUID;

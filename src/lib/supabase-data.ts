@@ -17,6 +17,8 @@ import type {
   NonAvailability,
   HierarchyLevel,
   RoleName,
+  DutyScoreEvent,
+  DutyScoreEventInsert,
 } from "@/types/supabase";
 
 // Type assertion helper for Supabase operations
@@ -1354,6 +1356,217 @@ export async function deleteNonAvailability(id: string): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+// ============================================================================
+// DUTY SCORE EVENTS
+// ============================================================================
+
+// Get all duty score events for an organization
+export async function getDutyScoreEvents(
+  organizationId?: string,
+  personnelId?: string
+): Promise<DutyScoreEvent[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getSupabase();
+
+  let query = supabase
+    .from("duty_score_events")
+    .select("*")
+    .order("date_earned", { ascending: false });
+
+  if (organizationId) {
+    // Get units for this organization to filter by unit_section_id
+    const { data: units } = await supabase
+      .from("units")
+      .select("id")
+      .eq("organization_id", organizationId) as { data: { id: string }[] | null };
+
+    if (units && units.length > 0) {
+      const unitIds = units.map(u => u.id);
+      query = query.in("unit_section_id", unitIds);
+    }
+  }
+
+  if (personnelId) {
+    query = query.eq("personnel_id", personnelId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching duty score events:", error);
+    return [];
+  }
+  return (data || []) as DutyScoreEvent[];
+}
+
+// Get score events for a specific personnel within a date range
+export async function getPersonnelScoreEvents(
+  personnelId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<DutyScoreEvent[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getSupabase();
+
+  let query = supabase
+    .from("duty_score_events")
+    .select("*")
+    .eq("personnel_id", personnelId)
+    .order("date_earned", { ascending: false });
+
+  if (startDate) {
+    query = query.gte("date_earned", startDate);
+  }
+  if (endDate) {
+    query = query.lte("date_earned", endDate);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching personnel score events:", error);
+    return [];
+  }
+  return (data || []) as DutyScoreEvent[];
+}
+
+// Get score events for a roster month
+export async function getScoreEventsByRosterMonth(
+  rosterMonth: string,
+  organizationId?: string
+): Promise<DutyScoreEvent[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getSupabase();
+
+  let query = supabase
+    .from("duty_score_events")
+    .select("*")
+    .eq("roster_month", rosterMonth)
+    .order("date_earned");
+
+  if (organizationId) {
+    const { data: units } = await supabase
+      .from("units")
+      .select("id")
+      .eq("organization_id", organizationId) as { data: { id: string }[] | null };
+
+    if (units && units.length > 0) {
+      const unitIds = units.map(u => u.id);
+      query = query.in("unit_section_id", unitIds);
+    }
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching score events by roster month:", error);
+    return [];
+  }
+  return (data || []) as DutyScoreEvent[];
+}
+
+// Create a duty score event
+export async function createDutyScoreEvent(
+  event: DutyScoreEventInsert
+): Promise<DutyScoreEvent | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("duty_score_events")
+    .insert(asInsert(event))
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating duty score event:", error);
+    return null;
+  }
+  return data;
+}
+
+// Create multiple duty score events (batch insert)
+export async function createDutyScoreEvents(
+  events: DutyScoreEventInsert[]
+): Promise<{ created: number; errors: string[] }> {
+  if (!isSupabaseConfigured()) return { created: 0, errors: ["Supabase not configured"] };
+  if (events.length === 0) return { created: 0, errors: [] };
+
+  const supabase = getSupabase();
+  const result = { created: 0, errors: [] as string[] };
+
+  // Insert in batches of 100 to avoid hitting limits
+  const batchSize = 100;
+  for (let i = 0; i < events.length; i += batchSize) {
+    const batch = events.slice(i, i + batchSize);
+
+    const { data, error } = await supabase
+      .from("duty_score_events")
+      .insert(batch as never)
+      .select();
+
+    if (error) {
+      result.errors.push(`Batch ${Math.floor(i / batchSize) + 1} failed: ${error.message}`);
+    } else {
+      result.created += data?.length || 0;
+    }
+  }
+
+  return result;
+}
+
+// Delete score events for a roster month (useful when un-approving)
+export async function deleteScoreEventsByRosterMonth(
+  rosterMonth: string,
+  unitSectionId?: string
+): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const supabase = getSupabase();
+
+  let query = supabase
+    .from("duty_score_events")
+    .delete()
+    .eq("roster_month", rosterMonth);
+
+  if (unitSectionId) {
+    query = query.eq("unit_section_id", unitSectionId);
+  }
+
+  const { data, error } = await query.select();
+
+  if (error) {
+    console.error("Error deleting score events:", error);
+    return 0;
+  }
+  return data?.length || 0;
+}
+
+// Calculate personnel score from events (last N months)
+export async function calculatePersonnelScoreFromEvents(
+  personnelId: string,
+  monthsBack: number = 12
+): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const supabase = getSupabase();
+
+  const startDate = new Date();
+  startDate.setMonth(startDate.getMonth() - monthsBack);
+  const startDateStr = startDate.toISOString().split("T")[0];
+
+  const { data, error } = await supabase
+    .from("duty_score_events")
+    .select("points")
+    .eq("personnel_id", personnelId)
+    .gte("date_earned", startDateStr) as { data: { points: number }[] | null; error: Error | null };
+
+  if (error) {
+    console.error("Error calculating personnel score:", error);
+    return 0;
+  }
+
+  return (data || []).reduce((sum, event) => sum + (event.points || 0), 0);
 }
 
 // ============================================================================
