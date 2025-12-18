@@ -44,9 +44,11 @@ export function SyncStatusIndicator({
   // Format last sync time
   const formatLastSync = () => {
     if (!lastSyncSuccess) return "Never";
-    const diff = Date.now() - lastSyncSuccess.getTime();
-    if (diff < 60000) return "Just now";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    const diffMs = Date.now() - lastSyncSuccess.getTime();
+    const minutesAgo = Math.floor(diffMs / 60000);
+
+    if (minutesAgo < 1) return "Just now";
+    if (minutesAgo < 60) return `${minutesAgo}m ago`;
     return lastSyncSuccess.toLocaleTimeString();
   };
 
@@ -165,7 +167,7 @@ export function SyncStatusPanel() {
             </span>
             <ul className="mt-2 text-sm text-red-500 list-disc list-inside">
               {errors.slice(-5).map((error, i) => (
-                <li key={i} className="truncate">
+                <li key={`${error}-${i}`} className="truncate">
                   {error}
                 </li>
               ))}
