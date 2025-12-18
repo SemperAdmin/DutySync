@@ -15,7 +15,7 @@ import type {
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
-import { isHoliday, isWeekend } from "@/lib/date-utils";
+import { isHoliday, isWeekend, formatDateToString } from "@/lib/date-utils";
 
 // Auto-save notification function (lazy import to avoid circular dependency)
 let notifyAutoSave: ((dataType: string) => void) | null = null;
@@ -934,17 +934,17 @@ export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlo
 }
 
 export function getDutySlotsByDate(date: Date): DutySlot[] {
-  const dateStr = date.toISOString().split("T")[0];
+  const dateStr = formatDateToString(date);
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+    const slotDateStr = formatDateToString(new Date(slot.date_assigned));
     return slotDateStr === dateStr;
   });
 }
 
 export function getDutySlotsByDateAndType(date: Date, dutyTypeId: string): DutySlot[] {
-  const dateStr = date.toISOString().split("T")[0];
+  const dateStr = formatDateToString(date);
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+    const slotDateStr = formatDateToString(new Date(slot.date_assigned));
     return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
   });
 }

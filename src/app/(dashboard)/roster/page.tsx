@@ -45,6 +45,7 @@ import {
 import { matchesFilter } from "@/lib/duty-thruster";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
+import { formatDateToString } from "@/lib/date-utils";
 
 // Manager role names that can assign duties within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -436,25 +437,25 @@ export default function RosterPage() {
 
   // Get slot for a specific date and duty type (returns first match - for backward compatibility)
   function getSlotForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot | null {
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = formatDateToString(date);
     return slots.find((slot) => {
-      const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+      const slotDateStr = formatDateToString(new Date(slot.date_assigned));
       return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
     }) || null;
   }
 
   // Get ALL slots for a specific date and duty type (for multi-slot duties)
   function getSlotsForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot[] {
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = formatDateToString(date);
     return slots.filter((slot) => {
-      const slotDateStr = new Date(slot.date_assigned).toISOString().split("T")[0];
+      const slotDateStr = formatDateToString(new Date(slot.date_assigned));
       return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
     });
   }
 
   // Check if date is a liberty/holiday day
   function getLibertyDay(date: Date): LibertyDay | null {
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = formatDateToString(date);
     const effectiveUnit = selectedUnit || unitAdminUnitId;
     return libertyDays.find(ld =>
       ld.date === dateStr &&
@@ -475,7 +476,7 @@ export default function RosterPage() {
 
   // Get cell key for selection map
   function getCellKey(dutyTypeId: string, date: Date): string {
-    return `${dutyTypeId}_${date.toISOString().split("T")[0]}`;
+    return `${dutyTypeId}_${formatDateToString(date)}`;
   }
 
   // Toggle cell selection (for multi-select blocking)
@@ -775,7 +776,7 @@ export default function RosterPage() {
     for (let i = 0; i < libertyFormData.days; i++) {
       const date = new Date(start);
       date.setDate(date.getDate() + i);
-      const dateStr = date.toISOString().split("T")[0];
+      const dateStr = formatDateToString(date);
 
       // Check if this date already has a liberty day for this unit
       const exists = libertyDays.some(ld => ld.date === dateStr && ld.unitId === unitAdminUnitId);
@@ -1006,7 +1007,7 @@ export default function RosterPage() {
     const headers = ["Date", "Day", "Status", ...exportDutyTypes.map(dt => dt.duty_name)];
     const rows = monthDays.map((date) => {
       const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-      const dateStr = date.toISOString().split("T")[0];
+      const dateStr = formatDateToString(date);
       const libertyDay = getLibertyDay(date);
       const dayStatus = libertyDay ? libertyDay.type.toUpperCase() : "";
 
