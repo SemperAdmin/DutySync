@@ -29,6 +29,7 @@ import {
   determineApproverLevel,
   getApproverLevelName,
   buildSwapApprovals,
+  clearDutySlotsByDutyType,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -2277,13 +2278,38 @@ export default function RosterPage() {
                 </p>
               </div>
             </div>
-            <div className="p-4 border-t border-border flex justify-end sticky bottom-0 bg-surface">
-              <Button
-                variant="ghost"
-                onClick={() => setDutyTypeDetailsModal({ isOpen: false, dutyType: null })}
-              >
-                Close
-              </Button>
+            <div className="p-4 border-t border-border flex justify-between sticky bottom-0 bg-surface">
+              {/* Clear Roster button - only for Unit Admin */}
+              {isUnitAdmin && isUnitAdminView && dutyTypeDetailsModal.dutyType && (
+                <Button
+                  variant="accent"
+                  onClick={() => {
+                    const dt = dutyTypeDetailsModal.dutyType;
+                    if (!dt) return;
+                    const confirmed = window.confirm(
+                      `Clear all ${dt.duty_name} assignments for ${currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}?\n\nThis will remove all assigned personnel for this duty type in the current month.`
+                    );
+                    if (confirmed) {
+                      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+                      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+                      const cleared = clearDutySlotsByDutyType(dt.id, startOfMonth, endOfMonth);
+                      alert(`Cleared ${cleared} duty slot${cleared !== 1 ? 's' : ''}`);
+                      setDutyTypeDetailsModal({ isOpen: false, dutyType: null });
+                      fetchData();
+                    }
+                  }}
+                >
+                  Clear Roster
+                </Button>
+              )}
+              <div className={isUnitAdmin && isUnitAdminView ? '' : 'ml-auto'}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setDutyTypeDetailsModal({ isOpen: false, dutyType: null })}
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>
