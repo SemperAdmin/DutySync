@@ -240,6 +240,25 @@ export default function PersonnelPage() {
     }
     if (!userScopeUnitId) return new Set<string>();
 
+    // For Unit Admin view, include ALL units in the organization
+    // This handles cases where unit hierarchies may not be properly connected
+    if (effectiveIsUnitAdmin) {
+      const scopeUnit = unitMap.get(userScopeUnitId);
+      if (scopeUnit) {
+        // Get organization_id from the scope unit (it's stored in the extended type)
+        const orgId = (scopeUnit as UnitSection & { organization_id?: string }).organization_id;
+        if (orgId) {
+          // Include all units for this organization
+          return new Set(
+            units
+              .filter(u => (u as UnitSection & { organization_id?: string }).organization_id === orgId)
+              .map(u => u.id)
+          );
+        }
+      }
+    }
+
+    // For manager roles, walk the hierarchy tree
     const ids = new Set<string>([userScopeUnitId]);
     const queue = [userScopeUnitId];
 
@@ -255,7 +274,7 @@ export default function PersonnelPage() {
     }
 
     return ids;
-  }, [effectiveIsAppAdmin, userScopeUnitId, childrenMap, units]);
+  }, [effectiveIsAppAdmin, effectiveIsUnitAdmin, userScopeUnitId, childrenMap, units, unitMap]);
 
   // Get units within the user's scope for the filter dropdown, sorted by hierarchy
   const unitsInScope = useMemo(() => {
