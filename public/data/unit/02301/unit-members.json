@@ -52,7 +52,7 @@
       "last_name": "ROBINSON",
       "rank": "SSGT",
       "unit_section_id": "ab15e626-8621-4ca0-b9c9-9486148e98f4",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "5e91c413-0954-4ee3-a878-1d5a01f69801",
@@ -250,7 +250,7 @@
       "last_name": "FAJARDO",
       "rank": "SSGT",
       "unit_section_id": "99ac5152-2b84-42ea-adb9-aaa0452cfebf",
-      "current_duty_score": 0
+      "current_duty_score": 3
     },
     {
       "id": "b2119a87-138d-416c-84cb-fc126ca3bd3e",
@@ -691,7 +691,7 @@
       "last_name": "HUBBARD",
       "rank": "SSGT",
       "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
-      "current_duty_score": 0
+      "current_duty_score": 1.5
     },
     {
       "id": "be44a358-3cc8-412e-b16e-85b51e7c9f01",
@@ -709,7 +709,7 @@
       "last_name": "HAMILTON",
       "rank": "GYSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "b58b3f75-3f43-4278-b6e3-15ed4e94ea44",
@@ -961,7 +961,7 @@
       "last_name": "MORMAN",
       "rank": "GYSGT",
       "unit_section_id": "0e5cd749-1583-4412-bdd5-0c792b76cfae",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "16b3b520-6915-4ca0-b528-b630a535f4e5",
@@ -1024,7 +1024,7 @@
       "last_name": "AHERN",
       "rank": "GYSGT",
       "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "20a0d12a-1ad4-47ee-811d-501d3408d486",
@@ -1096,7 +1096,7 @@
       "last_name": "ALVARADOHERNANDEZ",
       "rank": "GYSGT",
       "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "51fed648-d908-44bf-9c19-4b5bf8e0d415",
@@ -1555,7 +1555,7 @@
       "last_name": "BRADLEY",
       "rank": "GYSGT",
       "unit_section_id": "33f75718-85cc-417a-a6da-522c0bf1d571",
-      "current_duty_score": 0
+      "current_duty_score": 1.5
     },
     {
       "id": "7856f424-c721-4146-8923-02ed31f27ed3",
@@ -1573,7 +1573,7 @@
       "last_name": "BRAGG",
       "rank": "GYSGT",
       "unit_section_id": "596f7957-fd9b-4a77-9bf7-b2c64aff207c",
-      "current_duty_score": 0
+      "current_duty_score": 2
     },
     {
       "id": "a860ff3b-a980-48fa-9716-a6c1d496be03",
@@ -1663,7 +1663,7 @@
       "last_name": "BROWN",
       "rank": "GYSGT",
       "unit_section_id": "12306540-b11e-406b-ba34-6741ecc6289e",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "e7a5c7d2-d9f9-4b6a-92ee-6677bfa35f70",
@@ -1780,7 +1780,7 @@
       "last_name": "CANTU",
       "rank": "GYSGT",
       "unit_section_id": "794a20ab-4859-4d58-a3ed-fce8a3eca3fc",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "8a9cc8b8-aa56-4044-9045-ded6e389ae41",
@@ -1861,7 +1861,7 @@
       "last_name": "CARTAGENACOLON",
       "rank": "GYSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "959c18ab-bf69-4604-ab82-1483a97e4d74",
@@ -1924,7 +1924,7 @@
       "last_name": "CERVANTESMENDOZA",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 0
+      "current_duty_score": 1.5
     },
     {
       "id": "42df4216-1b42-48e1-b426-e1fc03a3a4c4",
@@ -2140,7 +2140,7 @@
       "last_name": "DAVIS",
       "rank": "SSGT",
       "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "28d9b7a0-b027-4c99-8712-32f475494e1d",
@@ -2149,7 +2149,7 @@
       "last_name": "DAVIS III",
       "rank": "SSGT",
       "unit_section_id": "bf0beae0-03f8-4065-8e19-7890e58cb005",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "12ca31e8-d8fd-4390-b6c9-ddc0cc046afe",
@@ -2356,7 +2356,7 @@
       "last_name": "EDWARDS",
       "rank": "SSGT",
       "unit_section_id": "211e7c25-c266-478a-a6f5-8595a63e992e",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "035eb435-12fb-42ae-8931-8be0284ddedd",
@@ -2374,7 +2374,7 @@
       "last_name": "ELLERSON",
       "rank": "GYSGT",
       "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "5e0de7a5-ee4a-4696-a5b5-9b09b4de95ac",
@@ -2455,7 +2455,7 @@
       "last_name": "ESTRADA",
       "rank": "GYSGT",
       "unit_section_id": "596f7957-fd9b-4a77-9bf7-b2c64aff207c",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "b5e71476-60ba-42bb-8498-01ae78f840ee",
@@ -2581,7 +2581,7 @@
       "last_name": "FONGSOUZA",
       "rank": "SSGT",
       "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "a659fe62-61fb-4a45-81b7-3e292a7fe590",
@@ -2590,7 +2590,7 @@
       "last_name": "FOSBERG",
       "rank": "GYSGT",
       "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "25a0f6ea-923e-45ca-bfe8-078e60bcb226",
@@ -2878,7 +2878,7 @@
       "last_name": "GORDON",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "619cc446-58c2-49ef-af74-9f67801c3e4e",
@@ -3274,7 +3274,7 @@
       "last_name": "HILL",
       "rank": "SSGT",
       "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "43b7ba4e-6dde-4b47-affc-f7fba4bf3e18",
@@ -4426,7 +4426,7 @@
       "last_name": "MOORE JR",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "cd832766-2a45-4e76-978a-eade4b7bb165",
@@ -4678,7 +4678,7 @@
       "last_name": "PADILLA",
       "rank": "SSGT",
       "unit_section_id": "d446fc75-9db4-4724-b6d7-020989e89f72",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "08fa2d0b-fdce-41ba-8a11-bdba1822356d",
@@ -5245,7 +5245,7 @@
       "last_name": "RODRIGUEZ",
       "rank": "SSGT",
       "unit_section_id": "ac5ba8e8-aa66-471f-82d1-ea2a138b37be",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "473af862-2c85-4b8c-a68e-6965887b79e3",
@@ -5533,7 +5533,7 @@
       "last_name": "SHORTER",
       "rank": "GYSGT",
       "unit_section_id": "b0da4043-9a6b-4c42-b79c-6b2e19622ae9",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "11f0123b-d5ca-4f81-86e4-a393f860bd7b",
@@ -5695,7 +5695,7 @@
       "last_name": "SOTO III",
       "rank": "SSGT",
       "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
-      "current_duty_score": 0
+      "current_duty_score": 1
     },
     {
       "id": "9ee36607-9b20-4c24-ad6d-e1851ad89c22",
@@ -5713,7 +5713,7 @@
       "last_name": "STARK",
       "rank": "GYSGT",
       "unit_section_id": "3579b656-a505-4d1c-b712-8e444f142b0b",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "4f1ef082-ec8e-46f0-9745-e4280b547e65",
@@ -6343,7 +6343,7 @@
       "last_name": "WYSOCKI",
       "rank": "SSGT",
       "unit_section_id": "95913e38-03b2-42f6-a78b-1a0e696c7b81",
-      "current_duty_score": 0
+      "current_duty_score": 1.5
     },
     {
       "id": "10a77c62-d57e-428c-94be-254174bbdc00",
@@ -6400,8 +6400,8 @@
       "current_duty_score": 0
     }
   ],
-  "exportedAt": "2025-12-18T19:21:02.829Z",
+  "exportedAt": "2025-12-18T19:38:05.469Z",
   "version": "1.1",
   "encrypted": true,
-  "encryptedAt": "2025-12-18T19:21:02.829Z"
+  "encryptedAt": "2025-12-18T19:38:05.469Z"
 }
