@@ -1,8 +1,37 @@
 {
-  "dutyTypes": [],
-  "dutyValues": [],
+  "dutyTypes": [
+    {
+      "id": "a3bd8996-de07-4976-8bb9-d4489d4561d1",
+      "unit_section_id": "a3a6b339-ab1b-4c93-a4b6-f334165cf11c",
+      "duty_name": "SDO",
+      "description": "SDO",
+      "notes": null,
+      "slots_needed": 1,
+      "required_rank_min": null,
+      "required_rank_max": null,
+      "rank_filter_mode": "include",
+      "rank_filter_values": [
+        "SSGT",
+        "GYSGT"
+      ],
+      "section_filter_mode": null,
+      "section_filter_values": null,
+      "is_active": true,
+      "created_at": "2025-12-18T22:23:43.610Z",
+      "updated_at": "2025-12-18T22:23:43.610Z"
+    }
+  ],
+  "dutyValues": [
+    {
+      "id": "2b0b7a96-c528-43e5-bcba-3cb18c575725",
+      "duty_type_id": "a3bd8996-de07-4976-8bb9-d4489d4561d1",
+      "base_weight": 1,
+      "weekend_multiplier": 1.5,
+      "holiday_multiplier": 2
+    }
+  ],
   "dutyRequirements": [],
-  "exportedAt": "2025-12-18T22:15:53.620Z",
+  "exportedAt": "2025-12-18T22:23:48.612Z",
   "version": "1.0",
   "description": "Duty type definitions, point values, and qualification requirements for this unit"
 }
