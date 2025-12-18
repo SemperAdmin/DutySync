@@ -54,6 +54,8 @@ import {
   logSyncOperation,
 } from "@/lib/sync-status";
 
+import { isSupabaseConfigured } from "@/lib/supabase";
+
 // Auto-save notification function (lazy import to avoid circular dependency)
 let notifyAutoSave: ((dataType: string) => void) | null = null;
 
@@ -62,6 +64,11 @@ export function setAutoSaveNotifier(notifier: (dataType: string) => void): void 
 }
 
 function triggerAutoSave(dataType: string): void {
+  // Skip auto-save to JSON/GitHub when Supabase is configured
+  // Supabase is the primary data store, no need for JSON backup
+  if (isSupabaseConfigured()) {
+    return;
+  }
   if (notifyAutoSave) {
     notifyAutoSave(dataType);
   }
