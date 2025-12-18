@@ -31,6 +31,14 @@ import {
   updatePersonnel as supabaseUpdatePersonnel,
 } from "@/lib/supabase-data";
 
+// Import sync status tracking
+import {
+  recordSyncAttempt,
+  recordSyncSuccess,
+  recordSyncError,
+  logSyncOperation,
+} from "@/lib/sync-status";
+
 // Auto-save notification function (lazy import to avoid circular dependency)
 let notifyAutoSave: ((dataType: string) => void) | null = null;
 
@@ -52,11 +60,19 @@ function getOrganizationIdFromUnit(unitId: string): string | null {
   return unit?.organization_id || null;
 }
 
-// Fire-and-forget async sync to Supabase (logs errors but doesn't block)
+// Fire-and-forget async sync to Supabase with status tracking
 function syncToSupabase(operation: () => Promise<unknown>, context: string): void {
-  operation().catch((err) => {
-    console.error(`Supabase sync failed (${context}):`, err);
-  });
+  recordSyncAttempt();
+  operation()
+    .then((result) => {
+      recordSyncSuccess();
+      logSyncOperation("SYNC", context, true, result ? "OK" : "No result");
+    })
+    .catch((err) => {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      recordSyncError(`${context}: ${errorMessage}`);
+      logSyncOperation("SYNC", context, false, errorMessage);
+    });
 }
 
 // ============ Base Path Helper ============
