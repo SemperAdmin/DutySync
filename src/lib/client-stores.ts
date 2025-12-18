@@ -943,14 +943,15 @@ export function updateDutyType(id: string, updates: Partial<DutyType>): DutyType
   triggerAutoSave('dutyTypes');
 
   // Sync to Supabase in background
+  // Map null (app's "any" value) to "none" (database default)
   syncToSupabase(
     () => supabaseUpdateDutyType(id, {
       name: updates.duty_name,
       description: updates.description,
       personnelRequired: updates.slots_needed,
-      rankFilterMode: updates.rank_filter_mode || undefined,
+      rankFilterMode: updates.rank_filter_mode === null ? "none" : updates.rank_filter_mode,
       rankFilterValues: updates.rank_filter_values,
-      sectionFilterMode: updates.section_filter_mode || undefined,
+      sectionFilterMode: updates.section_filter_mode === null ? "none" : updates.section_filter_mode,
       sectionFilterValues: updates.section_filter_values,
     }),
     "updateDutyType"
@@ -1049,12 +1050,12 @@ export function addDutyRequirement(dutyTypeId: string, qualName: string): DutyRe
   triggerAutoSave('dutyTypes');
 
   // Sync to Supabase in background (need to find qualification ID by name)
-  // Note: This requires a qualification lookup - for now just log
+  // TODO: Implement qualification lookup by name to get qualification_id for Supabase sync.
   syncToSupabase(
     async () => {
       // The app uses qual_name but database uses qualification_id
       // This would need a lookup - leaving as placeholder
-      console.log(`[Supabase Sync] Duty requirement sync requires qualification lookup: ${qualName}`);
+      console.warn(`[Supabase Sync] Duty requirement sync requires qualification lookup: ${qualName}`);
       return null;
     },
     "addDutyRequirement"
@@ -2051,7 +2052,7 @@ export function updateDutyChangeRequest(
     reason?: string;
   } = {};
   if (updates.status !== undefined) {
-    supabaseUpdates.status = updates.status as "pending" | "approved" | "rejected";
+    supabaseUpdates.status = updates.status;
   }
   if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
 

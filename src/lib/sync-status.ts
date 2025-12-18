@@ -130,8 +130,15 @@ export async function testSupabaseConnection(): Promise<{
   }
 }
 
-// Initialize sync status on load
+// Initialize sync status on load (with guard to prevent multiple initializations)
+let syncInitialized = false;
 export function initSyncStatus(): void {
+  // Prevent multiple initializations from concurrent component mounts
+  if (syncInitialized) {
+    return;
+  }
+  syncInitialized = true;
+
   syncStatus.supabaseConfigured = isSupabaseConfigured();
   if (syncStatus.supabaseConfigured) {
     // Test connection in background

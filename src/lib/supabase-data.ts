@@ -19,6 +19,7 @@ import type {
   RoleName,
   DutyScoreEvent,
   DutyScoreEventInsert,
+  DutyChangeRequest,
 } from "@/types/supabase";
 
 // Type assertion helper for Supabase operations
@@ -1162,14 +1163,22 @@ export async function createDutyValue(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
-  // The database uses day_of_week and value, but app uses base_weight/multipliers
-  // For now, store base_weight as day_of_week=0, value=base_weight
+  // TODO: The database schema uses day_of_week/value but the app uses base_weight/multipliers.
+  // weekendMultiplier and holidayMultiplier are not currently stored in the database schema.
+  // A schema migration is needed to support these fields.
+  if (options.weekendMultiplier !== undefined || options.holidayMultiplier !== undefined) {
+    console.warn(
+      "[Supabase Sync] weekendMultiplier and holidayMultiplier are not stored in the database. " +
+      "These values will only persist in localStorage/GitHub sync. Schema migration needed."
+    );
+  }
+
   const { data, error } = await supabase
     .from("duty_values")
     .insert({
       id: options.id,
       duty_type_id: dutyTypeId,
-      day_of_week: 0, // Base value
+      day_of_week: 0, // Base value - schema stores per-day values, app uses base weight
       value: options.baseWeight ?? 1,
     } as never)
     .select()
@@ -1192,6 +1201,15 @@ export async function updateDutyValue(
 ): Promise<DutyValue | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
+
+  // TODO: weekendMultiplier and holidayMultiplier are not stored in the database schema.
+  // A schema migration is needed to support these fields.
+  if (updates.weekendMultiplier !== undefined || updates.holidayMultiplier !== undefined) {
+    console.warn(
+      "[Supabase Sync] weekendMultiplier and holidayMultiplier are not stored in the database. " +
+      "These values will only persist in localStorage/GitHub sync. Schema migration needed."
+    );
+  }
 
   const supabaseUpdates: Record<string, unknown> = {};
   if (updates.baseWeight !== undefined) supabaseUpdates.value = updates.baseWeight;
@@ -1321,7 +1339,7 @@ export async function createDutyChangeRequest(
     requestedBy?: string;
     reason?: string;
   }
-): Promise<unknown | null> {
+): Promise<DutyChangeRequest | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
@@ -1344,7 +1362,7 @@ export async function createDutyChangeRequest(
     console.error("Error creating duty change request:", error);
     return null;
   }
-  return data;
+  return data as DutyChangeRequest;
 }
 
 export async function updateDutyChangeRequest(
@@ -1354,7 +1372,7 @@ export async function updateDutyChangeRequest(
     approvedBy?: string;
     reason?: string;
   }
-): Promise<unknown | null> {
+): Promise<DutyChangeRequest | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
@@ -1376,7 +1394,7 @@ export async function updateDutyChangeRequest(
     console.error("Error updating duty change request:", error);
     return null;
   }
-  return data;
+  return data as DutyChangeRequest;
 }
 
 export async function deleteDutyChangeRequest(id: string): Promise<boolean> {
@@ -1682,9 +1700,11 @@ export async function deleteDutySlotsInRange(
       .select("id")
       .eq("unit_id", unitId) as { data: { id: string }[] | null };
 
-    if (dutyTypes && dutyTypes.length > 0) {
-      query = query.in("duty_type_id", dutyTypes.map((dt) => dt.id));
-    }
+    const dutyTypeIds = dutyTypes?.map((dt) => dt.id) ?? [];
+    // Always apply the filter when unitId is specified.
+    // An empty array in the 'in' clause will correctly result in no rows being deleted,
+    // preventing accidental deletion of slots from other units.
+    query = query.in("duty_type_id", dutyTypeIds);
   }
 
   const { data, error } = await query.select();
