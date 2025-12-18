@@ -183,13 +183,6 @@ export default function RosterPage() {
   // Effective App Admin status (App Admin in Admin view)
   const effectiveIsAppAdmin = isAppAdmin && isAdminView;
 
-  // Effective Unit Admin status (Unit Admin in Unit Admin view)
-  const effectiveIsUnitAdmin = useMemo(() => {
-    if (!user?.roles) return false;
-    const hasUnitAdminRole = user.roles.some(r => r.role_name === "Unit Admin");
-    return hasUnitAdminRole && isUnitAdminView;
-  }, [user?.roles, isUnitAdminView]);
-
   // Check if user has manager role
   const hasManagerRole = useMemo(() => {
     if (!user?.roles) return false;
@@ -210,6 +203,9 @@ export default function RosterPage() {
     if (isUnitAdmin && isUnitAdminView) return true;
     return false;
   }, [hasManagerRole, isUnitAdmin, isUnitAdminView]);
+
+  // Effective Unit Admin status (Unit Admin in Unit Admin view) - used for scope calculation
+  const effectiveIsUnitAdmin = isUnitAdmin && isUnitAdminView;
 
   // All logged-in users can click to assign (self or others based on role)
   const canAssignDuties = useMemo(() => {
@@ -263,6 +259,25 @@ export default function RosterPage() {
     return map;
   }, [units]);
 
+  // Helper function to walk the hierarchy tree and collect all descendant IDs
+  const getHierarchyDescendants = useCallback((rootId: string): string[] => {
+    const ids = new Set<string>([rootId]);
+    const queue = [rootId];
+
+    for (let i = 0; i < queue.length; i++) {
+      const currentId = queue[i];
+      const children = childrenMap.get(currentId) || [];
+      for (const childId of children) {
+        if (!ids.has(childId)) {
+          ids.add(childId);
+          queue.push(childId);
+        }
+      }
+    }
+
+    return Array.from(ids);
+  }, [childrenMap]);
+
   // All unit IDs the user can assign from (based on effective scope)
   const scopeUnitIds = useMemo(() => {
     // App Admin in Admin view can see all units
@@ -276,37 +291,19 @@ export default function RosterPage() {
     // This handles cases where unit hierarchies may not be properly connected
     if (effectiveIsUnitAdmin) {
       const scopeUnit = unitMap.get(effectiveScopeUnitId);
-      if (scopeUnit) {
-        // Get organization_id from the scope unit (it's stored in the extended type)
-        const orgId = (scopeUnit as UnitSection & { organization_id?: string }).organization_id;
-        if (orgId) {
-          // Include all units for this organization
-          return units
-            .filter(u => (u as UnitSection & { organization_id?: string }).organization_id === orgId)
-            .map(u => u.id);
-        }
+      if (scopeUnit?.organization_id) {
+        // Include all units for this organization
+        return units
+          .filter(u => u.organization_id === scopeUnit.organization_id)
+          .map(u => u.id);
       }
-      // Fallback: include all units if no organization_id
-      return units.map(u => u.id);
+      // Fallback: use hierarchy-walking (more secure than granting access to all units)
+      return getHierarchyDescendants(effectiveScopeUnitId);
     }
 
     // For manager roles, walk the hierarchy tree
-    const ids: string[] = [effectiveScopeUnitId];
-    const queue = [effectiveScopeUnitId];
-
-    for (let i = 0; i < queue.length; i++) {
-      const currentId = queue[i];
-      const children = childrenMap.get(currentId) || [];
-      for (const childId of children) {
-        if (!ids.includes(childId)) {
-          ids.push(childId);
-          queue.push(childId);
-        }
-      }
-    }
-
-    return ids;
-  }, [effectiveIsAppAdmin, effectiveIsUnitAdmin, effectiveScopeUnitId, childrenMap, units, unitMap]);
+    return getHierarchyDescendants(effectiveScopeUnitId);
+  }, [effectiveIsAppAdmin, effectiveIsUnitAdmin, effectiveScopeUnitId, units, unitMap, getHierarchyDescendants]);
 
   // Load liberty days from localStorage
   const loadLibertyDays = useCallback(() => {
