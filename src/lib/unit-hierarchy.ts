@@ -91,13 +91,13 @@ export function buildHierarchicalUnitOptions(
  * Uses non-breaking spaces for consistent display in select options.
  *
  * @param depth - The depth level (0 = no indent, 1 = one level, etc.)
- * @param spacesPerLevel - Number of spaces per indentation level (default: 4)
+ * @param spacesPerLevel - Number of spaces per indentation level (default: 2)
  * @returns String with appropriate indentation
  */
-export function getIndentString(depth: number, spacesPerLevel: number = 4): string {
+export function getIndentString(depth: number, spacesPerLevel: number = 2): string {
   if (depth === 0) return "";
   // Use regular spaces - HTML entities don't work well in React option elements
-  return "    ".repeat(depth);
+  return "  ".repeat(depth);
 }
 
 /**
