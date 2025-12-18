@@ -45,6 +45,7 @@ import {
   VIEW_MODE_USER,
   type ViewMode,
 } from "@/lib/constants";
+import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 
 // Manager role names - defines who can see personnel within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -126,6 +127,11 @@ export default function PersonnelPage() {
 
   // Create a Map of units for O(1) lookups
   const unitMap = useMemo(() => new Map(units.map(u => [u.id, u])), [units]);
+
+  // Build hierarchical unit options for dropdowns
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(units);
+  }, [units]);
 
   // Create a Map of parent_id to child unit IDs for O(1) children lookup
   const childrenMap = useMemo(() => {
@@ -301,6 +307,11 @@ export default function PersonnelPage() {
       return a.unit_name.localeCompare(b.unit_name);
     });
   }, [effectiveIsAppAdmin, units, scopeUnitIds]);
+
+  // Build hierarchical unit options for the filter dropdown (scoped units only)
+  const hierarchicalUnitsInScope = useMemo(() => {
+    return buildHierarchicalUnitOptions(unitsInScope);
+  }, [unitsInScope]);
 
   // Get hierarchy level display label
   const getHierarchyLabel = (level: string): string => {
@@ -540,21 +551,16 @@ export default function PersonnelPage() {
                 </div>
                 <div className="w-full md:w-64">
                   <select
-                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                     value={filterUnit}
                     onChange={(e) => setFilterUnit(e.target.value)}
                   >
                     <option value="">{effectiveIsAppAdmin ? "All Sections" : "All in My Scope"}</option>
-                    {unitsInScope.map((unit) => {
-                      const indent = unit.hierarchy_level === "section" ? "↳ " :
-                                     unit.hierarchy_level === "work_section" ? "  ↳ " : "";
-                      const label = getHierarchyLabel(unit.hierarchy_level);
-                      return (
-                        <option key={unit.id} value={unit.id}>
-                          {indent}{unit.unit_name}{label ? ` (${label})` : ""}
-                        </option>
-                      );
-                    })}
+                    {hierarchicalUnitsInScope.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {formatUnitOptionLabel(option, true)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1159,6 +1165,11 @@ function AddPersonnelModal({
     unit_section_id: "",
   });
 
+  // Build hierarchical unit options for the dropdown
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(units);
+  }, [units]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -1253,7 +1264,7 @@ function AddPersonnelModal({
                 Unit
               </label>
               <select
-                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-mono"
                 value={formData.unit_section_id}
                 onChange={(e) =>
                   setFormData({ ...formData, unit_section_id: e.target.value })
@@ -1262,9 +1273,9 @@ function AddPersonnelModal({
                 disabled={isSubmitting}
               >
                 <option value="">Select a unit...</option>
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.unit_name}
+                {hierarchicalUnits.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {formatUnitOptionLabel(option)}
                   </option>
                 ))}
               </select>

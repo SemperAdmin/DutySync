@@ -45,6 +45,7 @@ import {
 } from "@/lib/constants";
 import { matchesFilter } from "@/lib/duty-thruster";
 import { useSyncRefresh } from "@/hooks/useSync";
+import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 
 // Manager role names that can assign duties within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -221,6 +222,11 @@ export default function RosterPage() {
     // Otherwise, use manager scope (if they have a manager role)
     return managerScopeUnitId;
   }, [isUnitAdminView, unitAdminUnitId, managerScopeUnitId]);
+
+  // Build hierarchical unit options for the dropdown
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(units);
+  }, [units]);
 
   // Get all unit IDs under a scope (recursive - includes the scope unit and all descendants)
   const getUnitsInScope = useCallback((scopeUnitId: string): string[] => {
@@ -1189,12 +1195,12 @@ export default function RosterPage() {
             <select
               value={selectedUnit}
               onChange={(e) => setSelectedUnit(e.target.value)}
-              className="px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
             >
               <option value="">All Units</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.unit_name}
+              {hierarchicalUnits.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {formatUnitOptionLabel(option)}
                 </option>
               ))}
             </select>

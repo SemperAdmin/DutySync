@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Button from "@/components/ui/Button";
 import type { UnitSection } from "@/types";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/lib/client-stores";
 import { generateSchedule, previewSchedule } from "@/lib/duty-thruster";
 import { useSyncRefresh } from "@/hooks/useSync";
+import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 
 interface ScheduleResult {
   success: boolean;
@@ -60,6 +61,11 @@ export default function SchedulerPage() {
 
   // Auto-refresh when sync service detects data changes
   useSyncRefresh(["units", "dutyTypes", "personnel"], fetchUnits);
+
+  // Build hierarchical unit options for dropdown
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(units);
+  }, [units]);
 
   function handleGenerate(preview: boolean) {
     if (!selectedUnit || !startDate || !endDate) {
@@ -180,12 +186,12 @@ export default function SchedulerPage() {
             <select
               value={selectedUnit}
               onChange={(e) => setSelectedUnit(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
             >
               <option value="">Select Unit</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.unit_name} ({unit.hierarchy_level})
+              {hierarchicalUnits.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {formatUnitOptionLabel(option, true)}
                 </option>
               ))}
             </select>
