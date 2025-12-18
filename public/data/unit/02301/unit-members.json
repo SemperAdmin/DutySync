@@ -25,7 +25,7 @@
       "last_name": "LEE",
       "rank": "SSGT",
       "unit_section_id": "211e7c25-c266-478a-a6f5-8595a63e992e",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "20f846a0-a059-4345-bbc7-59bc29694b7f",
@@ -214,7 +214,7 @@
       "last_name": "BORKOWSKI",
       "rank": "SSGT",
       "unit_section_id": "33f75718-85cc-417a-a6da-522c0bf1d571",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "7f092e7f-e0fa-4f31-afb2-1acabb909623",
@@ -376,7 +376,7 @@
       "last_name": "ANGULOIBARRA",
       "rank": "SSGT",
       "unit_section_id": "b9fb02f5-4cfe-4995-9de3-ff4ff116bc7d",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "e2a7a4c1-5dc2-45ee-9209-d9c98c73fade",
@@ -421,7 +421,7 @@
       "last_name": "ALBA",
       "rank": "SSGT",
       "unit_section_id": "802c8965-d3ec-4de7-98c1-79388b20bff8",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "5bfe1d6c-7b94-451b-80c3-c66544fb931f",
@@ -484,7 +484,7 @@
       "last_name": "BLANCO",
       "rank": "GYSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "886955c6-02e0-434b-99f6-474a77382a60",
@@ -502,7 +502,7 @@
       "last_name": "GUZMAN",
       "rank": "SSGT",
       "unit_section_id": "3579b656-a505-4d1c-b712-8e444f142b0b",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "2b48b461-c7fe-44f2-8faf-cd8517263b56",
@@ -556,7 +556,7 @@
       "last_name": "MORRISON",
       "rank": "SSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "2b380461-2f82-4308-8e21-e425f18fc70c",
@@ -565,7 +565,7 @@
       "last_name": "SERRANO",
       "rank": "GYSGT",
       "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "15687c19-265b-4e80-94da-41a1b91a581c",
@@ -610,7 +610,7 @@
       "last_name": "MANCILLA",
       "rank": "GYSGT",
       "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "62b7e186-761a-4568-8781-a4651740dd2b",
@@ -709,7 +709,7 @@
       "last_name": "HAMILTON",
       "rank": "GYSGT",
       "unit_section_id": "5b9e13f0-55b3-44db-b09d-7b289a3c75cb",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "b58b3f75-3f43-4278-b6e3-15ed4e94ea44",
@@ -1087,7 +1087,7 @@
       "last_name": "ALVARADO",
       "rank": "SSGT",
       "unit_section_id": "885e05c6-a052-4706-b6bf-1f3d612fb3fa",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "b14f280c-b2e3-469e-a32f-2ef7ed150bb2",
@@ -1222,7 +1222,7 @@
       "last_name": "AUGUSTE JR",
       "rank": "SSGT",
       "unit_section_id": "211e7c25-c266-478a-a6f5-8595a63e992e",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "a24b2bcc-bb40-4d8e-8095-46e59d060b69",
@@ -1420,7 +1420,7 @@
       "last_name": "BIRDWELL",
       "rank": "GYSGT",
       "unit_section_id": "3c37e7b8-ae94-4b5c-96c3-0f5830585bb1",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "5d29bb75-6f84-436b-b707-d00c9ebb7314",
@@ -1609,7 +1609,7 @@
       "last_name": "BRICENOCORTEZ",
       "rank": "GYSGT",
       "unit_section_id": "99ac5152-2b84-42ea-adb9-aaa0452cfebf",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "ffd87239-920d-4aa3-b984-1d83f7ff0caa",
@@ -1663,7 +1663,7 @@
       "last_name": "BROWN",
       "rank": "GYSGT",
       "unit_section_id": "12306540-b11e-406b-ba34-6741ecc6289e",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "e7a5c7d2-d9f9-4b6a-92ee-6677bfa35f70",
@@ -1951,7 +1951,7 @@
       "last_name": "CHEN",
       "rank": "SSGT",
       "unit_section_id": "cbd6ecda-6a3e-456e-be72-03b7b27d6c1a",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "3d756ced-2f68-43d3-bbc0-9255558d3eb4",
@@ -2338,7 +2338,7 @@
       "last_name": "DURAN",
       "rank": "SSGT",
       "unit_section_id": "e758ce75-a3a8-4e5f-8b21-f0cc68ade2a7",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "7b0c9188-2cd9-4de3-b347-7cea889258c5",
@@ -2356,7 +2356,7 @@
       "last_name": "EDWARDS",
       "rank": "SSGT",
       "unit_section_id": "211e7c25-c266-478a-a6f5-8595a63e992e",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "035eb435-12fb-42ae-8931-8be0284ddedd",
@@ -2365,7 +2365,7 @@
       "last_name": "ELIKAHI",
       "rank": "GYSGT",
       "unit_section_id": "20eec77a-f57d-4764-b10d-ea5c8a8ddc2c",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "b2d59a29-178a-43e1-9323-62eec35f2676",
@@ -2491,7 +2491,7 @@
       "last_name": "FELIX",
       "rank": "GYSGT",
       "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "23adcbf4-c82d-44d4-8cae-b4c2a18bd0bc",
@@ -2590,7 +2590,7 @@
       "last_name": "FOSBERG",
       "rank": "GYSGT",
       "unit_section_id": "5995d79c-4dac-486b-8a3d-aea87750b841",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "25a0f6ea-923e-45ca-bfe8-078e60bcb226",
@@ -2635,7 +2635,7 @@
       "last_name": "FULLERTON",
       "rank": "SSGT",
       "unit_section_id": "ad5efabf-3780-42f5-bfcb-2b3367f1ce61",
-      "current_duty_score": 1
+      "current_duty_score": 3
     },
     {
       "id": "b9674fc0-6d05-482b-9425-0094082bb6a1",
@@ -2905,7 +2905,7 @@
       "last_name": "GRAICHEN",
       "rank": "GYSGT",
       "unit_section_id": "550f9826-7b1c-4b1d-8840-e0661795010f",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "91c4687e-0c7e-464a-8646-2acb519bc7cf",
@@ -3076,7 +3076,7 @@
       "last_name": "HAMILTON",
       "rank": "SSGT",
       "unit_section_id": "211e7c25-c266-478a-a6f5-8595a63e992e",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "7e0fb15e-71d0-471e-b91a-67d742f4c9ae",
@@ -3625,7 +3625,7 @@
       "last_name": "KOLB",
       "rank": "GYSGT",
       "unit_section_id": "a10e58a2-26c5-49ee-af3d-fbfdaf3cd7c9",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "03e98ee7-6165-4526-8cd6-650e1be71268",
@@ -3877,7 +3877,7 @@
       "last_name": "LOWE",
       "rank": "GYSGT",
       "unit_section_id": "3c37e7b8-ae94-4b5c-96c3-0f5830585bb1",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "3d4921c6-c559-4741-b689-1695f258b29f",
@@ -5200,7 +5200,7 @@
       "last_name": "ROBINSON",
       "rank": "SSGT",
       "unit_section_id": "596f7957-fd9b-4a77-9bf7-b2c64aff207c",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "a4201ecd-b0f2-4938-b10d-3d0cdff779e2",
@@ -5227,7 +5227,7 @@
       "last_name": "RODAS",
       "rank": "GYSGT",
       "unit_section_id": "9cf9d944-3b04-4a33-aa21-b7c4ad56a9b8",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "8e3d5097-c084-4517-a997-6701601ff5c0",
@@ -5326,7 +5326,7 @@
       "last_name": "ROSADO JR",
       "rank": "SSGT",
       "unit_section_id": "94b0e0d0-aa18-49b4-aef8-206d889de3a7",
-      "current_duty_score": 1
+      "current_duty_score": 2
     },
     {
       "id": "665c33c0-d641-48b6-92bd-9f9f79e93ee0",
@@ -5569,7 +5569,7 @@
       "last_name": "SIMONTE",
       "rank": "SSGT",
       "unit_section_id": "0a740d46-b1b4-47f9-8f09-cef612b677fb",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "eacb64f9-82ea-49c7-b489-1098dd92fe5c",
@@ -5695,7 +5695,7 @@
       "last_name": "SOTO III",
       "rank": "SSGT",
       "unit_section_id": "1a34acbf-3e09-4bd1-a296-d618ee29de10",
-      "current_duty_score": 1
+      "current_duty_score": 2.5
     },
     {
       "id": "9ee36607-9b20-4c24-ad6d-e1851ad89c22",
@@ -6400,8 +6400,8 @@
       "current_duty_score": 0
     }
   ],
-  "exportedAt": "2025-12-18T19:38:05.469Z",
+  "exportedAt": "2025-12-18T22:01:28.391Z",
   "version": "1.1",
   "encrypted": true,
-  "encryptedAt": "2025-12-18T19:38:05.469Z"
+  "encryptedAt": "2025-12-18T22:01:28.391Z"
 }
