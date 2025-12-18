@@ -18,7 +18,7 @@
       "section_filter_values": null,
       "is_active": true,
       "created_at": "2025-12-18T18:41:33.381Z",
-      "updated_at": "2025-12-18T21:14:21.187Z"
+      "updated_at": "2025-12-18T21:37:01.145Z"
     }
   ],
   "dutyValues": [
@@ -31,7 +31,7 @@
     }
   ],
   "dutyRequirements": [],
-  "exportedAt": "2025-12-18T21:14:26.196Z",
+  "exportedAt": "2025-12-18T21:37:06.152Z",
   "version": "1.0",
   "description": "Duty type definitions, point values, and qualification requirements for this unit"
 }
