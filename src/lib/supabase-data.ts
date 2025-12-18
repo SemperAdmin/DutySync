@@ -1188,10 +1188,7 @@ export async function createDutyValue(
 
   if (error) {
     console.error("Error upserting duty value:", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
+      ...error,
       dutyTypeId,
       id: options.id,
     });
@@ -1491,13 +1488,11 @@ export async function createDutyType(
 
   if (error) {
     console.error("Error upserting duty type:", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
+      ...error,
       organizationId,
       unitId,
       name,
+      id: options?.id,
     });
     return null;
   }

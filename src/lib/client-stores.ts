@@ -81,13 +81,15 @@ let cachedOrganizationId: string | null = null;
 // Set the default organization ID (call this after loading data from Supabase)
 export function setDefaultOrganizationId(orgId: string | null): void {
   cachedOrganizationId = orgId;
-  if (orgId) {
-    // Also store in localStorage for persistence across sessions
-    try {
+  try {
+    if (orgId) {
+      // Also store in localStorage for persistence across sessions
       localStorage.setItem("dutysync_default_org_id", orgId);
-    } catch {
-      // Ignore storage errors
+    } else {
+      localStorage.removeItem("dutysync_default_org_id");
     }
+  } catch {
+    // Ignore storage errors
   }
 }
 
@@ -128,9 +130,7 @@ function getOrganizationIdFromUnit(unitId: string): string | null {
   const defaultOrgId = getDefaultOrganizationId();
   if (!defaultOrgId) {
     console.warn(
-      "[Supabase Sync] No organization_id found for unit. " +
-      "Sync operations will be skipped. " +
-      "Load data from Supabase first or set a default organization."
+      `[Supabase Sync] No organization_id found for unit. Sync operations will be skipped. Load data from Supabase first or set a default organization.`
     );
   }
   return defaultOrgId;
