@@ -1146,6 +1146,106 @@ export async function getDutyRequirements(dutyTypeId: string): Promise<DutyRequi
   return data || [];
 }
 
+// Create a new duty type
+export async function createDutyType(
+  organizationId: string,
+  unitId: string,
+  name: string,
+  options?: {
+    id?: string;
+    description?: string | null;
+    personnelRequired?: number;
+    rankFilterMode?: "none" | "include" | "exclude";
+    rankFilterValues?: string[] | null;
+    sectionFilterMode?: "none" | "include" | "exclude";
+    sectionFilterValues?: string[] | null;
+  }
+): Promise<DutyType | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("duty_types")
+    .insert({
+      id: options?.id,
+      organization_id: organizationId,
+      unit_id: unitId,
+      name: name,
+      description: options?.description || null,
+      personnel_required: options?.personnelRequired ?? 1,
+      rank_filter_mode: options?.rankFilterMode ?? "none",
+      rank_filter_values: options?.rankFilterValues || null,
+      section_filter_mode: options?.sectionFilterMode ?? "none",
+      section_filter_values: options?.sectionFilterValues || null,
+    } as never)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating duty type:", error);
+    return null;
+  }
+  return data as DutyType;
+}
+
+// Update an existing duty type
+export async function updateDutyType(
+  id: string,
+  updates: {
+    name?: string;
+    description?: string | null;
+    personnelRequired?: number;
+    rankFilterMode?: "none" | "include" | "exclude";
+    rankFilterValues?: string[] | null;
+    sectionFilterMode?: "none" | "include" | "exclude";
+    sectionFilterValues?: string[] | null;
+  }
+): Promise<DutyType | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const supabaseUpdates: Record<string, unknown> = {};
+  if (updates.name !== undefined) supabaseUpdates.name = updates.name;
+  if (updates.description !== undefined) supabaseUpdates.description = updates.description;
+  if (updates.personnelRequired !== undefined) supabaseUpdates.personnel_required = updates.personnelRequired;
+  if (updates.rankFilterMode !== undefined) supabaseUpdates.rank_filter_mode = updates.rankFilterMode;
+  if (updates.rankFilterValues !== undefined) supabaseUpdates.rank_filter_values = updates.rankFilterValues;
+  if (updates.sectionFilterMode !== undefined) supabaseUpdates.section_filter_mode = updates.sectionFilterMode;
+  if (updates.sectionFilterValues !== undefined) supabaseUpdates.section_filter_values = updates.sectionFilterValues;
+
+  if (Object.keys(supabaseUpdates).length === 0) return null;
+
+  const { data, error } = await supabase
+    .from("duty_types")
+    .update(supabaseUpdates as never)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating duty type:", error);
+    return null;
+  }
+  return data as DutyType;
+}
+
+// Delete a duty type
+export async function deleteDutyType(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("duty_types")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error deleting duty type:", error);
+    return false;
+  }
+  return true;
+}
+
 // ============================================================================
 // DUTY SLOTS (ROSTER)
 // ============================================================================
@@ -1258,6 +1358,93 @@ export async function deleteDutySlot(id: string): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+// Batch create duty slots (for scheduler)
+export async function createDutySlots(
+  slots: Array<{
+    id?: string;
+    organizationId: string;
+    dutyTypeId: string;
+    personnelId: string;
+    dateAssigned: string;
+    assignedBy?: string;
+  }>
+): Promise<{ created: number; errors: string[] }> {
+  if (!isSupabaseConfigured()) return { created: 0, errors: ["Supabase not configured"] };
+  if (slots.length === 0) return { created: 0, errors: [] };
+
+  const supabase = getSupabase();
+  const result = { created: 0, errors: [] as string[] };
+
+  // Convert to Supabase format
+  const insertData = slots.map((slot) => ({
+    id: slot.id,
+    organization_id: slot.organizationId,
+    duty_type_id: slot.dutyTypeId,
+    personnel_id: slot.personnelId,
+    date_assigned: slot.dateAssigned,
+    status: "scheduled" as const,
+    assigned_by: slot.assignedBy || null,
+  }));
+
+  // Insert in batches of 100 to avoid hitting limits
+  const batchSize = 100;
+  for (let i = 0; i < insertData.length; i += batchSize) {
+    const batch = insertData.slice(i, i + batchSize);
+
+    const { data, error } = await supabase
+      .from("duty_slots")
+      .insert(batch as never)
+      .select();
+
+    if (error) {
+      result.errors.push(`Batch ${Math.floor(i / batchSize) + 1} failed: ${error.message}`);
+    } else {
+      result.created += data?.length || 0;
+    }
+  }
+
+  return result;
+}
+
+// Delete duty slots in a date range (for clearing before re-scheduling)
+export async function deleteDutySlotsInRange(
+  organizationId: string,
+  startDate: string,
+  endDate: string,
+  unitId?: string
+): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const supabase = getSupabase();
+
+  let query = supabase
+    .from("duty_slots")
+    .delete()
+    .eq("organization_id", organizationId)
+    .gte("date_assigned", startDate)
+    .lte("date_assigned", endDate);
+
+  // If unitId specified, filter by duty types belonging to that unit
+  if (unitId) {
+    // First get duty type IDs for this unit
+    const { data: dutyTypes } = await supabase
+      .from("duty_types")
+      .select("id")
+      .eq("unit_id", unitId) as { data: { id: string }[] | null };
+
+    if (dutyTypes && dutyTypes.length > 0) {
+      query = query.in("duty_type_id", dutyTypes.map((dt) => dt.id));
+    }
+  }
+
+  const { data, error } = await query.select();
+
+  if (error) {
+    console.error("Error deleting duty slots in range:", error);
+    return 0;
+  }
+  return data?.length || 0;
 }
 
 // ============================================================================

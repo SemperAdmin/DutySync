@@ -17,6 +17,20 @@ import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
 import { isHoliday, isWeekend, formatDateToString } from "@/lib/date-utils";
 
+// Import Supabase sync functions (aliased to avoid name collision)
+import {
+  createDutyType as supabaseCreateDutyType,
+  updateDutyType as supabaseUpdateDutyType,
+  deleteDutyType as supabaseDeleteDutyType,
+  createDutySlot as supabaseCreateDutySlot,
+  createDutySlots as supabaseCreateDutySlots,
+  updateDutySlot as supabaseUpdateDutySlot,
+  deleteDutySlot as supabaseDeleteDutySlot,
+  deleteDutySlotsInRange as supabaseDeleteDutySlotsInRange,
+  createDutyScoreEvents as supabaseCreateDutyScoreEvents,
+  updatePersonnel as supabaseUpdatePersonnel,
+} from "@/lib/supabase-data";
+
 // Auto-save notification function (lazy import to avoid circular dependency)
 let notifyAutoSave: ((dataType: string) => void) | null = null;
 
@@ -28,6 +42,21 @@ function triggerAutoSave(dataType: string): void {
   if (notifyAutoSave) {
     notifyAutoSave(dataType);
   }
+}
+
+// ============ Supabase Sync Helpers ============
+// Get organization_id from a unit (needed for Supabase writes)
+function getOrganizationIdFromUnit(unitId: string): string | null {
+  const units = getFromStorage<UnitSection & { organization_id?: string }>(KEYS.units);
+  const unit = units.find((u) => u.id === unitId);
+  return unit?.organization_id || null;
+}
+
+// Fire-and-forget async sync to Supabase (logs errors but doesn't block)
+function syncToSupabase(operation: () => Promise<unknown>, context: string): void {
+  operation().catch((err) => {
+    console.error(`Supabase sync failed (${context}):`, err);
+  });
 }
 
 // ============ Base Path Helper ============
@@ -812,6 +841,15 @@ export function updatePersonnel(id: string, updates: Partial<Personnel>): Person
   personnel[idx] = { ...personnel[idx], ...updates, updated_at: new Date() };
   saveToStorage(KEYS.personnel, personnel);
   triggerAutoSave('unitMembers');
+
+  // Sync to Supabase in background (only if score-related updates)
+  if (updates.current_duty_score !== undefined) {
+    syncToSupabase(
+      () => supabaseUpdatePersonnel(id, { current_duty_score: updates.current_duty_score }),
+      "updatePersonnelScore"
+    );
+  }
+
   return personnel[idx];
 }
 
@@ -844,6 +882,24 @@ export function createDutyType(dutyType: DutyType): DutyType {
   types.push(dutyType);
   saveToStorage(KEYS.dutyTypes, types);
   triggerAutoSave('dutyTypes');
+
+  // Sync to Supabase in background
+  const orgId = getOrganizationIdFromUnit(dutyType.unit_section_id);
+  if (orgId) {
+    syncToSupabase(
+      () => supabaseCreateDutyType(orgId, dutyType.unit_section_id, dutyType.duty_name, {
+        id: dutyType.id,
+        description: dutyType.description,
+        personnelRequired: dutyType.slots_needed,
+        rankFilterMode: dutyType.rank_filter_mode || "none",
+        rankFilterValues: dutyType.rank_filter_values,
+        sectionFilterMode: dutyType.section_filter_mode || "none",
+        sectionFilterValues: dutyType.section_filter_values,
+      }),
+      "createDutyType"
+    );
+  }
+
   return dutyType;
 }
 
@@ -854,6 +910,21 @@ export function updateDutyType(id: string, updates: Partial<DutyType>): DutyType
   types[idx] = { ...types[idx], ...updates, updated_at: new Date() };
   saveToStorage(KEYS.dutyTypes, types);
   triggerAutoSave('dutyTypes');
+
+  // Sync to Supabase in background
+  syncToSupabase(
+    () => supabaseUpdateDutyType(id, {
+      name: updates.duty_name,
+      description: updates.description,
+      personnelRequired: updates.slots_needed,
+      rankFilterMode: updates.rank_filter_mode || undefined,
+      rankFilterValues: updates.rank_filter_values,
+      sectionFilterMode: updates.section_filter_mode || undefined,
+      sectionFilterValues: updates.section_filter_values,
+    }),
+    "updateDutyType"
+  );
+
   return types[idx];
 }
 
@@ -863,6 +934,10 @@ export function deleteDutyType(id: string): boolean {
   if (filtered.length === types.length) return false;
   saveToStorage(KEYS.dutyTypes, filtered);
   triggerAutoSave('dutyTypes');
+
+  // Sync to Supabase in background
+  syncToSupabase(() => supabaseDeleteDutyType(id), "deleteDutyType");
+
   return true;
 }
 
@@ -954,6 +1029,25 @@ export function createDutySlot(slot: DutySlot): DutySlot {
   slots.push(slot);
   saveToStorage(KEYS.dutySlots, slots);
   triggerAutoSave('dutyRoster');
+
+  // Sync to Supabase in background
+  const dutyType = getDutyTypeById(slot.duty_type_id);
+  if (dutyType) {
+    const orgId = getOrganizationIdFromUnit(dutyType.unit_section_id);
+    if (orgId) {
+      syncToSupabase(
+        () => supabaseCreateDutySlot(
+          orgId,
+          slot.duty_type_id,
+          slot.personnel_id,
+          formatDateToString(new Date(slot.date_assigned)),
+          slot.assigned_by || undefined
+        ),
+        "createDutySlot"
+      );
+    }
+  }
+
   return slot;
 }
 
@@ -964,6 +1058,18 @@ export function updateDutySlot(id: string, updates: Partial<DutySlot>): DutySlot
   slots[idx] = { ...slots[idx], ...updates, updated_at: new Date() };
   saveToStorage(KEYS.dutySlots, slots);
   triggerAutoSave('dutyRoster');
+
+  // Sync to Supabase in background
+  const supabaseUpdates: Record<string, unknown> = {};
+  if (updates.personnel_id !== undefined) supabaseUpdates.personnel_id = updates.personnel_id;
+  if (updates.status !== undefined) supabaseUpdates.status = updates.status;
+  if (updates.date_assigned !== undefined) {
+    supabaseUpdates.date_assigned = formatDateToString(new Date(updates.date_assigned));
+  }
+  if (Object.keys(supabaseUpdates).length > 0) {
+    syncToSupabase(() => supabaseUpdateDutySlot(id, supabaseUpdates), "updateDutySlot");
+  }
+
   return slots[idx];
 }
 
@@ -973,6 +1079,10 @@ export function deleteDutySlot(id: string): boolean {
   if (filtered.length === slots.length) return false;
   saveToStorage(KEYS.dutySlots, filtered);
   triggerAutoSave('dutyRoster');
+
+  // Sync to Supabase in background
+  syncToSupabase(() => supabaseDeleteDutySlot(id), "deleteDutySlot");
+
   return true;
 }
 
@@ -991,7 +1101,25 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
     return false;
   });
   saveToStorage(KEYS.dutySlots, filtered);
-  if (count > 0) triggerAutoSave('dutyRoster');
+  if (count > 0) {
+    triggerAutoSave('dutyRoster');
+
+    // Sync to Supabase in background
+    if (unitId) {
+      const orgId = getOrganizationIdFromUnit(unitId);
+      if (orgId) {
+        syncToSupabase(
+          () => supabaseDeleteDutySlotsInRange(
+            orgId,
+            formatDateToString(startDate),
+            formatDateToString(endDate),
+            unitId
+          ),
+          "clearDutySlotsInRange"
+        );
+      }
+    }
+  }
   return count;
 }
 
@@ -1132,19 +1260,32 @@ export function approveRoster(
   // This recalculates the entire score from events for accuracy
   const personnel = getFromStorage<Personnel>(KEYS.personnel);
   let scoresApplied = 0;
+  const updatedPersonnelScores: { id: string; newScore: number }[] = [];
 
   for (const [personnelId, points] of personnelScores) {
     const idx = personnel.findIndex((p) => p.id === personnelId);
     if (idx !== -1) {
       // Add points to existing score (events track the history)
-      personnel[idx].current_duty_score = (personnel[idx].current_duty_score || 0) + points;
+      const newScore = (personnel[idx].current_duty_score || 0) + points;
+      personnel[idx].current_duty_score = newScore;
       personnel[idx].updated_at = new Date();
       scoresApplied++;
+      updatedPersonnelScores.push({ id: personnelId, newScore });
     }
   }
 
   saveToStorage(KEYS.personnel, personnel);
-  if (scoresApplied > 0) triggerAutoSave('unitMembers');
+  if (scoresApplied > 0) {
+    triggerAutoSave('unitMembers');
+
+    // Sync personnel scores to Supabase in background
+    for (const { id, newScore } of updatedPersonnelScores) {
+      syncToSupabase(
+        () => supabaseUpdatePersonnel(id, { current_duty_score: newScore }),
+        `updatePersonnelScore-${id}`
+      );
+    }
+  }
 
   // Create approval record
   const approval: ApprovedRoster = {
@@ -1217,6 +1358,25 @@ export function createDutyScoreEvents(newEvents: DutyScoreEvent[]): number {
   events.push(...newEvents);
   saveToStorage(KEYS.dutyScoreEvents, events);
   triggerAutoSave('dutyScoreEvents');
+
+  // Sync to Supabase in background
+  const supabaseEvents = newEvents.map((e) => ({
+    id: e.id,
+    personnel_id: e.personnel_id,
+    duty_slot_id: e.duty_slot_id || null,
+    unit_section_id: e.unit_section_id,
+    duty_type_name: e.duty_type_name,
+    points: e.points,
+    date_earned: formatDateToString(new Date(e.date_earned)),
+    roster_month: e.roster_month,
+    approved_by: e.approved_by || null,
+    created_at: new Date(e.created_at).toISOString(),
+  }));
+  syncToSupabase(
+    () => supabaseCreateDutyScoreEvents(supabaseEvents),
+    "createDutyScoreEvents"
+  );
+
   return newEvents.length;
 }
 
