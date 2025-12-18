@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSync } from "@/hooks/useSync";
+import { useSyncStatus } from "@/hooks/useSyncStatus";
 
 interface SyncIndicatorProps {
   showLabel?: boolean;
@@ -18,6 +19,14 @@ export default function SyncIndicator({
 }: SyncIndicatorProps) {
   const { status, sync, toggleSync, isSyncing, isEnabled, lastSyncTime } =
     useSync();
+  const {
+    supabaseConfigured,
+    supabaseConnected,
+    pendingSyncs,
+    errors: supabaseErrors,
+    testConnection,
+    isLoading: isTestingConnection,
+  } = useSyncStatus();
   const [showMenu, setShowMenu] = useState(false);
 
   const formatLastSync = () => {
@@ -112,6 +121,60 @@ export default function SyncIndicator({
               </div>
               {status.lastError && (
                 <p className="text-xs text-red-400 mt-1">{status.lastError}</p>
+              )}
+            </div>
+
+            {/* Supabase Status Section */}
+            <div className="p-3 border-b border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-foreground">
+                  Database Sync
+                </span>
+                <span
+                  className={`flex items-center gap-1.5 text-xs px-2 py-0.5 rounded ${
+                    !supabaseConfigured
+                      ? "bg-gray-500/20 text-gray-400"
+                      : supabaseConnected
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-red-500/20 text-red-400"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      !supabaseConfigured
+                        ? "bg-gray-400"
+                        : supabaseConnected
+                        ? "bg-green-400"
+                        : "bg-red-400"
+                    } ${pendingSyncs > 0 ? "animate-pulse" : ""}`}
+                  />
+                  {!supabaseConfigured
+                    ? "Not Configured"
+                    : supabaseConnected
+                    ? pendingSyncs > 0
+                      ? `Syncing (${pendingSyncs})`
+                      : "Connected"
+                    : "Disconnected"}
+                </span>
+              </div>
+              {!supabaseConfigured && (
+                <p className="text-xs text-foreground-muted">
+                  Set Supabase env vars for multi-user sync
+                </p>
+              )}
+              {supabaseConfigured && !supabaseConnected && (
+                <button
+                  onClick={() => testConnection()}
+                  disabled={isTestingConnection}
+                  className="w-full mt-2 px-2 py-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded transition-colors disabled:opacity-50"
+                >
+                  {isTestingConnection ? "Testing..." : "Retry Connection"}
+                </button>
+              )}
+              {supabaseErrors.length > 0 && (
+                <p className="text-xs text-red-400 mt-1 truncate">
+                  {supabaseErrors[supabaseErrors.length - 1]}
+                </p>
               )}
             </div>
 
