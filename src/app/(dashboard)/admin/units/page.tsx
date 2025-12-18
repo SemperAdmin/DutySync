@@ -491,28 +491,36 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
 
       // scopeRuc is actually the unit ID (scope_unit_id from the role)
       // First try to find the unit by ID
-      let topUnit = unitsData.find(u => u.id === scopeRuc);
+      let scopeUnitRef = unitsData.find(u => u.id === scopeRuc);
 
       // If not found by ID, try by unit_code (legacy support)
-      if (!topUnit) {
-        topUnit = unitsData.find(u => u.unit_code === scopeRuc && u.hierarchy_level === "battalion");
+      if (!scopeUnitRef) {
+        scopeUnitRef = unitsData.find(u => u.unit_code === scopeRuc && u.hierarchy_level === "battalion");
       }
-      if (!topUnit) {
-        topUnit = unitsData.find(u => u.unit_code === scopeRuc);
+      if (!scopeUnitRef) {
+        scopeUnitRef = unitsData.find(u => u.unit_code === scopeRuc);
       }
 
-      if (topUnit) {
+      if (scopeUnitRef) {
+        // Get organization_id from the scope unit to include ALL units for this org
+        const orgId = (scopeUnitRef as UnitSection & { organization_id?: string }).organization_id;
+
+        // Get all units for this organization
+        const orgUnits = orgId
+          ? unitsData.filter(u => (u as UnitSection & { organization_id?: string }).organization_id === orgId)
+          : [scopeUnitRef];
+
+        // Find the top-level unit(s) - those without parent or whose parent isn't in this org
+        const orgUnitIds = new Set(orgUnits.map(u => u.id));
+        const topLevelUnits = orgUnits.filter(u => !u.parent_id || !orgUnitIds.has(u.parent_id));
+
+        // Use the first top-level unit as the scope unit for display
+        const topUnit = topLevelUnits.find(u =>
+          u.hierarchy_level === "unit" || u.hierarchy_level === "battalion" || u.hierarchy_level === "ruc"
+        ) || topLevelUnits[0] || scopeUnitRef;
+
         setScopeUnit(topUnit);
-        // Get all descendants of this unit
-        const getDescendants = (parentId: string): UnitSection[] => {
-          const children = unitsData.filter(u => u.parent_id === parentId);
-          return [
-            ...children,
-            ...children.flatMap(child => getDescendants(child.id))
-          ];
-        };
-        const scopedUnits = [topUnit, ...getDescendants(topUnit.id)];
-        setUnits(scopedUnits);
+        setUnits(orgUnits);
       } else {
         setScopeUnit(null);
         setUnits([]);
