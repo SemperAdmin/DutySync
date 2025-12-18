@@ -1440,8 +1440,38 @@ export async function createDutyType(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
+  // Verify the unit exists in Supabase before attempting upsert
+  const { data: unitExists, error: unitError } = await supabase
+    .from("units")
+    .select("id")
+    .eq("id", unitId)
+    .single();
+
+  if (unitError || !unitExists) {
+    console.error("Error: Unit does not exist in Supabase:", {
+      unitId,
+      error: unitError?.message,
+      hint: "The unit must exist in Supabase before creating duty types. Make sure you're using a unit that was loaded from Supabase."
+    });
+    return null;
+  }
+
+  // Verify the organization exists
+  const { data: orgExists, error: orgError } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("id", organizationId)
+    .single();
+
+  if (orgError || !orgExists) {
+    console.error("Error: Organization does not exist in Supabase:", {
+      organizationId,
+      error: orgError?.message,
+    });
+    return null;
+  }
+
   // Use upsert to handle both create and update cases
-  // This ensures sync works even if the record was created locally first
   const { data, error } = await supabase
     .from("duty_types")
     .upsert({

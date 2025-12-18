@@ -244,6 +244,35 @@ const KEYS = {
   dutyScoreEvents: "dutysync_duty_score_events",
 };
 
+// ============ Sync Supabase Data to localStorage ============
+// These functions allow data-layer.ts to sync Supabase data to localStorage
+// so that client-stores functions use the correct Supabase IDs
+
+export function syncUnitsToLocalStorage(units: UnitSection[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEYS.units, JSON.stringify(units));
+  // Update cache
+  const currentVersion = cacheVersions.get(KEYS.units) || 0;
+  dataCache.set(KEYS.units, { data: units, version: currentVersion });
+  console.log(`[Sync] Synced ${units.length} units from Supabase to localStorage`);
+}
+
+export function syncDutyTypesToLocalStorage(dutyTypes: DutyType[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEYS.dutyTypes, JSON.stringify(dutyTypes));
+  const currentVersion = cacheVersions.get(KEYS.dutyTypes) || 0;
+  dataCache.set(KEYS.dutyTypes, { data: dutyTypes, version: currentVersion });
+  console.log(`[Sync] Synced ${dutyTypes.length} duty types from Supabase to localStorage`);
+}
+
+export function syncPersonnelToLocalStorage(personnel: Personnel[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEYS.personnel, JSON.stringify(personnel));
+  const currentVersion = cacheVersions.get(KEYS.personnel) || 0;
+  dataCache.set(KEYS.personnel, { data: personnel, version: currentVersion });
+  console.log(`[Sync] Synced ${personnel.length} personnel from Supabase to localStorage`);
+}
+
 // ============ In-Memory Cache Layer ============
 // Caches parsed localStorage data to avoid repeated JSON.parse calls
 
