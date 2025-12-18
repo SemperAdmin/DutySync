@@ -68,11 +68,65 @@ function triggerAutoSave(dataType: string): void {
 }
 
 // ============ Supabase Sync Helpers ============
+// Cached default organization_id (set when user has Supabase configured)
+let cachedOrganizationId: string | null = null;
+
+// Set the default organization ID (call this after loading data from Supabase)
+export function setDefaultOrganizationId(orgId: string | null): void {
+  cachedOrganizationId = orgId;
+  if (orgId) {
+    // Also store in localStorage for persistence across sessions
+    try {
+      localStorage.setItem("dutysync_default_org_id", orgId);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+}
+
+// Get the default organization ID
+export function getDefaultOrganizationId(): string | null {
+  if (cachedOrganizationId) return cachedOrganizationId;
+  // Try to load from localStorage
+  try {
+    cachedOrganizationId = localStorage.getItem("dutysync_default_org_id");
+  } catch {
+    // Ignore storage errors
+  }
+  return cachedOrganizationId;
+}
+
 // Get organization_id from a unit (needed for Supabase writes)
+// Walks up the hierarchy if the unit doesn't have org_id directly
 function getOrganizationIdFromUnit(unitId: string): string | null {
   const units = getFromStorage<UnitSection & { organization_id?: string }>(KEYS.units);
-  const unit = units.find((u) => u.id === unitId);
-  return unit?.organization_id || null;
+  const unitById = new Map(units.map(u => [u.id, u]));
+
+  // Start with the given unit and walk up the hierarchy
+  let currentId: string | null = unitId;
+  const visited = new Set<string>();
+
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const unit = unitById.get(currentId);
+    if (!unit) break;
+
+    if (unit.organization_id) {
+      return unit.organization_id;
+    }
+    currentId = unit.parent_id;
+  }
+
+  // Fall back to cached/stored default organization
+  const defaultOrgId = getDefaultOrganizationId();
+  if (!defaultOrgId) {
+    console.warn(
+      "[Supabase Sync] No organization_id found for unit. " +
+      "Sync operations will be skipped. " +
+      "Load data from Supabase first or set a default organization."
+    );
+  }
+  return defaultOrgId;
 }
 
 // Fire-and-forget async sync to Supabase with status tracking
@@ -1054,9 +1108,10 @@ export function addDutyRequirement(dutyTypeId: string, qualName: string): DutyRe
   syncToSupabase(
     async () => {
       // The app uses qual_name but database uses qualification_id
-      // This would need a lookup - leaving as placeholder
-      console.warn(`[Supabase Sync] Duty requirement sync requires qualification lookup: ${qualName}`);
-      return null;
+      // This would need a lookup to convert qual_name to qualification_id
+      const errorMessage = `Duty requirement sync not yet implemented - requires qualification lookup for: ${qualName}`;
+      console.warn(`[Supabase Sync] ${errorMessage}`);
+      throw new Error(errorMessage);
     },
     "addDutyRequirement"
   );
