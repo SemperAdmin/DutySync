@@ -151,3 +151,27 @@ export function isWeekend(date: Date): boolean {
 export function getFederalHolidaysSet(): Set<string> {
   return FEDERAL_HOLIDAYS;
 }
+
+/**
+ * Parse a date string (YYYY-MM-DD) as local midnight.
+ * This avoids timezone issues that occur with new Date("2025-12-31")
+ * which is parsed as UTC midnight and can shift dates in negative UTC offsets.
+ *
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns Date object at local midnight
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/**
+ * Normalize a date to local midnight.
+ * Useful for date comparisons where time component should be ignored.
+ *
+ * @param date - Any Date object
+ * @returns Date object at local midnight of the same day
+ */
+export function normalizeToLocalMidnight(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}

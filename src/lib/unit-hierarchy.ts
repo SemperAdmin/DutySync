@@ -8,6 +8,33 @@ export interface HierarchicalUnitOption {
 }
 
 /**
+ * Builds a map of parent_id -> children for efficient hierarchy traversal.
+ * This is a shared utility used by multiple hierarchy functions.
+ *
+ * @param units - Flat array of all units
+ * @param includeNullParent - Whether to include units with null parent_id (default: true)
+ * @returns Map of parent_id to array of child units
+ */
+export function buildChildrenMap(
+  units: UnitSection[],
+  includeNullParent: boolean = true
+): Map<string | null, UnitSection[]> {
+  const childrenMap = new Map<string | null, UnitSection[]>();
+
+  for (const unit of units) {
+    const parentId = unit.parent_id;
+    if (!includeNullParent && parentId === null) continue;
+
+    if (!childrenMap.has(parentId)) {
+      childrenMap.set(parentId, []);
+    }
+    childrenMap.get(parentId)!.push(unit);
+  }
+
+  return childrenMap;
+}
+
+/**
  * Builds a hierarchical list of units with proper indentation for display in dropdowns.
  * Units are sorted alphabetically at each level.
  *
@@ -34,15 +61,7 @@ export function buildHierarchicalUnitOptions(
   const result: HierarchicalUnitOption[] = [];
 
   // Build a map of parent_id -> children for efficient lookup
-  const childrenMap = new Map<string | null, UnitSection[]>();
-
-  for (const unit of units) {
-    const parentId = unit.parent_id;
-    if (!childrenMap.has(parentId)) {
-      childrenMap.set(parentId, []);
-    }
-    childrenMap.get(parentId)!.push(unit);
-  }
+  const childrenMap = buildChildrenMap(units);
 
   // Sort children alphabetically at each level
   for (const children of childrenMap.values()) {
@@ -97,7 +116,7 @@ export function buildHierarchicalUnitOptions(
 export function getIndentString(depth: number, spacesPerLevel: number = 2): string {
   if (depth === 0) return "";
   // Use regular spaces - HTML entities don't work well in React option elements
-  return "  ".repeat(depth);
+  return " ".repeat(depth * spacesPerLevel);
 }
 
 /**
@@ -127,15 +146,8 @@ export function formatUnitOptionLabel(
 export function getDescendantUnitIds(units: UnitSection[], unitId: string): Set<string> {
   const result = new Set<string>([unitId]);
 
-  const childrenMap = new Map<string, UnitSection[]>();
-  for (const unit of units) {
-    if (unit.parent_id) {
-      if (!childrenMap.has(unit.parent_id)) {
-        childrenMap.set(unit.parent_id, []);
-      }
-      childrenMap.get(unit.parent_id)!.push(unit);
-    }
-  }
+  // Use shared helper, excluding null parents since we're walking from a specific unit
+  const childrenMap = buildChildrenMap(units, false);
 
   function addDescendants(parentId: string) {
     const children = childrenMap.get(parentId) || [];

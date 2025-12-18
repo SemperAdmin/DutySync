@@ -39,6 +39,7 @@ import {
   type ViewMode,
 } from "@/lib/constants";
 import { levelColors } from "@/lib/unit-constants";
+import { getDescendantUnitIds } from "@/lib/unit-hierarchy";
 
 type PageSize = 10 | 25 | 50 | 100;
 const PAGE_SIZES: PageSize[] = [10, 25, 50, 100];
@@ -523,14 +524,8 @@ function UnitHierarchyView({ scopeRuc }: { scopeRuc: string }) {
         } else {
           // Fallback to old logic: show scope unit and its descendants if orgId is missing
           setScopeUnit(scopeUnitRef);
-          const getDescendants = (parentId: string): UnitSection[] => {
-            const children = unitsData.filter(u => u.parent_id === parentId);
-            return [
-              ...children,
-              ...children.flatMap(child => getDescendants(child.id))
-            ];
-          };
-          const scopedUnits = [scopeUnitRef, ...getDescendants(scopeUnitRef.id)];
+          const descendantIds = getDescendantUnitIds(unitsData, scopeUnitRef.id);
+          const scopedUnits = unitsData.filter(u => descendantIds.has(u.id));
           setUnits(scopedUnits);
         }
       } else {

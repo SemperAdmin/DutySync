@@ -22,6 +22,7 @@ export type RoleName =
 export interface UnitSection {
   id: UUID;
   parent_id: UUID | null;
+  organization_id?: UUID; // Organization this unit belongs to (added during data loading)
   unit_name: string;
   unit_code?: string; // Short code (e.g., "02301", "H", "S1DV", "CUST")
   hierarchy_level: HierarchyLevel;

@@ -12,6 +12,7 @@ import {
 import { generateSchedule, previewSchedule } from "@/lib/duty-thruster";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
+import { parseLocalDate, formatDateToString } from "@/lib/date-utils";
 
 interface ScheduleResult {
   success: boolean;
@@ -80,8 +81,8 @@ export default function SchedulerPage() {
     try {
       const request = {
         unitId: selectedUnit,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate: parseLocalDate(startDate),
+        endDate: parseLocalDate(endDate),
         assignedBy: "admin",
         clearExisting,
       };
@@ -118,7 +119,7 @@ export default function SchedulerPage() {
   }
 
   function getDayType(dateStr: string): string {
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     const day = date.getDay();
     // Simple weekend check
     if (day === 0 || day === 6) return "weekend";
@@ -126,7 +127,7 @@ export default function SchedulerPage() {
   }
 
   function formatDate(dateStr: string): string {
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     return date.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
@@ -143,7 +144,7 @@ export default function SchedulerPage() {
   function groupSlotsByDate(slots: EnrichedSlot[]): Map<string, EnrichedSlot[]> {
     const grouped = new Map<string, EnrichedSlot[]>();
     for (const slot of slots) {
-      const dateKey = new Date(slot.date_assigned).toISOString().split("T")[0];
+      const dateKey = formatDateToString(new Date(slot.date_assigned));
       if (!grouped.has(dateKey)) {
         grouped.set(dateKey, []);
       }
