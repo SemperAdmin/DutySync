@@ -39,6 +39,40 @@ function isAppAdminByEdipi(edipi: string | null | undefined): boolean {
   return edipi === APP_ADMIN_EDIPI;
 }
 
+/**
+ * Fetch personnel and unit info for a user, linking by EDIPI if needed.
+ * This handles the case where personnel were imported after user was created.
+ */
+async function fetchPersonnelAndUnit(
+  dbUser: User,
+  logPrefix: string = "[Auth]"
+): Promise<{ personnel: Personnel | null; unit: Unit | null }> {
+  let personnel: Personnel | null = null;
+  let unit: Unit | null = null;
+
+  if (dbUser.personnel_id) {
+    console.log(`${logPrefix} User has personnel_id:`, dbUser.personnel_id);
+    personnel = await supabaseData.getPersonnelById(dbUser.personnel_id);
+    if (personnel) {
+      unit = await supabaseData.getUnitById(personnel.unit_id);
+    }
+  } else {
+    // Try to find personnel by service_id (EDIPI)
+    console.log(`${logPrefix} Looking up personnel by EDIPI:`, dbUser.edipi);
+    personnel = await supabaseData.getPersonnelByServiceId(dbUser.edipi);
+    if (personnel) {
+      console.log(`${logPrefix} Found personnel:`, personnel.rank, personnel.last_name, "- linking to user");
+      unit = await supabaseData.getUnitById(personnel.unit_id);
+      // Link personnel to user for future sessions
+      await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
+    } else {
+      console.log(`${logPrefix} No personnel found with EDIPI:`, dbUser.edipi);
+    }
+  }
+
+  return { personnel, unit };
+}
+
 // Build SessionUser from Supabase data
 async function buildSessionUser(
   dbUser: User,
@@ -129,30 +163,8 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
           // Refresh user data from Supabase
           const dbUser = await supabaseData.getUserByEdipi(sessionUser.edipi);
           if (dbUser) {
-            // Get personnel and unit info
-            let personnel: Personnel | null = null;
-            let unit: Unit | null = null;
-
-            if (dbUser.personnel_id) {
-              console.log("[Auth] Session restore - user has personnel_id:", dbUser.personnel_id);
-              personnel = await supabaseData.getPersonnelById(dbUser.personnel_id);
-              if (personnel) {
-                unit = await supabaseData.getUnitById(personnel.unit_id);
-              }
-            } else {
-              // Try to find personnel by service_id (EDIPI) - handles case where
-              // personnel were imported after user was created
-              console.log("[Auth] Session restore - looking up personnel by EDIPI:", dbUser.edipi);
-              personnel = await supabaseData.getPersonnelByServiceId(dbUser.edipi);
-              if (personnel) {
-                console.log("[Auth] Session restore - found personnel:", personnel.rank, personnel.last_name);
-                unit = await supabaseData.getUnitById(personnel.unit_id);
-                // Link personnel to user for future sessions
-                await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
-              } else {
-                console.log("[Auth] Session restore - no personnel found with EDIPI:", dbUser.edipi);
-              }
-            }
+            // Get personnel and unit info using shared helper
+            const { personnel, unit } = await fetchPersonnelAndUnit(dbUser, "[Auth] Session restore -");
 
             // Rebuild session with fresh data
             const refreshedUser = await buildSessionUser(dbUser, personnel, unit);
@@ -192,29 +204,8 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Get personnel and unit info
-      let personnel: Personnel | null = null;
-      let unit: Unit | null = null;
-
-      if (dbUser.personnel_id) {
-        console.log("[Auth] User has personnel_id:", dbUser.personnel_id);
-        personnel = await supabaseData.getPersonnelById(dbUser.personnel_id);
-        if (personnel) {
-          unit = await supabaseData.getUnitById(personnel.unit_id);
-        }
-      } else {
-        // Try to find personnel by service_id (EDIPI)
-        console.log("[Auth] Looking up personnel by EDIPI:", edipi);
-        personnel = await supabaseData.getPersonnelByServiceId(edipi);
-        if (personnel) {
-          console.log("[Auth] Found personnel:", personnel.rank, personnel.last_name, "- linking to user");
-          unit = await supabaseData.getUnitById(personnel.unit_id);
-          // Link personnel to user
-          await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
-        } else {
-          console.log("[Auth] No personnel found with EDIPI:", edipi);
-        }
-      }
+      // Get personnel and unit info using shared helper
+      const { personnel, unit } = await fetchPersonnelAndUnit(dbUser);
 
       // Build session user
       const sessionUser = await buildSessionUser(dbUser, personnel, unit);
@@ -315,23 +306,8 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       const dbUser = await supabaseData.getUserByEdipi(user.edipi);
       if (!dbUser) return;
 
-      let personnel: Personnel | null = null;
-      let unit: Unit | null = null;
-
-      if (dbUser.personnel_id) {
-        personnel = await supabaseData.getPersonnelById(dbUser.personnel_id);
-        if (personnel) {
-          unit = await supabaseData.getUnitById(personnel.unit_id);
-        }
-      } else {
-        // Try to find personnel by service_id (EDIPI)
-        personnel = await supabaseData.getPersonnelByServiceId(dbUser.edipi);
-        if (personnel) {
-          unit = await supabaseData.getUnitById(personnel.unit_id);
-          // Link personnel to user
-          await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
-        }
-      }
+      // Get personnel and unit info using shared helper
+      const { personnel, unit } = await fetchPersonnelAndUnit(dbUser, "[Auth] Refresh -");
 
       const refreshedUser = await buildSessionUser(dbUser, personnel, unit);
       setUser(refreshedUser);
