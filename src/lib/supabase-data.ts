@@ -1618,49 +1618,35 @@ export async function createDutySlot(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
-  // Verify the organization exists in Supabase before attempting upsert
-  const { data: orgExists, error: orgError } = await supabase
-    .from("organizations")
-    .select("id")
-    .eq("id", organizationId)
-    .maybeSingle();
+  // Validate foreign keys in parallel for better performance
+  const [orgResult, dutyTypeResult, personnelResult] = await Promise.all([
+    supabase.from("organizations").select("id").eq("id", organizationId).maybeSingle(),
+    supabase.from("duty_types").select("id").eq("id", dutyTypeId).maybeSingle(),
+    supabase.from("personnel").select("id").eq("id", personnelId).maybeSingle(),
+  ]);
 
-  if (orgError || !orgExists) {
+  if (orgResult.error || !orgResult.data) {
     console.error("Error: Organization does not exist in Supabase:", {
       organizationId,
-      error: orgError?.message,
+      error: orgResult.error?.message,
       hint: "The organization must exist in Supabase before creating duty slots.",
     });
     return null;
   }
 
-  // Verify the duty type exists in Supabase
-  const { data: dutyTypeExists, error: dutyTypeError } = await supabase
-    .from("duty_types")
-    .select("id")
-    .eq("id", dutyTypeId)
-    .maybeSingle();
-
-  if (dutyTypeError || !dutyTypeExists) {
+  if (dutyTypeResult.error || !dutyTypeResult.data) {
     console.error("Error: Duty type does not exist in Supabase:", {
       dutyTypeId,
-      error: dutyTypeError?.message,
+      error: dutyTypeResult.error?.message,
       hint: "The duty type must exist in Supabase before creating duty slots. Sync duty types first.",
     });
     return null;
   }
 
-  // Verify the personnel exists in Supabase
-  const { data: personnelExists, error: personnelError } = await supabase
-    .from("personnel")
-    .select("id")
-    .eq("id", personnelId)
-    .maybeSingle();
-
-  if (personnelError || !personnelExists) {
+  if (personnelResult.error || !personnelResult.data) {
     console.error("Error: Personnel does not exist in Supabase:", {
       personnelId,
-      error: personnelError?.message,
+      error: personnelResult.error?.message,
       hint: "The personnel must exist in Supabase before creating duty slots. Sync personnel first.",
     });
     return null;
@@ -1750,26 +1736,27 @@ export async function createDutySlots(
   const dutyTypeIds = [...new Set(slots.map(s => s.dutyTypeId))];
   const personnelIds = [...new Set(slots.map(s => s.personnelId))];
 
-  // Validate organizations exist
-  const { data: validOrgs } = await supabase
-    .from("organizations")
-    .select("id")
-    .in("id", orgIds) as { data: { id: string }[] | null };
-  const validOrgIds = new Set(validOrgs?.map(o => o.id) || []);
+  // Validate foreign keys in parallel for better performance
+  type IdResult = { data: { id: string }[] | null; error: { message: string } | null };
+  const [orgsResult, dutyTypesResult, personnelResult] = await Promise.all([
+    supabase.from("organizations").select("id").in("id", orgIds).then(r => r as unknown as IdResult),
+    supabase.from("duty_types").select("id").in("id", dutyTypeIds).then(r => r as unknown as IdResult),
+    supabase.from("personnel").select("id").in("id", personnelIds).then(r => r as unknown as IdResult),
+  ]);
 
-  // Validate duty types exist
-  const { data: validDutyTypes } = await supabase
-    .from("duty_types")
-    .select("id")
-    .in("id", dutyTypeIds) as { data: { id: string }[] | null };
-  const validDutyTypeIds = new Set(validDutyTypes?.map(dt => dt.id) || []);
+  if (orgsResult.error) {
+    result.errors.push(`Error validating organizations: ${orgsResult.error.message}`);
+  }
+  if (dutyTypesResult.error) {
+    result.errors.push(`Error validating duty types: ${dutyTypesResult.error.message}`);
+  }
+  if (personnelResult.error) {
+    result.errors.push(`Error validating personnel: ${personnelResult.error.message}`);
+  }
 
-  // Validate personnel exist
-  const { data: validPersonnel } = await supabase
-    .from("personnel")
-    .select("id")
-    .in("id", personnelIds) as { data: { id: string }[] | null };
-  const validPersonnelIds = new Set(validPersonnel?.map(p => p.id) || []);
+  const validOrgIds = new Set(orgsResult.data?.map(o => o.id) || []);
+  const validDutyTypeIds = new Set(dutyTypesResult.data?.map(dt => dt.id) || []);
+  const validPersonnelIds = new Set(personnelResult.data?.map(p => p.id) || []);
 
   // Filter slots to only include those with valid foreign keys
   const validSlots = slots.filter(slot => {
@@ -1861,6 +1848,218 @@ export async function deleteDutySlotsInRange(
     return 0;
   }
   return data?.length || 0;
+}
+
+// ============================================================================
+// DUTY SLOT MIGRATION (Local to Supabase ID mapping)
+// ============================================================================
+
+/**
+ * Creates duty slots by mapping local IDs to Supabase IDs using unique fields.
+ * This function looks up:
+ * - personnel by service_id
+ * - duty_types by name (within the organization)
+ * - organizations by ruc_code
+ *
+ * Use this for migrating localStorage data to Supabase when UUIDs don't match.
+ */
+export async function createDutySlotWithMapping(
+  rucCode: string,
+  dutyTypeName: string,
+  personnelServiceId: string,
+  dateAssigned: string,
+  assignedBy?: string
+): Promise<DutySlot | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  // Look up organization by RUC code
+  const orgResult = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("ruc_code", rucCode)
+    .maybeSingle();
+  const org = orgResult.data as { id: string } | null;
+  const orgError = orgResult.error;
+
+  if (orgError || !org) {
+    console.error("Error: Organization not found by RUC code:", {
+      rucCode,
+      error: orgError?.message,
+    });
+    return null;
+  }
+
+  // Look up duty type by name within the organization
+  const dutyTypeResult = await supabase
+    .from("duty_types")
+    .select("id")
+    .eq("organization_id", org.id)
+    .eq("name", dutyTypeName)
+    .maybeSingle();
+  const dutyType = dutyTypeResult.data as { id: string } | null;
+  const dutyTypeError = dutyTypeResult.error;
+
+  if (dutyTypeError || !dutyType) {
+    console.error("Error: Duty type not found by name:", {
+      dutyTypeName,
+      organizationId: org.id,
+      error: dutyTypeError?.message,
+    });
+    return null;
+  }
+
+  // Look up personnel by service_id
+  const personnelResult = await supabase
+    .from("personnel")
+    .select("id")
+    .eq("service_id", personnelServiceId)
+    .maybeSingle();
+  const personnel = personnelResult.data as { id: string } | null;
+  const personnelError = personnelResult.error;
+
+  if (personnelError || !personnel) {
+    console.error("Error: Personnel not found by service_id:", {
+      personnelServiceId,
+      error: personnelError?.message,
+    });
+    return null;
+  }
+
+  // Now create the duty slot with the correct Supabase IDs
+  const { data, error } = await supabase
+    .from("duty_slots")
+    .insert({
+      organization_id: org.id,
+      duty_type_id: dutyType.id,
+      personnel_id: personnel.id,
+      date_assigned: dateAssigned,
+      status: "scheduled",
+      assigned_by: assignedBy || null,
+    } as never)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating duty slot with mapping:", error);
+    return null;
+  }
+  return data as DutySlot;
+}
+
+/**
+ * Batch create duty slots with ID mapping.
+ * Maps local personnel/duty type references to Supabase IDs.
+ */
+export async function createDutySlotsWithMapping(
+  slots: Array<{
+    rucCode: string;
+    dutyTypeName: string;
+    personnelServiceId: string;
+    dateAssigned: string;
+    assignedBy?: string;
+  }>
+): Promise<{ created: number; errors: string[] }> {
+  if (!isSupabaseConfigured()) return { created: 0, errors: ["Supabase not configured"] };
+  if (slots.length === 0) return { created: 0, errors: [] };
+
+  const supabase = getSupabase();
+  const result = { created: 0, errors: [] as string[] };
+
+  // Gather unique values for batch lookup
+  const rucCodes = [...new Set(slots.map(s => s.rucCode))];
+  const dutyTypeNames = [...new Set(slots.map(s => s.dutyTypeName))];
+  const serviceIds = [...new Set(slots.map(s => s.personnelServiceId))];
+
+  // Batch lookup in parallel with type assertions
+  type OrgRow = { id: string; ruc_code: string };
+  type DutyTypeRow = { id: string; name: string; organization_id: string };
+  type PersonnelRow = { id: string; service_id: string };
+
+  const [orgsResult, dutyTypesResult, personnelResult] = await Promise.all([
+    supabase.from("organizations").select("id, ruc_code").in("ruc_code", rucCodes).then(r => ({ data: r.data as OrgRow[] | null, error: r.error })),
+    supabase.from("duty_types").select("id, name, organization_id").in("name", dutyTypeNames).then(r => ({ data: r.data as DutyTypeRow[] | null, error: r.error })),
+    supabase.from("personnel").select("id, service_id").in("service_id", serviceIds).then(r => ({ data: r.data as PersonnelRow[] | null, error: r.error })),
+  ]);
+
+  // Build lookup maps
+  const orgByRuc = new Map<string, string>();
+  orgsResult.data?.forEach(o => orgByRuc.set(o.ruc_code, o.id));
+
+  // Duty types need to be looked up by (org_id, name) combo
+  const dutyTypeByOrgAndName = new Map<string, string>();
+  dutyTypesResult.data?.forEach(dt => {
+    const key = `${dt.organization_id}:${dt.name}`;
+    dutyTypeByOrgAndName.set(key, dt.id);
+  });
+
+  const personnelByServiceId = new Map<string, string>();
+  personnelResult.data?.forEach(p => personnelByServiceId.set(p.service_id, p.id));
+
+  // Map and filter valid slots
+  const validInserts: Array<{
+    organization_id: string;
+    duty_type_id: string;
+    personnel_id: string;
+    date_assigned: string;
+    status: "scheduled";
+    assigned_by: string | null;
+  }> = [];
+
+  for (const slot of slots) {
+    const orgId = orgByRuc.get(slot.rucCode);
+    if (!orgId) {
+      result.errors.push(`Skipping slot on ${slot.dateAssigned}: org ${slot.rucCode} not found`);
+      continue;
+    }
+
+    const dutyTypeId = dutyTypeByOrgAndName.get(`${orgId}:${slot.dutyTypeName}`);
+    if (!dutyTypeId) {
+      result.errors.push(`Skipping slot on ${slot.dateAssigned}: duty type "${slot.dutyTypeName}" not found in org ${slot.rucCode}`);
+      continue;
+    }
+
+    const personnelId = personnelByServiceId.get(slot.personnelServiceId);
+    if (!personnelId) {
+      result.errors.push(`Skipping slot on ${slot.dateAssigned}: personnel ${slot.personnelServiceId} not found`);
+      continue;
+    }
+
+    validInserts.push({
+      organization_id: orgId,
+      duty_type_id: dutyTypeId,
+      personnel_id: personnelId,
+      date_assigned: slot.dateAssigned,
+      status: "scheduled",
+      assigned_by: slot.assignedBy || null,
+    });
+  }
+
+  if (validInserts.length === 0) {
+    result.errors.push("No valid slots to insert - all slots had missing references");
+    return result;
+  }
+
+  console.log(`[Migration] Inserting ${validInserts.length} valid duty slots out of ${slots.length} total`);
+
+  // Insert in batches of 100
+  const batchSize = 100;
+  for (let i = 0; i < validInserts.length; i += batchSize) {
+    const batch = validInserts.slice(i, i + batchSize);
+
+    const { data, error } = await supabase
+      .from("duty_slots")
+      .insert(batch as never)
+      .select();
+
+    if (error) {
+      result.errors.push(`Batch ${Math.floor(i / batchSize) + 1} failed: ${error.message}`);
+    } else {
+      result.created += data?.length || 0;
+    }
+  }
+
+  return result;
 }
 
 // ============================================================================
