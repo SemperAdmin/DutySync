@@ -32,6 +32,7 @@ import {
   buildSwapApprovals,
   clearDutySlotsByDutyType,
   buildUserAssignedByInfo,
+  calculateDutyScoreFromSlots,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -2143,7 +2144,7 @@ export default function RosterPage() {
                               <div>
                                 <span className="font-medium">{person.rank} {person.last_name}, {person.first_name}</span>
                                 <span className="text-xs text-foreground-muted ml-2">
-                                  Score: {person.current_duty_score.toFixed(1)}
+                                  Score: {calculateDutyScoreFromSlots(person.id).toFixed(1)}
                                 </span>
                               </div>
                               <span className="text-xs text-primary">+ Add</span>

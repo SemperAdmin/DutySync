@@ -16,6 +16,7 @@ import {
   exportUnitStructure,
   exportUnitMembers,
   createPersonnel,
+  calculateDutyScoreFromSlots,
 } from "@/lib/client-stores";
 import {
   getAllPersonnel,
@@ -672,7 +673,7 @@ export default function PersonnelPage() {
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-highlight font-medium">
-                            {person.current_duty_score.toFixed(1)}
+                            {calculateDutyScoreFromSlots(person.id).toFixed(1)}
                           </span>
                         </td>
                       </tr>
