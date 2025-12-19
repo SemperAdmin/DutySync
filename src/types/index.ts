@@ -173,61 +173,99 @@ export interface BlockedDuty {
 }
 
 // Duty Change Request (swap duties between personnel after roster approval)
+// Two-Row Model: Each swap creates two linked rows - one for each person's side
+// Both rows share the same swap_pair_id and must both be approved for the swap to execute
+
 // Approval tracking for each step in the swap approval workflow
+// Stored in separate swap_approvals table, linked by duty_change_request_id
 export interface SwapApproval {
-  approver_type: 'target_person' | 'work_section_manager' | 'section_manager' | 'company_manager';
-  for_personnel: 'original' | 'target' | 'both'; // Which personnel's chain this approval is for
+  id: UUID;
+  duty_change_request_id: UUID; // Links to the specific person's request row
+  approval_order: number; // Sequence in the approval chain (1, 2, 3...)
+  approver_type: 'work_section_manager' | 'section_manager' | 'company_manager';
   scope_unit_id: string | null; // The unit scope for manager approvals
   status: 'pending' | 'approved' | 'rejected';
   approved_by: string | null;
   approved_at: Date | null;
   rejection_reason: string | null;
-}
-
-// Recommendation from managers not in the direct approval chain
-export interface SwapRecommendation {
-  recommender_id: string; // User ID of the recommender
-  recommender_name: string; // Display name
-  role_name: string; // Their role (e.g., "Work Section Manager")
-  recommendation: 'recommend' | 'not_recommend';
-  comment: string;
   created_at: Date;
 }
 
+// Recommendation from managers not in the direct approval chain
+// Stored in separate swap_recommendations table
+export interface SwapRecommendation {
+  id: UUID;
+  duty_change_request_id: UUID; // Links to the specific request row
+  recommender_id: string; // User ID of the recommender
+  recommendation: 'recommend' | 'not_recommend';
+  comment: string | null;
+  created_at: Date;
+}
+
+// Each DutyChangeRequest row represents ONE person's side of a swap
+// Two rows are created per swap, linked by swap_pair_id
 export interface DutyChangeRequest {
   id: UUID;
-  // The requester (could be duty holder or manager acting on their behalf)
-  requester_id: UUID; // User ID
-  requester_personnel_id: UUID | null; // Personnel ID if applicable
+  swap_pair_id: UUID; // Links the two rows of a swap together
 
-  // Original duty assignment (the one being given up)
-  original_slot_id: UUID;
-  original_personnel_id: UUID; // Person currently assigned
-  original_duty_date: Date;
-  original_duty_type_id: UUID;
+  // This person's side of the swap
+  personnel_id: UUID; // The person this row is for
+  giving_slot_id: UUID; // The duty slot they are giving up
+  receiving_slot_id: UUID; // The duty slot they are receiving
 
-  // Target duty assignment (the one being received in exchange)
-  target_slot_id: UUID;
-  target_personnel_id: UUID; // Person to swap with
-  target_duty_date: Date;
-  target_duty_type_id: UUID;
+  // The swap partner
+  swap_partner_id: UUID; // The other person in the swap
 
   // Request details
+  requester_id: UUID; // User ID who initiated the swap request
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
 
-  // Multi-level approval tracking
-  required_approver_level: 'work_section' | 'section' | 'company'; // Highest common level needed
-  approvals: SwapApproval[]; // All required approvals for this swap
-  recommendations: SwapRecommendation[]; // Recommendations from managers not in approval chain
+  // Partner acceptance (the other party must accept before manager approvals begin)
+  partner_accepted: boolean;
+  partner_accepted_at: Date | null;
+  partner_accepted_by: string | null; // User ID who accepted
 
-  // Legacy fields for backwards compatibility
-  approved_by: UUID | null;
-  approved_at: Date | null;
+  // Rejection info
   rejection_reason: string | null;
 
   created_at: Date;
   updated_at: Date;
+}
+
+// Enriched types with related data for UI display
+export interface DutyChangeRequestWithApprovals extends DutyChangeRequest {
+  approvals: SwapApproval[];
+  recommendations: SwapRecommendation[];
+}
+
+// Represents both sides of a swap for combined display
+export interface SwapPair {
+  swap_pair_id: UUID;
+  requester_id: UUID;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected'; // Overall status (rejected if either rejected, approved if both approved)
+  created_at: Date;
+
+  // Person A's side
+  personA: {
+    request: DutyChangeRequest;
+    personnel_id: UUID;
+    giving_slot_id: UUID;
+    receiving_slot_id: UUID;
+    approvals: SwapApproval[];
+    partner_accepted: boolean;
+  };
+
+  // Person B's side
+  personB: {
+    request: DutyChangeRequest;
+    personnel_id: UUID;
+    giving_slot_id: UUID;
+    receiving_slot_id: UUID;
+    approvals: SwapApproval[];
+    partner_accepted: boolean;
+  };
 }
 
 // Session user for Auth.js

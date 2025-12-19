@@ -26,17 +26,14 @@ import {
   approveRoster,
   unapproveRoster,
   getDutySlotsByDateAndType,
-  createDutyChangeRequest,
-  determineApproverLevel,
-  getApproverLevelName,
-  buildSwapApprovals,
+  createDutySwap,
+  determineRequiredApprovalLevel,
   clearDutySlotsByDutyType,
   buildUserAssignedByInfo,
   calculateDutyScoreFromSlots,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
-import type { DutyChangeRequest } from "@/types";
 import { useAuth } from "@/lib/supabase-auth";
 import {
   VIEW_MODE_KEY,
@@ -1048,47 +1045,15 @@ export default function RosterPage() {
     setSubmittingSwap(true);
 
     try {
-      // Determine the required approver level
-      const approverLevel = determineApproverLevel(
-        swapModal.originalSlot.personnel_id!,
-        swapModal.targetSlot.personnel_id!
-      );
-
-      // Build the multi-level approval workflow
-      const approvals = buildSwapApprovals(
-        swapModal.originalSlot.personnel_id!,
-        swapModal.targetSlot.personnel_id!
-      );
-
-      // Create the swap request
-      const request: DutyChangeRequest = {
-        id: crypto.randomUUID(),
-        requester_id: user.id,
-        requester_personnel_id: currentUserPersonnel?.id || null,
-
-        original_slot_id: swapModal.originalSlot.id,
-        original_personnel_id: swapModal.originalSlot.personnel_id!,
-        original_duty_date: new Date(swapModal.originalSlot.date_assigned),
-        original_duty_type_id: swapModal.originalSlot.duty_type_id,
-
-        target_slot_id: swapModal.targetSlot.id,
-        target_personnel_id: swapModal.targetSlot.personnel_id!,
-        target_duty_date: new Date(swapModal.targetSlot.date_assigned),
-        target_duty_type_id: swapModal.targetSlot.duty_type_id,
-
+      // Create the swap request with two linked rows
+      createDutySwap({
+        personAId: swapModal.originalSlot.personnel_id!,
+        personASlotId: swapModal.originalSlot.id,
+        personBId: swapModal.targetSlot.personnel_id!,
+        personBSlotId: swapModal.targetSlot.id,
+        requesterId: user.id,
         reason: swapModal.reason.trim(),
-        status: 'pending',
-        required_approver_level: approverLevel,
-        approvals: approvals,
-        recommendations: [],
-        approved_by: null,
-        approved_at: null,
-        rejection_reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      createDutyChangeRequest(request);
+      });
 
       alert("Swap request submitted successfully! The target person and chain of command will need to approve.");
 
@@ -2011,7 +1976,18 @@ export default function RosterPage() {
                       <div className="p-3 bg-yellow-500/10 rounded-lg text-sm">
                         <p className="text-yellow-400 font-medium">Approval Required:</p>
                         <p className="text-foreground-muted">
-                          {getApproverLevelName(determineApproverLevel(swapModal.originalSlot.personnel_id!, swapModal.targetSlot.personnel_id!))}
+                          {(() => {
+                            const level = determineRequiredApprovalLevel(
+                              swapModal.originalSlot.personnel_id!,
+                              swapModal.targetSlot.personnel_id!
+                            );
+                            const levelNames: Record<string, string> = {
+                              'work_section': 'Work Section Managers',
+                              'section': 'Section Managers',
+                              'company': 'Company Manager',
+                            };
+                            return levelNames[level] || 'Manager approval';
+                          })()}
                         </p>
                       </div>
                     )}

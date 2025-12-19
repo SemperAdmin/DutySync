@@ -21,6 +21,10 @@ import type {
   DutyScoreEvent,
   DutyScoreEventInsert,
   DutyChangeRequest,
+  SwapApproval,
+  SwapRecommendation,
+  SwapApprovalInsert,
+  SwapRecommendationInsert,
 } from "@/types/supabase";
 
 // Type assertion helper for Supabase operations
@@ -1371,18 +1375,24 @@ export async function deleteDutyRequirementsByDutyType(dutyTypeId: string): Prom
 }
 
 // ============================================================================
-// DUTY CHANGE REQUESTS (write operations)
+// DUTY CHANGE REQUESTS (Two-Row Swap Model)
+// Each swap creates two linked rows - one for each person's side
 // ============================================================================
 
 export async function createDutyChangeRequest(
   organizationId: string,
   request: {
-    id?: string;
-    originalSlotId: string;
-    originalPersonnelId: string;
-    targetPersonnelId: string;
-    requestedBy?: string;
-    reason?: string;
+    id: string;
+    swapPairId: string;
+    personnelId: string;
+    givingSlotId: string;
+    receivingSlotId: string;
+    swapPartnerId: string;
+    requestedBy: string;
+    reason: string;
+    partnerAccepted: boolean;
+    partnerAcceptedAt?: string | null;
+    partnerAcceptedBy?: string | null;
   }
 ): Promise<DutyChangeRequest | null> {
   if (!isSupabaseConfigured()) return null;
@@ -1393,12 +1403,17 @@ export async function createDutyChangeRequest(
     .insert({
       id: request.id,
       organization_id: organizationId,
-      original_slot_id: request.originalSlotId,
-      original_personnel_id: request.originalPersonnelId,
-      target_personnel_id: request.targetPersonnelId,
+      swap_pair_id: request.swapPairId,
+      personnel_id: request.personnelId,
+      giving_slot_id: request.givingSlotId,
+      receiving_slot_id: request.receivingSlotId,
+      swap_partner_id: request.swapPartnerId,
       status: "pending",
-      requested_by: request.requestedBy || null,
-      reason: request.reason || null,
+      requested_by: request.requestedBy,
+      reason: request.reason,
+      partner_accepted: request.partnerAccepted,
+      partner_accepted_at: request.partnerAcceptedAt || null,
+      partner_accepted_by: request.partnerAcceptedBy || null,
     } as never)
     .select()
     .single();
@@ -1414,7 +1429,10 @@ export async function updateDutyChangeRequest(
   id: string,
   updates: {
     status?: "pending" | "approved" | "rejected";
-    approvedBy?: string;
+    partnerAccepted?: boolean;
+    partnerAcceptedAt?: string | null;
+    partnerAcceptedBy?: string | null;
+    rejectionReason?: string | null;
     reason?: string;
   }
 ): Promise<DutyChangeRequest | null> {
@@ -1423,7 +1441,10 @@ export async function updateDutyChangeRequest(
 
   const supabaseUpdates: Record<string, unknown> = {};
   if (updates.status !== undefined) supabaseUpdates.status = updates.status;
-  if (updates.approvedBy !== undefined) supabaseUpdates.approved_by = updates.approvedBy;
+  if (updates.partnerAccepted !== undefined) supabaseUpdates.partner_accepted = updates.partnerAccepted;
+  if (updates.partnerAcceptedAt !== undefined) supabaseUpdates.partner_accepted_at = updates.partnerAcceptedAt;
+  if (updates.partnerAcceptedBy !== undefined) supabaseUpdates.partner_accepted_by = updates.partnerAcceptedBy;
+  if (updates.rejectionReason !== undefined) supabaseUpdates.rejection_reason = updates.rejectionReason;
   if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
 
   if (Object.keys(supabaseUpdates).length === 0) return null;
@@ -1442,6 +1463,24 @@ export async function updateDutyChangeRequest(
   return data as DutyChangeRequest;
 }
 
+export async function getDutyChangeRequestsBySwapPairId(
+  swapPairId: string
+): Promise<DutyChangeRequest[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("duty_change_requests")
+    .select("*")
+    .eq("swap_pair_id", swapPairId);
+
+  if (error) {
+    console.error("Error fetching duty change requests by swap pair:", error);
+    return [];
+  }
+  return (data || []) as DutyChangeRequest[];
+}
+
 export async function deleteDutyChangeRequest(id: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   const supabase = getSupabase();
@@ -1453,6 +1492,195 @@ export async function deleteDutyChangeRequest(id: string): Promise<boolean> {
 
   if (error) {
     console.error("Error deleting duty change request:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function deleteDutyChangeRequestsBySwapPairId(swapPairId: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("duty_change_requests")
+    .delete()
+    .eq("swap_pair_id", swapPairId);
+
+  if (error) {
+    console.error("Error deleting duty change requests by swap pair:", error);
+    return false;
+  }
+  return true;
+}
+
+// ============================================================================
+// SWAP APPROVALS
+// ============================================================================
+
+export async function createSwapApproval(
+  approval: SwapApprovalInsert
+): Promise<SwapApproval | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("swap_approvals")
+    .insert(approval as never)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating swap approval:", error);
+    return null;
+  }
+  return data as SwapApproval;
+}
+
+export async function createSwapApprovals(
+  approvals: SwapApprovalInsert[]
+): Promise<SwapApproval[]> {
+  if (!isSupabaseConfigured()) return [];
+  if (approvals.length === 0) return [];
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("swap_approvals")
+    .insert(approvals as never)
+    .select();
+
+  if (error) {
+    console.error("Error creating swap approvals:", error);
+    return [];
+  }
+  return (data || []) as SwapApproval[];
+}
+
+export async function getSwapApprovalsByRequestId(
+  dutyChangeRequestId: string
+): Promise<SwapApproval[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("swap_approvals")
+    .select("*")
+    .eq("duty_change_request_id", dutyChangeRequestId)
+    .order("approval_order");
+
+  if (error) {
+    console.error("Error fetching swap approvals:", error);
+    return [];
+  }
+  return (data || []) as SwapApproval[];
+}
+
+export async function updateSwapApproval(
+  id: string,
+  updates: {
+    status?: "pending" | "approved" | "rejected";
+    approvedBy?: string | null;
+    approvedAt?: string | null;
+    rejectionReason?: string | null;
+  }
+): Promise<SwapApproval | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const supabaseUpdates: Record<string, unknown> = {};
+  if (updates.status !== undefined) supabaseUpdates.status = updates.status;
+  if (updates.approvedBy !== undefined) supabaseUpdates.approved_by = updates.approvedBy;
+  if (updates.approvedAt !== undefined) supabaseUpdates.approved_at = updates.approvedAt;
+  if (updates.rejectionReason !== undefined) supabaseUpdates.rejection_reason = updates.rejectionReason;
+
+  if (Object.keys(supabaseUpdates).length === 0) return null;
+
+  const { data, error } = await supabase
+    .from("swap_approvals")
+    .update(supabaseUpdates as never)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating swap approval:", error);
+    return null;
+  }
+  return data as SwapApproval;
+}
+
+export async function deleteSwapApprovalsByRequestId(
+  dutyChangeRequestId: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("swap_approvals")
+    .delete()
+    .eq("duty_change_request_id", dutyChangeRequestId);
+
+  if (error) {
+    console.error("Error deleting swap approvals:", error);
+    return false;
+  }
+  return true;
+}
+
+// ============================================================================
+// SWAP RECOMMENDATIONS
+// ============================================================================
+
+export async function createSwapRecommendation(
+  recommendation: SwapRecommendationInsert
+): Promise<SwapRecommendation | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("swap_recommendations")
+    .insert(recommendation as never)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating swap recommendation:", error);
+    return null;
+  }
+  return data as SwapRecommendation;
+}
+
+export async function getSwapRecommendationsByRequestId(
+  dutyChangeRequestId: string
+): Promise<SwapRecommendation[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("swap_recommendations")
+    .select("*")
+    .eq("duty_change_request_id", dutyChangeRequestId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching swap recommendations:", error);
+    return [];
+  }
+  return (data || []) as SwapRecommendation[];
+}
+
+export async function deleteSwapRecommendationsByRequestId(
+  dutyChangeRequestId: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("swap_recommendations")
+    .delete()
+    .eq("duty_change_request_id", dutyChangeRequestId);
+
+  if (error) {
+    console.error("Error deleting swap recommendations:", error);
     return false;
   }
   return true;

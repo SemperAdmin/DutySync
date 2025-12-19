@@ -543,7 +543,7 @@ export function getAllDutyChangeRequests(): DutyChangeRequest[] {
 
 export function getDutyChangeRequestsByPersonnel(personnelId: string): DutyChangeRequest[] {
   return dutyChangeRequestsCache.filter(
-    dcr => dcr.original_personnel_id === personnelId || dcr.target_personnel_id === personnelId
+    dcr => dcr.personnel_id === personnelId || dcr.swap_partner_id === personnelId
   );
 }
 
