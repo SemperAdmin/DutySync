@@ -48,6 +48,8 @@ import {
   // Migration functions (use ID mapping by unique fields)
   createDutySlotsWithMapping as supabaseCreateDutySlotsWithMapping,
   createDutySlotWithMapping as supabaseCreateDutySlotWithMapping,
+  deleteDutySlotWithMapping as supabaseDeleteDutySlotWithMapping,
+  deleteDutySlotsByDutyTypeWithMapping as supabaseDeleteDutySlotsByDutyTypeWithMapping,
 } from "@/lib/supabase-data";
 
 // Import sync status tracking
@@ -1444,13 +1446,42 @@ export function updateDutySlot(id: string, updates: Partial<DutySlot>): DutySlot
 
 export function deleteDutySlot(id: string): boolean {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+
+  // Find the slot before deleting so we can sync to Supabase using unique fields
+  const slotToDelete = slots.find((s) => s.id === id);
+  if (!slotToDelete) return false;
+
   const filtered = slots.filter((s) => s.id !== id);
-  if (filtered.length === slots.length) return false;
   saveToStorage(KEYS.dutySlots, filtered);
   triggerAutoSave('dutyRoster');
 
-  // Sync to Supabase in background
-  syncToSupabase(() => supabaseDeleteDutySlot(id), "deleteDutySlot");
+  // Sync to Supabase using mapping (unique fields) since local IDs may not match Supabase IDs
+  const dutyType = getDutyTypeById(slotToDelete.duty_type_id);
+  const personnel = getPersonnelById(slotToDelete.personnel_id);
+
+  if (dutyType && personnel) {
+    // Get RUC code from unit hierarchy or session
+    const rucCode = getRucCodeFromUnitHierarchy(dutyType.unit_section_id) || getCurrentRuc();
+
+    if (rucCode) {
+      const dateStr = formatDateToString(new Date(slotToDelete.date_assigned));
+      syncToSupabase(
+        () => supabaseDeleteDutySlotWithMapping(
+          rucCode,
+          dutyType.duty_name,
+          personnel.service_id,
+          dateStr
+        ),
+        "deleteDutySlot"
+      );
+    } else {
+      // Fallback to ID-based delete if we can't get RUC
+      syncToSupabase(() => supabaseDeleteDutySlot(id), "deleteDutySlot");
+    }
+  } else {
+    // Fallback to ID-based delete if we can't get duty type or personnel
+    syncToSupabase(() => supabaseDeleteDutySlot(id), "deleteDutySlot");
+  }
 
   return true;
 }
@@ -1507,7 +1538,28 @@ export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, en
     return false;
   });
   saveToStorage(KEYS.dutySlots, filtered);
-  if (count > 0) triggerAutoSave('dutyRoster');
+
+  if (count > 0) {
+    triggerAutoSave('dutyRoster');
+
+    // Sync to Supabase using mapping
+    const dutyType = getDutyTypeById(dutyTypeId);
+    if (dutyType) {
+      const rucCode = getRucCodeFromUnitHierarchy(dutyType.unit_section_id) || getCurrentRuc();
+      if (rucCode) {
+        syncToSupabase(
+          () => supabaseDeleteDutySlotsByDutyTypeWithMapping(
+            rucCode,
+            dutyType.duty_name,
+            formatDateToString(startDate),
+            formatDateToString(endDate)
+          ),
+          "clearDutySlotsByDutyType"
+        );
+      }
+    }
+  }
+
   return count;
 }
 
