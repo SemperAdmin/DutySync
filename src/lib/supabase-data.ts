@@ -1714,6 +1714,82 @@ export async function deleteDutySlot(id: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Delete a duty slot using unique fields (for when local IDs don't match Supabase IDs).
+ * Uses the unique constraint: (duty_type_id, personnel_id, date_assigned)
+ */
+export async function deleteDutySlotWithMapping(
+  rucCode: string,
+  dutyTypeName: string,
+  personnelServiceId: string,
+  dateAssigned: string
+): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  // Look up organization by RUC code
+  const orgResult = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("ruc_code", rucCode)
+    .maybeSingle();
+  const org = orgResult.data as { id: string } | null;
+
+  if (orgResult.error || !org) {
+    console.error("Error: Organization not found for delete:", { rucCode, error: orgResult.error?.message });
+    return false;
+  }
+
+  // Look up duty type by name within the organization
+  const dutyTypeResult = await supabase
+    .from("duty_types")
+    .select("id")
+    .eq("organization_id", org.id)
+    .eq("name", dutyTypeName)
+    .maybeSingle();
+  const dutyType = dutyTypeResult.data as { id: string } | null;
+
+  if (dutyTypeResult.error || !dutyType) {
+    console.error("Error: Duty type not found for delete:", { dutyTypeName, error: dutyTypeResult.error?.message });
+    return false;
+  }
+
+  // Look up personnel by service_id
+  const personnelResult = await supabase
+    .from("personnel")
+    .select("id")
+    .eq("service_id", personnelServiceId)
+    .maybeSingle();
+  const personnel = personnelResult.data as { id: string } | null;
+
+  if (personnelResult.error || !personnel) {
+    console.error("Error: Personnel not found for delete:", { personnelServiceId, error: personnelResult.error?.message });
+    return false;
+  }
+
+  // Delete by unique constraint fields
+  const { error } = await supabase
+    .from("duty_slots")
+    .delete()
+    .eq("duty_type_id", dutyType.id)
+    .eq("personnel_id", personnel.id)
+    .eq("date_assigned", dateAssigned);
+
+  if (error) {
+    console.error("Error deleting duty slot with mapping:", {
+      message: error.message,
+      code: error.code,
+      dutyTypeName,
+      personnelServiceId,
+      dateAssigned,
+    });
+    return false;
+  }
+
+  console.log("[Supabase] Deleted duty slot:", { dutyTypeName, personnelServiceId, dateAssigned });
+  return true;
+}
+
 // Batch create duty slots (for scheduler)
 export async function createDutySlots(
   slots: Array<{
@@ -1847,6 +1923,69 @@ export async function deleteDutySlotsInRange(
     console.error("Error deleting duty slots in range:", error);
     return 0;
   }
+  return data?.length || 0;
+}
+
+/**
+ * Delete duty slots by duty type name and date range (for when local IDs don't match Supabase IDs).
+ */
+export async function deleteDutySlotsByDutyTypeWithMapping(
+  rucCode: string,
+  dutyTypeName: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const supabase = getSupabase();
+
+  // Look up organization by RUC code
+  const orgResult = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("ruc_code", rucCode)
+    .maybeSingle();
+  const org = orgResult.data as { id: string } | null;
+
+  if (orgResult.error || !org) {
+    console.error("Error: Organization not found for batch delete:", { rucCode, error: orgResult.error?.message });
+    return 0;
+  }
+
+  // Look up duty type by name within the organization
+  const dutyTypeResult = await supabase
+    .from("duty_types")
+    .select("id")
+    .eq("organization_id", org.id)
+    .eq("name", dutyTypeName)
+    .maybeSingle();
+  const dutyType = dutyTypeResult.data as { id: string } | null;
+
+  if (dutyTypeResult.error || !dutyType) {
+    console.error("Error: Duty type not found for batch delete:", { dutyTypeName, error: dutyTypeResult.error?.message });
+    return 0;
+  }
+
+  // Delete by duty_type_id and date range
+  const { data, error } = await supabase
+    .from("duty_slots")
+    .delete()
+    .eq("duty_type_id", dutyType.id)
+    .gte("date_assigned", startDate)
+    .lte("date_assigned", endDate)
+    .select();
+
+  if (error) {
+    console.error("Error deleting duty slots by duty type:", {
+      message: error.message,
+      code: error.code,
+      dutyTypeName,
+      startDate,
+      endDate,
+    });
+    return 0;
+  }
+
+  console.log(`[Supabase] Deleted ${data?.length || 0} duty slots for ${dutyTypeName} from ${startDate} to ${endDate}`);
   return data?.length || 0;
 }
 
