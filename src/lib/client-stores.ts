@@ -1839,13 +1839,23 @@ export function isRosterApproved(unitId: string, year: number, month: number): A
   ) || null;
 }
 
+// Sync status tracking for roster approval
+export interface ApprovalSyncStatus {
+  slotsUpdated: number;
+  slotsNotFound: number; // Slots that don't exist in Supabase yet
+  slotErrors: string[];
+  scoresUpdated: number;
+  scoreErrors: string[];
+  allSynced: boolean;
+}
+
 // Approve a roster and apply duty scores to personnel
-export function approveRoster(
+export async function approveRoster(
   unitId: string,
   year: number,
   month: number,
   approvedBy: string
-): { approval: ApprovedRoster; scoresApplied: number; eventsCreated: number } {
+): Promise<{ approval: ApprovedRoster; scoresApplied: number; eventsCreated: number; syncStatus: ApprovalSyncStatus }> {
   // Check if already approved
   const existing = isRosterApproved(unitId, year, month);
   if (existing) {
@@ -1944,6 +1954,16 @@ export function approveRoster(
   saveToStorage(KEYS.dutySlots, allSlots);
   triggerAutoSave('dutySlots');
 
+  // Initialize sync status tracking
+  const syncStatus: ApprovalSyncStatus = {
+    slotsUpdated: 0,
+    slotsNotFound: 0,
+    slotErrors: [],
+    scoresUpdated: 0,
+    scoreErrors: [],
+    allSynced: true,
+  };
+
   // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
   const rucCode = validateRucForSync("approveRoster-slots", monthSlots.length);
   if (rucCode) {
@@ -1962,10 +1982,30 @@ export function approveRoster(
       .filter(s => s.dutyTypeName && s.personnelServiceId);
 
     if (slotsToUpdate.length > 0) {
-      syncToSupabase(
-        () => supabaseUpdateDutySlotsStatusWithMapping(rucCode, slotsToUpdate, "approved"),
-        "approveSlotStatuses"
-      );
+      // Await the slot status sync and capture results
+      try {
+        const result = await supabaseUpdateDutySlotsStatusWithMapping(rucCode, slotsToUpdate, "approved");
+        syncStatus.slotsUpdated = result.updated;
+        syncStatus.slotsNotFound = result.notFound;
+        syncStatus.slotErrors = result.errors;
+        if (result.errors.length > 0 || result.updated < slotsToUpdate.length) {
+          syncStatus.allSynced = false;
+          console.warn(`[approveRoster] Slot sync incomplete: ${result.updated}/${slotsToUpdate.length} updated, ${result.notFound} not found`);
+        }
+        logSyncOperation("SYNC", "approveSlotStatuses", result.errors.length === 0 && result.notFound === 0, `${result.updated}/${slotsToUpdate.length} slots${result.notFound > 0 ? `, ${result.notFound} not found` : ''}`);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        syncStatus.slotErrors.push(`Sync failed: ${errorMsg}`);
+        syncStatus.allSynced = false;
+        recordSyncError(`approveSlotStatuses: ${errorMsg}`);
+        console.error("[approveRoster] Slot sync failed:", err);
+      }
+    }
+  } else {
+    // No RUC code available, mark as not synced
+    if (isSupabaseConfigured()) {
+      syncStatus.allSynced = false;
+      syncStatus.slotErrors.push("No RUC code available for sync");
     }
   }
 
@@ -1991,12 +2031,33 @@ export function approveRoster(
   if (scoresApplied > 0) {
     triggerAutoSave('unitMembers');
 
-    // Sync personnel scores to Supabase in background
-    for (const { id, newScore } of updatedPersonnelScores) {
-      syncToSupabase(
-        () => supabaseUpdatePersonnel(id, { current_duty_score: newScore }),
-        `updatePersonnelScore-${id}`
-      );
+    // Sync personnel scores to Supabase - await all updates in parallel
+    if (isSupabaseConfigured()) {
+      const scorePromises = updatedPersonnelScores.map(async ({ id, newScore }) => {
+        try {
+          const result = await supabaseUpdatePersonnel(id, { current_duty_score: newScore });
+          if (result) {
+            syncStatus.scoresUpdated++;
+            return { success: true, id };
+          } else {
+            syncStatus.scoreErrors.push(`Failed to update score for personnel ${id}`);
+            return { success: false, id };
+          }
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          syncStatus.scoreErrors.push(`Personnel ${id}: ${errorMsg}`);
+          return { success: false, id };
+        }
+      });
+
+      // Wait for all score updates to complete
+      const results = await Promise.all(scorePromises);
+      const failedCount = results.filter(r => !r.success).length;
+      if (failedCount > 0) {
+        syncStatus.allSynced = false;
+        console.warn(`[approveRoster] Score sync incomplete: ${syncStatus.scoresUpdated}/${updatedPersonnelScores.length} updated`);
+      }
+      logSyncOperation("SYNC", "approvePersonnelScores", failedCount === 0, `${syncStatus.scoresUpdated}/${updatedPersonnelScores.length} scores`);
     }
   }
 
@@ -2020,7 +2081,7 @@ export function approveRoster(
   // This triggers dashboard refresh for any listening components
   notifyDataChanged(["personnel", "dutySlots"]);
 
-  return { approval, scoresApplied, eventsCreated };
+  return { approval, scoresApplied, eventsCreated, syncStatus };
 }
 
 // Unapprove a roster (for corrections - does NOT reverse scores)
