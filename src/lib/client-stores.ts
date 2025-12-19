@@ -284,6 +284,94 @@ export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): void {
   console.log(`[Sync] Synced ${dutySlots.length} duty slots from Supabase to localStorage`);
 }
 
+// ============ Migration: Sync localStorage TO Supabase ============
+// One-time migration for data created before Supabase sync was working
+
+export async function migrateLocalStorageToSupabase(): Promise<{
+  dutyTypes: { synced: number; failed: number };
+  dutySlots: { synced: number; failed: number };
+}> {
+  const orgId = getDefaultOrganizationId();
+  if (!orgId) {
+    console.error("[Migration] No organization ID found. Cannot migrate.");
+    return { dutyTypes: { synced: 0, failed: 0 }, dutySlots: { synced: 0, failed: 0 } };
+  }
+
+  console.log("[Migration] Starting localStorage to Supabase migration...");
+  const result = {
+    dutyTypes: { synced: 0, failed: 0 },
+    dutySlots: { synced: 0, failed: 0 },
+  };
+
+  // Step 1: Migrate duty types first (duty slots depend on them)
+  const dutyTypes = getFromStorage<DutyType>(KEYS.dutyTypes);
+  console.log(`[Migration] Found ${dutyTypes.length} duty types in localStorage`);
+
+  for (const dt of dutyTypes) {
+    try {
+      const synced = await supabaseCreateDutyType(
+        orgId,
+        dt.unit_section_id,
+        dt.duty_name,
+        {
+          id: dt.id,
+          description: dt.description,
+          personnelRequired: dt.slots_needed,
+          rankFilterMode: dt.rank_filter_mode || "none",
+          rankFilterValues: dt.rank_filter_values,
+          sectionFilterMode: dt.section_filter_mode || "none",
+          sectionFilterValues: dt.section_filter_values,
+        }
+      );
+      if (synced) {
+        result.dutyTypes.synced++;
+      } else {
+        result.dutyTypes.failed++;
+      }
+    } catch (err) {
+      console.error("[Migration] Failed to sync duty type:", dt.id, err);
+      result.dutyTypes.failed++;
+    }
+  }
+
+  console.log(`[Migration] Duty types: ${result.dutyTypes.synced} synced, ${result.dutyTypes.failed} failed`);
+
+  // Step 2: Migrate duty slots (now that duty types exist in Supabase)
+  const dutySlots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  console.log(`[Migration] Found ${dutySlots.length} duty slots in localStorage`);
+
+  for (const slot of dutySlots) {
+    try {
+      const synced = await supabaseCreateDutySlot(
+        orgId,
+        slot.duty_type_id,
+        slot.personnel_id,
+        formatDateToString(new Date(slot.date_assigned)),
+        slot.assigned_by || undefined,
+        slot.id
+      );
+      if (synced) {
+        result.dutySlots.synced++;
+      } else {
+        result.dutySlots.failed++;
+      }
+    } catch (err) {
+      console.error("[Migration] Failed to sync duty slot:", slot.id, err);
+      result.dutySlots.failed++;
+    }
+  }
+
+  console.log(`[Migration] Duty slots: ${result.dutySlots.synced} synced, ${result.dutySlots.failed} failed`);
+  console.log("[Migration] Migration complete!", result);
+
+  return result;
+}
+
+// Expose migration function on window for console access
+if (typeof window !== "undefined") {
+  (window as unknown as { migrateLocalStorageToSupabase: typeof migrateLocalStorageToSupabase }).migrateLocalStorageToSupabase = migrateLocalStorageToSupabase;
+}
+
 // ============ In-Memory Cache Layer ============
 // Caches parsed localStorage data to avoid repeated JSON.parse calls
 
