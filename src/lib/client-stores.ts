@@ -367,6 +367,11 @@ export async function migrateLocalStorageToSupabase(): Promise<{
   return result;
 }
 
+// Expose migration function on window for console access
+if (typeof window !== "undefined") {
+  (window as unknown as { migrateLocalStorageToSupabase: typeof migrateLocalStorageToSupabase }).migrateLocalStorageToSupabase = migrateLocalStorageToSupabase;
+}
+
 // ============ In-Memory Cache Layer ============
 // Caches parsed localStorage data to avoid repeated JSON.parse calls
 
