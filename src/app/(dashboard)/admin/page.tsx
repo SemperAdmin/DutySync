@@ -23,6 +23,8 @@ import {
   getSeedUserByEdipi,
   getPersonnelByUnitWithDescendants,
   getAllDescendantUnitIds,
+  getUnitById,
+  getRucDisplayName,
   type RucEntry,
 } from "@/lib/data-layer";
 
@@ -70,6 +72,14 @@ export default function AdminDashboard() {
     const unitAdminRole = user?.roles?.find((role) => role.role_name === "Unit Admin");
     return unitAdminRole?.scope_unit_id || null;
   }, [user?.roles]);
+
+  // Get the RUC display name (e.g., "02301 - HQBN MCBH") from the unit
+  const unitAdminRucDisplay = useMemo(() => {
+    if (!unitAdminScopeId) return "N/A";
+    const unit = getUnitById(unitAdminScopeId);
+    if (!unit?.ruc) return "N/A";
+    return getRucDisplayName(unit.ruc);
+  }, [unitAdminScopeId]);
 
   // Sync with view mode from localStorage (set by DashboardLayout)
   useEffect(() => {
@@ -159,7 +169,7 @@ export default function AdminDashboard() {
   const isUnitAdminView = viewMode === "unit-admin";
   const dashboardTitle = isUnitAdminView ? "Unit Admin Dashboard" : "App Admin Dashboard";
   const dashboardDescription = isUnitAdminView
-    ? `Overview of your unit (RUC: ${unitAdminScopeId || "N/A"})`
+    ? `Overview of your unit (RUC: ${unitAdminRucDisplay})`
     : "Overview of all units and users across the application";
 
   return (

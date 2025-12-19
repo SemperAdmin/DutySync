@@ -1914,6 +1914,53 @@ export async function approveRoster(
     dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map((dt) => dt.id)
   );
 
+  // ============ DIAGNOSTIC LOGGING FOR APPROVAL FLOW ============
+  // This logging helps diagnose why duty_slots.status may not be updating
+  console.group("🔍 [approveRoster] DIAGNOSTIC LOG");
+  console.log("📅 Input Parameters:", { unitId, year, month: month + 1, approvedBy });
+  console.log("📅 Date Range:", { startDateStr, endDateStr });
+  console.log("📦 Total slots in localStorage:", allSlots.length);
+  console.log("📋 Total duty types:", dutyTypes.length);
+  console.log("🏢 Unit IDs in scope (from getAllDescendantUnitIds):", allUnitIdsInScope);
+  console.log("🎯 Duty types in scope:", dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map(dt => ({
+    id: dt.id,
+    name: dt.duty_name,
+    unit_section_id: dt.unit_section_id
+  })));
+  console.log("🎯 Duty type IDs that will be matched:", [...unitDutyTypeIds]);
+
+  // Log first few slots to see their structure
+  if (allSlots.length > 0) {
+    console.log("📦 Sample slots (first 5):", allSlots.slice(0, 5).map(s => ({
+      id: s.id,
+      duty_type_id: s.duty_type_id,
+      personnel_id: s.personnel_id,
+      date_assigned: s.date_assigned,
+      status: s.status,
+      dutyTypeName: dutyTypesById.get(s.duty_type_id)?.duty_name || "NOT FOUND"
+    })));
+
+    // Check slots in date range (before unit filter)
+    const slotsInDateRange = allSlots.filter((slot) => {
+      const dateValue = slot.date_assigned as unknown;
+      const slotDateStr = dateValue instanceof Date
+        ? formatDateToString(dateValue)
+        : String(dateValue).split('T')[0];
+      return slotDateStr >= startDateStr && slotDateStr <= endDateStr;
+    });
+    console.log("📆 Slots in date range (before unit filter):", slotsInDateRange.length);
+    if (slotsInDateRange.length > 0) {
+      console.log("📆 Sample slots in date range:", slotsInDateRange.slice(0, 5).map(s => ({
+        id: s.id,
+        duty_type_id: s.duty_type_id,
+        date_assigned: s.date_assigned,
+        dutyTypeName: dutyTypesById.get(s.duty_type_id)?.duty_name || "NOT FOUND",
+        dutyTypeInScope: unitDutyTypeIds.has(s.duty_type_id) ? "YES ✅" : "NO ❌"
+      })));
+    }
+  }
+  // ============ END DIAGNOSTIC LOGGING ============
+
   const monthSlots = allSlots.filter((slot) => {
     // Use string comparison to avoid timezone issues with date parsing
     // slot.date_assigned could be a Date object or ISO string depending on source
@@ -1927,6 +1974,25 @@ export async function approveRoster(
       unitDutyTypeIds.has(slot.duty_type_id)
     );
   });
+
+  // Continue diagnostic logging after filter
+  console.log("✅ Filtered monthSlots (matched date AND unit):", monthSlots.length);
+  if (monthSlots.length === 0) {
+    console.warn("⚠️ NO SLOTS FOUND! This is why 0 scores will be applied.");
+    console.warn("⚠️ Possible causes:");
+    console.warn("   1. Slots exist in Supabase but not in localStorage (data not loaded)");
+    console.warn("   2. Duty types' unit_section_id doesn't match unit hierarchy");
+    console.warn("   3. Date format mismatch");
+  } else {
+    console.log("✅ Sample matched slots:", monthSlots.slice(0, 3).map(s => ({
+      id: s.id,
+      duty_type_id: s.duty_type_id,
+      personnel_id: s.personnel_id,
+      date_assigned: s.date_assigned,
+      status: s.status
+    })));
+  }
+  console.groupEnd();
 
   // Create duty score events and calculate personnel totals
   const personnelScores = new Map<string, number>();
@@ -2001,31 +2067,21 @@ export async function approveRoster(
   // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
   // Get RUC from unit hierarchy first, fallback to session RUC
   const rucCode = getRucCodeFromUnitHierarchy(unitId) || validateRucForSync("approveRoster-slots", monthSlots.length);
-  if (process.env.NODE_ENV === 'development') {
-    console.log("[approveRoster] DEBUG: rucCode =", rucCode, "(from unit hierarchy or session)");
-    console.log("[approveRoster] DEBUG: unitId =", unitId);
-    console.log("[approveRoster] DEBUG: monthSlots.length =", monthSlots.length);
-  }
+
+  // ============ DIAGNOSTIC LOGGING FOR SUPABASE SYNC ============
+  console.group("🔄 [approveRoster] SUPABASE SYNC LOG");
+  console.log("🏷️ RUC Code resolved:", rucCode || "❌ NONE (sync will be skipped!)");
+  console.log("📊 monthSlots to sync:", monthSlots.length);
+
   if (rucCode) {
     const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[approveRoster] DEBUG: personnelById size =", personnelById.size);
-    }
+    console.log("👥 Personnel in localStorage:", personnelById.size);
+
     const slotsToUpdate = monthSlots
       .filter(slot => slot.personnel_id)
       .map(slot => {
         const dutyType = dutyTypesById.get(slot.duty_type_id);
         const person = personnelById.get(slot.personnel_id);
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[approveRoster] DEBUG: Mapping slot:", {
-            slotId: slot.id,
-            dutyTypeId: slot.duty_type_id,
-            personnelId: slot.personnel_id,
-            dutyTypeName: dutyType?.duty_name,
-            serviceId: person?.service_id,
-            dateAssigned: slot.date_assigned,
-          });
-        }
         return {
           dutyTypeName: dutyType?.duty_name || "",
           personnelServiceId: person?.service_id || "",
@@ -2034,23 +2090,34 @@ export async function approveRoster(
       })
       .filter(s => s.dutyTypeName && s.personnelServiceId);
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[approveRoster] DEBUG: slotsToUpdate =", JSON.stringify(slotsToUpdate, null, 2));
+    console.log("📤 Slots prepared for Supabase update:", slotsToUpdate.length);
+    if (slotsToUpdate.length > 0) {
+      console.log("📤 Sample slots to update:", slotsToUpdate.slice(0, 3));
     }
 
     if (slotsToUpdate.length > 0) {
       // Await the slot status sync and capture results
       try {
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[approveRoster] DEBUG: Calling supabaseUpdateDutySlotsStatusWithMapping with rucCode:", rucCode);
-        }
+        console.log("⏳ Calling supabaseUpdateDutySlotsStatusWithMapping...");
         const result = await supabaseUpdateDutySlotsStatusWithMapping(rucCode, slotsToUpdate, "approved");
         syncStatus.slotsUpdated = result.updated;
         syncStatus.slotsNotFound = result.notFound;
         syncStatus.slotErrors = result.errors;
+
+        console.log("📊 Supabase sync result:", {
+          updated: result.updated,
+          notFound: result.notFound,
+          errors: result.errors.length
+        });
+
         if (result.errors.length > 0 || result.updated < slotsToUpdate.length) {
           syncStatus.allSynced = false;
-          console.warn(`[approveRoster] Slot sync incomplete: ${result.updated}/${slotsToUpdate.length} updated, ${result.notFound} not found`);
+          console.warn(`⚠️ Slot sync incomplete: ${result.updated}/${slotsToUpdate.length} updated, ${result.notFound} not found`);
+          if (result.errors.length > 0) {
+            console.warn("⚠️ Sync errors:", result.errors.slice(0, 5));
+          }
+        } else {
+          console.log("✅ All slots synced successfully!");
         }
         logSyncOperation("SYNC", "approveSlotStatuses", result.errors.length === 0 && result.notFound === 0, `${result.updated}/${slotsToUpdate.length} slots${result.notFound > 0 ? `, ${result.notFound} not found` : ''}`);
       } catch (err) {
@@ -2058,16 +2125,20 @@ export async function approveRoster(
         syncStatus.slotErrors.push(`Sync failed: ${errorMsg}`);
         syncStatus.allSynced = false;
         recordSyncError(`approveSlotStatuses: ${errorMsg}`);
-        console.error("[approveRoster] Slot sync failed:", err);
+        console.error("❌ Slot sync failed:", err);
       }
+    } else {
+      console.warn("⚠️ No slots to update (all filtered out during mapping)");
     }
   } else {
     // No RUC code available, mark as not synced
+    console.error("❌ No RUC code available - Supabase sync SKIPPED");
     if (isSupabaseConfigured()) {
       syncStatus.allSynced = false;
       syncStatus.slotErrors.push("No RUC code available for sync");
     }
   }
+  console.groupEnd();
 
   // Update cached scores on personnel records (for quick lookups)
   // This recalculates the entire score from events for accuracy
