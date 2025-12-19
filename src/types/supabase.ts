@@ -22,7 +22,7 @@ export type RoleName =
   | "Work Section Manager"
   | "Standard User";
 export type FilterMode = "include" | "exclude" | "none";
-export type DutySlotStatus = "scheduled" | "completed" | "missed" | "swapped";
+export type DutySlotStatus = "scheduled" | "approved" | "completed" | "missed" | "swapped";
 export type RequestStatus = "pending" | "approved" | "rejected";
 
 export interface Database {

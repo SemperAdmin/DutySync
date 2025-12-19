@@ -15,7 +15,7 @@ import type {
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
-import { isHoliday, isWeekend, formatDateToString } from "@/lib/date-utils";
+import { isHoliday, isWeekend, formatDateToString, parseLocalDate } from "@/lib/date-utils";
 import { getCurrentRuc } from "@/lib/auto-save";
 
 // Import Supabase sync functions (aliased to avoid name collision)
@@ -1724,9 +1724,11 @@ export function approveRoster(
   // Format roster month for score events (YYYY-MM)
   const rosterMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
 
-  // Get the date range for the month
+  // Get the date range for the month (use string comparison to avoid timezone issues)
   const startDate = new Date(year, month, 1);
   const endDate = new Date(year, month + 1, 0); // Last day of month
+  const startDateStr = formatDateToString(startDate);
+  const endDateStr = formatDateToString(endDate);
 
   // Get all duty slots for this month and unit (including descendant units)
   const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
@@ -1738,13 +1740,23 @@ export function approveRoster(
   );
 
   const monthSlots = allSlots.filter((slot) => {
-    const slotDate = new Date(slot.date_assigned);
+    // Use string comparison to avoid timezone issues with date parsing
+    // slot.date_assigned could be a Date object or ISO string depending on source
+    const dateValue = slot.date_assigned as unknown;
+    const slotDateStr = dateValue instanceof Date
+      ? formatDateToString(dateValue)
+      : String(dateValue).split('T')[0];  // Handle ISO date strings
     return (
-      slotDate >= startDate &&
-      slotDate <= endDate &&
+      slotDateStr >= startDateStr &&
+      slotDateStr <= endDateStr &&
       unitDutyTypeIds.has(slot.duty_type_id)
     );
   });
+
+  console.log(`[approveRoster] Date range: ${startDateStr} to ${endDateStr}`);
+  console.log(`[approveRoster] Total slots in storage: ${allSlots.length}`);
+  console.log(`[approveRoster] Unit duty type IDs in scope: ${unitDutyTypeIds.size}`);
+  console.log(`[approveRoster] Slots matching month and unit: ${monthSlots.length}`);
 
   // Create duty score events and calculate personnel totals
   const personnelScores = new Map<string, number>();
@@ -1796,6 +1808,27 @@ export function approveRoster(
 
   // Save all score events
   const eventsCreated = createDutyScoreEvents(scoreEvents);
+
+  // Update slot status to "approved" for all slots in this roster
+  const monthSlotIds = new Set(monthSlots.map(s => s.id));
+  for (let i = 0; i < allSlots.length; i++) {
+    if (monthSlotIds.has(allSlots[i].id)) {
+      allSlots[i].status = "approved";
+      allSlots[i].updated_at = new Date();
+    }
+  }
+  saveToStorage(KEYS.dutySlots, allSlots);
+  triggerAutoSave('dutySlots');
+
+  // Sync slot status updates to Supabase
+  for (const slot of monthSlots) {
+    syncToSupabase(
+      () => supabaseUpdateDutySlot(slot.id, { status: "approved" }),
+      `approveSlotStatus-${slot.id}`
+    );
+  }
+
+  console.log(`[approveRoster] Updated ${monthSlots.length} slots to 'approved' status`);
 
   // Update cached scores on personnel records (for quick lookups)
   // This recalculates the entire score from events for accuracy
@@ -1856,6 +1889,55 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
   if (filtered.length === approvals.length) return false;
   saveToStorage(KEYS.approvedRosters, filtered);
   triggerAutoSave('approvedRosters');
+
+  // Revert slot status from "approved" back to "scheduled"
+  const startDate = new Date(year, month, 1);
+  const endDate = new Date(year, month + 1, 0);
+  const startDateStr = formatDateToString(startDate);
+  const endDateStr = formatDateToString(endDate);
+
+  const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  const dutyTypes = getAllDutyTypes();
+  const allUnitIdsInScope = getAllDescendantUnitIds(unitId);
+  const unitDutyTypeIds = new Set(
+    dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map((dt) => dt.id)
+  );
+
+  const slotsToRevert: string[] = [];
+  for (let i = 0; i < allSlots.length; i++) {
+    const slot = allSlots[i];
+    const dateValue = slot.date_assigned as unknown;
+    const slotDateStr = dateValue instanceof Date
+      ? formatDateToString(dateValue)
+      : String(dateValue).split('T')[0];
+
+    if (
+      slotDateStr >= startDateStr &&
+      slotDateStr <= endDateStr &&
+      unitDutyTypeIds.has(slot.duty_type_id) &&
+      slot.status === "approved"
+    ) {
+      allSlots[i].status = "scheduled";
+      allSlots[i].updated_at = new Date();
+      slotsToRevert.push(slot.id);
+    }
+  }
+
+  if (slotsToRevert.length > 0) {
+    saveToStorage(KEYS.dutySlots, allSlots);
+    triggerAutoSave('dutySlots');
+
+    // Sync slot status updates to Supabase
+    for (const slotId of slotsToRevert) {
+      syncToSupabase(
+        () => supabaseUpdateDutySlot(slotId, { status: "scheduled" }),
+        `revertSlotStatus-${slotId}`
+      );
+    }
+
+    console.log(`[unapproveRoster] Reverted ${slotsToRevert.length} slots to 'scheduled' status`);
+  }
+
   return true;
 }
 

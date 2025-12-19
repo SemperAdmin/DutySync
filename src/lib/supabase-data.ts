@@ -2557,7 +2557,7 @@ export async function createDutyScoreEventsWithMapping(
   const personnelIds = [...personnelByServiceId.values()];
   const dateEarnedValues = [...new Set(events.map(e => e.dateEarned))];
 
-  let dutySlotMap = new Map<string, string>(); // key: "dutyTypeId:personnelId:dateAssigned" -> slot id
+  const dutySlotMap = new Map<string, string>(); // key: "dutyTypeId:personnelId:dateAssigned" -> slot id
 
   if (dutyTypeIds.length > 0 && personnelIds.length > 0 && dateEarnedValues.length > 0) {
     const slotsResult = await supabase
