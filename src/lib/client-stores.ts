@@ -50,6 +50,7 @@ import {
   createDutySlotWithMapping as supabaseCreateDutySlotWithMapping,
   deleteDutySlotWithMapping as supabaseDeleteDutySlotWithMapping,
   deleteDutySlotsByDutyTypeWithMapping as supabaseDeleteDutySlotsByDutyTypeWithMapping,
+  createDutyScoreEventsWithMapping as supabaseCreateDutyScoreEventsWithMapping,
 } from "@/lib/supabase-data";
 
 // Import sync status tracking
@@ -1899,23 +1900,66 @@ export function createDutyScoreEvents(newEvents: DutyScoreEvent[]): number {
   saveToStorage(KEYS.dutyScoreEvents, events);
   triggerAutoSave('dutyScoreEvents');
 
-  // Sync to Supabase in background
-  const supabaseEvents = newEvents.map((e) => ({
-    id: e.id,
-    personnel_id: e.personnel_id,
-    duty_slot_id: e.duty_slot_id || null,
-    unit_section_id: e.unit_section_id,
-    duty_type_name: e.duty_type_name,
-    points: e.points,
-    date_earned: formatDateToString(new Date(e.date_earned)),
-    roster_month: e.roster_month,
-    approved_by: e.approved_by || null,
-    created_at: new Date(e.created_at).toISOString(),
-  }));
-  syncToSupabase(
-    () => supabaseCreateDutyScoreEvents(supabaseEvents),
-    "createDutyScoreEvents"
-  );
+  // Get RUC code for Supabase sync
+  const rucCode = getCurrentRuc();
+  if (!rucCode) {
+    console.warn("[createDutyScoreEvents] No RUC code available, skipping Supabase sync");
+    return newEvents.length;
+  }
+
+  // Map events with service_id and unit_name for Supabase sync
+  const mappedEvents: Array<{
+    personnelServiceId: string;
+    dutyTypeName: string;
+    unitName: string;
+    points: number;
+    dateEarned: string;
+    rosterMonth: string;
+    approvedByServiceId?: string;
+  }> = [];
+
+  for (const e of newEvents) {
+    // Look up personnel to get service_id
+    const personnel = getPersonnelById(e.personnel_id);
+    if (!personnel) {
+      console.warn(`[createDutyScoreEvents] Personnel not found: ${e.personnel_id}`);
+      continue;
+    }
+
+    // Look up unit to get unit_name
+    const unit = getUnitSectionById(e.unit_section_id);
+    if (!unit) {
+      console.warn(`[createDutyScoreEvents] Unit not found: ${e.unit_section_id}`);
+      continue;
+    }
+
+    // Look up approver service_id if approved_by is set
+    let approverServiceId: string | undefined;
+    if (e.approved_by) {
+      const approver = getPersonnelById(e.approved_by);
+      if (approver) {
+        approverServiceId = approver.service_id;
+      }
+    }
+
+    mappedEvents.push({
+      personnelServiceId: personnel.service_id,
+      dutyTypeName: e.duty_type_name,
+      unitName: unit.unit_name,
+      points: e.points,
+      dateEarned: formatDateToString(new Date(e.date_earned)),
+      rosterMonth: e.roster_month,
+      approvedByServiceId: approverServiceId,
+    });
+  }
+
+  // Sync to Supabase using mapping function
+  if (mappedEvents.length > 0) {
+    syncToSupabase(
+      () => supabaseCreateDutyScoreEventsWithMapping(rucCode, mappedEvents),
+      "createDutyScoreEventsWithMapping"
+    );
+  }
 
   return newEvents.length;
 }
