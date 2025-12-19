@@ -1757,11 +1757,6 @@ export function approveRoster(
     );
   });
 
-  console.log(`[approveRoster] Date range: ${startDateStr} to ${endDateStr}`);
-  console.log(`[approveRoster] Total slots in storage: ${allSlots.length}`);
-  console.log(`[approveRoster] Unit duty type IDs in scope: ${unitDutyTypeIds.size}`);
-  console.log(`[approveRoster] Slots matching month and unit: ${monthSlots.length}`);
-
   // Create duty score events and calculate personnel totals
   const personnelScores = new Map<string, number>();
   const scoreEvents: DutyScoreEvent[] = [];
@@ -1814,12 +1809,10 @@ export function approveRoster(
   const eventsCreated = createDutyScoreEvents(scoreEvents);
 
   // Update slot status to "approved" for all slots in this roster
-  const monthSlotIds = new Set(monthSlots.map(s => s.id));
-  for (let i = 0; i < allSlots.length; i++) {
-    if (monthSlotIds.has(allSlots[i].id)) {
-      allSlots[i].status = "approved";
-      allSlots[i].updated_at = new Date();
-    }
+  // monthSlots contains references to objects in allSlots, so we can update them directly
+  for (const slot of monthSlots) {
+    slot.status = "approved";
+    slot.updated_at = new Date();
   }
   saveToStorage(KEYS.dutySlots, allSlots);
   triggerAutoSave('dutySlots');
@@ -1848,8 +1841,6 @@ export function approveRoster(
       );
     }
   }
-
-  console.log(`[approveRoster] Updated ${monthSlots.length} slots to 'approved' status`);
 
   // Update cached scores on personnel records (for quick lookups)
   // This recalculates the entire score from events for accuracy
@@ -1984,8 +1975,6 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
         );
       }
     }
-
-    console.log(`[unapproveRoster] Reverted ${slotsToRevert.length} slots to 'scheduled' status`);
   }
 
   return true;

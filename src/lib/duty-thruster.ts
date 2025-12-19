@@ -171,8 +171,9 @@ interface EligiblePersonnel {
 
 /**
  * Calculate duty points for a given date
+ * Exported for reuse in other modules
  */
-function calculateDutyPoints(date: Date, dutyValue: DutyValue | undefined): number {
+export function calculateDutyPoints(date: Date, dutyValue: DutyValue | undefined): number {
   const baseWeight = dutyValue?.base_weight ?? 1.0;
   const weekendMultiplier = dutyValue?.weekend_multiplier ?? DEFAULT_WEEKEND_MULTIPLIER;
   const holidayMultiplier = dutyValue?.holiday_multiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
