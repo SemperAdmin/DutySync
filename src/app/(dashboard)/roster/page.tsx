@@ -400,12 +400,12 @@ export default function RosterPage() {
   }
 
   // Handle roster approval
-  function handleApproveRoster() {
+  async function handleApproveRoster() {
     if (!user || !unitAdminUnitId) return;
 
     setApproving(true);
     try {
-      const result = approveRoster(
+      const result = await approveRoster(
         unitAdminUnitId,
         currentDate.getFullYear(),
         currentDate.getMonth(),
@@ -413,7 +413,34 @@ export default function RosterPage() {
       );
       setRosterApproval(result.approval);
       setApproveModal(false);
-      alert(`Roster approved! ${result.scoresApplied} personnel duty scores have been updated.`);
+
+      // Build detailed status message
+      let message = `Roster approved! ${result.scoresApplied} personnel duty scores have been updated.`;
+
+      // Add sync status if Supabase is configured
+      if (result.syncStatus) {
+        const { slotsUpdated, slotErrors, scoresUpdated, scoreErrors, allSynced } = result.syncStatus;
+
+        if (allSynced) {
+          message += `\n\nDatabase sync: All changes synced successfully.`;
+        } else {
+          message += `\n\nDatabase sync status:`;
+          message += `\n• Slots: ${slotsUpdated} synced`;
+          message += `\n• Scores: ${scoresUpdated} synced`;
+
+          if (slotErrors.length > 0 || scoreErrors.length > 0) {
+            message += `\n\n⚠️ Some sync errors occurred:`;
+            if (slotErrors.length > 0) {
+              message += `\n• Slot errors: ${slotErrors.slice(0, 3).join(', ')}`;
+            }
+            if (scoreErrors.length > 0) {
+              message += `\n• Score errors: ${scoreErrors.slice(0, 3).join(', ')}`;
+            }
+          }
+        }
+      }
+
+      alert(message);
       fetchData(); // Refresh data
     } catch (err) {
       console.error("Error approving roster:", err);

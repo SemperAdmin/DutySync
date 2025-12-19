@@ -1879,9 +1879,16 @@ export async function updateDutySlotsStatusWithMapping(
       continue;
     }
 
+    // Set points = 0 to prevent the database trigger from also adding points
+    // (trigger checks NEW.points > 0 before adding to personnel.current_duty_score)
+    // The app handles score calculations directly via personnel score sync.
     const { error } = await supabase
       .from("duty_slots")
-      .update({ status: newStatus, updated_at: new Date().toISOString() } as never)
+      .update({
+        status: newStatus,
+        points: 0, // Prevent trigger from double-counting scores
+        updated_at: new Date().toISOString()
+      } as never)
       .eq("duty_type_id", dutyTypeId)
       .eq("personnel_id", personnelId)
       .eq("date_assigned", slot.dateAssigned);
