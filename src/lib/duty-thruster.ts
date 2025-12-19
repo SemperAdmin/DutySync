@@ -355,10 +355,13 @@ function getEligiblePersonnel(
 
 /**
  * Generate dates between start and end (inclusive)
+ * Uses date string comparison to avoid timezone issues
  */
 function* generateDates(startDate: Date, endDate: Date): Generator<Date> {
   const current = new Date(startDate);
-  while (current <= endDate) {
+  const endDateStr = formatDateToString(endDate);
+
+  while (formatDateToString(current) <= endDateStr) {
     yield new Date(current);
     current.setDate(current.getDate() + 1);
   }

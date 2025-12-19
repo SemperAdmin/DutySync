@@ -652,19 +652,16 @@ export default function RosterPage() {
   }
 
   // Detect personnel with duplicate assignments in the current month view
+  // Note: slots is already filtered by month via getEnrichedSlots(startDate, endDate)
   const duplicatePersonnelIds = useMemo(() => {
     const duplicates = new Set<string>();
     const personnelAssignmentCount = new Map<string, number>();
 
-    // Count assignments per personnel in the current month
+    // Count assignments per personnel
     for (const slot of slots) {
       if (!slot.personnel_id) continue;
-      const slotDate = new Date(slot.date_assigned);
-      // Only check slots in the current month view
-      if (slotDate.getMonth() === currentDate.getMonth() && slotDate.getFullYear() === currentDate.getFullYear()) {
-        const count = personnelAssignmentCount.get(slot.personnel_id) || 0;
-        personnelAssignmentCount.set(slot.personnel_id, count + 1);
-      }
+      const count = personnelAssignmentCount.get(slot.personnel_id) || 0;
+      personnelAssignmentCount.set(slot.personnel_id, count + 1);
     }
 
     // Mark personnel with more than one assignment as duplicates
@@ -675,7 +672,7 @@ export default function RosterPage() {
     }
 
     return duplicates;
-  }, [slots, currentDate]);
+  }, [slots]);
 
   // Check if a slot's personnel is a duplicate in the current month
   function isPersonnelDuplicate(personnelId: string | null): boolean {
@@ -2450,8 +2447,8 @@ export default function RosterPage() {
               </div>
             </div>
             <div className="p-4 border-t border-border flex justify-between sticky bottom-0 bg-surface">
-              {/* Clear Roster button - only for Unit Admin */}
-              {isUnitAdmin && isUnitAdminView && dutyTypeDetailsModal.dutyType && (
+              {/* Clear Roster button - only for Unit Admin, disabled when roster is locked */}
+              {isUnitAdmin && isUnitAdminView && dutyTypeDetailsModal.dutyType && !rosterApproval && (
                 <Button
                   variant="accent"
                   onClick={() => {
