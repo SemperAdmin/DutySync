@@ -1541,15 +1541,25 @@ function getRucCodeFromUnitHierarchy(unitId: string): string | null {
   const units = getFromStorage<UnitSection>(KEYS.units);
   let currentUnit = units.find(u => u.id === unitId);
 
+  console.log("[getRucCodeFromUnitHierarchy] DEBUG: Starting search for unitId:", unitId);
+  console.log("[getRucCodeFromUnitHierarchy] DEBUG: Found unit:", currentUnit ? { id: currentUnit.id, name: currentUnit.unit_name, ruc: currentUnit.ruc } : null);
+
   // Traverse up the hierarchy looking for a unit with a RUC code
   while (currentUnit) {
     if (currentUnit.ruc) {
+      console.log("[getRucCodeFromUnitHierarchy] DEBUG: Found RUC:", currentUnit.ruc, "on unit:", currentUnit.unit_name);
       return currentUnit.ruc;
     }
-    if (!currentUnit.parent_id) break;
-    currentUnit = units.find(u => u.id === currentUnit!.parent_id);
+    if (!currentUnit.parent_id) {
+      console.log("[getRucCodeFromUnitHierarchy] DEBUG: No parent_id, stopping at unit:", currentUnit.unit_name);
+      break;
+    }
+    const parentUnit = units.find(u => u.id === currentUnit!.parent_id);
+    console.log("[getRucCodeFromUnitHierarchy] DEBUG: Traversing to parent:", parentUnit ? { id: parentUnit.id, name: parentUnit.unit_name, ruc: parentUnit.ruc } : null);
+    currentUnit = parentUnit;
   }
 
+  console.log("[getRucCodeFromUnitHierarchy] DEBUG: No RUC found in hierarchy");
   return null;
 }
 
@@ -1966,14 +1976,27 @@ export async function approveRoster(
   };
 
   // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
-  const rucCode = validateRucForSync("approveRoster-slots", monthSlots.length);
+  // Get RUC from unit hierarchy first, fallback to session RUC
+  const rucCode = getRucCodeFromUnitHierarchy(unitId) || validateRucForSync("approveRoster-slots", monthSlots.length);
+  console.log("[approveRoster] DEBUG: rucCode =", rucCode, "(from unit hierarchy or session)");
+  console.log("[approveRoster] DEBUG: unitId =", unitId);
+  console.log("[approveRoster] DEBUG: monthSlots.length =", monthSlots.length);
   if (rucCode) {
     const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
+    console.log("[approveRoster] DEBUG: personnelById size =", personnelById.size);
     const slotsToUpdate = monthSlots
       .filter(slot => slot.personnel_id)
       .map(slot => {
         const dutyType = dutyTypesById.get(slot.duty_type_id);
         const person = personnelById.get(slot.personnel_id);
+        console.log("[approveRoster] DEBUG: Mapping slot:", {
+          slotId: slot.id,
+          dutyTypeId: slot.duty_type_id,
+          personnelId: slot.personnel_id,
+          dutyTypeName: dutyType?.duty_name,
+          serviceId: person?.service_id,
+          dateAssigned: slot.date_assigned,
+        });
         return {
           dutyTypeName: dutyType?.duty_name || "",
           personnelServiceId: person?.service_id || "",
@@ -1982,9 +2005,12 @@ export async function approveRoster(
       })
       .filter(s => s.dutyTypeName && s.personnelServiceId);
 
+    console.log("[approveRoster] DEBUG: slotsToUpdate =", JSON.stringify(slotsToUpdate, null, 2));
+
     if (slotsToUpdate.length > 0) {
       // Await the slot status sync and capture results
       try {
+        console.log("[approveRoster] DEBUG: Calling supabaseUpdateDutySlotsStatusWithMapping with rucCode:", rucCode);
         const result = await supabaseUpdateDutySlotsStatusWithMapping(rucCode, slotsToUpdate, "approved");
         syncStatus.slotsUpdated = result.updated;
         syncStatus.slotsNotFound = result.notFound;
@@ -2035,12 +2061,13 @@ export async function approveRoster(
 
     // Sync personnel scores to Supabase - await all updates in parallel
     // Use service_id for lookup since local IDs may differ from Supabase IDs
-    // Use the same rucCode that was validated earlier for slot sync
-    const personnelRucCode = validateRucForSync("approveRoster-scores", updatedPersonnelScores.length);
-    if (personnelRucCode && isSupabaseConfigured()) {
+    // Use the same rucCode that was determined earlier for slot sync (from unit hierarchy)
+    // This ensures we use the correct organization context
+    if (rucCode && isSupabaseConfigured()) {
+      console.log("[approveRoster] DEBUG: Syncing personnel scores with rucCode:", rucCode);
       const scorePromises = updatedPersonnelScores.map(async ({ serviceId, newScore }) => {
         try {
-          const success = await supabaseUpdatePersonnelByServiceId(personnelRucCode, serviceId, { current_duty_score: newScore });
+          const success = await supabaseUpdatePersonnelByServiceId(rucCode, serviceId, { current_duty_score: newScore });
           if (success) {
             syncStatus.scoresUpdated++;
             return { success: true, serviceId };

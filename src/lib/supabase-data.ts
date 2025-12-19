@@ -1861,7 +1861,17 @@ export async function updateDutySlotsStatusWithMapping(
   }>,
   newStatus: "scheduled" | "approved" | "completed" | "missed" | "swapped"
 ): Promise<{ updated: number; errors: string[]; notFound: number }> {
-  if (!isSupabaseConfigured()) return { updated: 0, errors: ["Supabase not configured"], notFound: 0 };
+  console.log("[updateDutySlotsStatusWithMapping] DEBUG: Called with:", {
+    rucCode,
+    slotsCount: slots.length,
+    newStatus,
+    firstSlot: slots[0],
+  });
+
+  if (!isSupabaseConfigured()) {
+    console.log("[updateDutySlotsStatusWithMapping] DEBUG: Supabase not configured");
+    return { updated: 0, errors: ["Supabase not configured"], notFound: 0 };
+  }
   if (slots.length === 0) return { updated: 0, errors: [], notFound: 0 };
 
   const supabase = getSupabase();
@@ -1870,6 +1880,7 @@ export async function updateDutySlotsStatusWithMapping(
   let notFound = 0;
 
   // Look up organization by RUC code first (Issue #31: validate org context)
+  console.log("[updateDutySlotsStatusWithMapping] DEBUG: Looking up org for RUC:", rucCode);
   const orgResult = await supabase
     .from("organizations")
     .select("id")
@@ -1877,13 +1888,25 @@ export async function updateDutySlotsStatusWithMapping(
     .maybeSingle();
   const org = orgResult.data as { id: string } | null;
 
+  console.log("[updateDutySlotsStatusWithMapping] DEBUG: Org lookup result:", {
+    org,
+    error: orgResult.error?.message,
+  });
+
   if (orgResult.error || !org) {
+    console.log("[updateDutySlotsStatusWithMapping] DEBUG: Org not found for RUC:", rucCode);
     return { updated: 0, errors: [`Organization not found for RUC: ${rucCode}`], notFound: 0 };
   }
 
   // Get all unique duty type names and personnel service IDs
   const dutyTypeNames = [...new Set(slots.map(s => s.dutyTypeName))];
   const serviceIds = [...new Set(slots.map(s => s.personnelServiceId))];
+
+  console.log("[updateDutySlotsStatusWithMapping] DEBUG: Looking up duty types and personnel:", {
+    orgId: org.id,
+    dutyTypeNames,
+    serviceIds,
+  });
 
   // Batch lookup duty types and personnel in parallel
   // Both are scoped by organization_id to ensure correct mapping
@@ -1899,6 +1922,13 @@ export async function updateDutySlotsStatusWithMapping(
       .eq("organization_id", org.id)
       .in("service_id", serviceIds),
   ]);
+
+  console.log("[updateDutySlotsStatusWithMapping] DEBUG: Lookup results:", {
+    dutyTypesData: dutyTypesResult.data,
+    dutyTypesError: dutyTypesResult.error?.message,
+    personnelData: personnelResult.data,
+    personnelError: personnelResult.error?.message,
+  });
 
   if (dutyTypesResult.error) {
     return { updated: 0, errors: [`Error fetching duty types: ${dutyTypesResult.error.message}`], notFound: 0 };
@@ -1920,6 +1950,13 @@ export async function updateDutySlotsStatusWithMapping(
   for (const p of (personnelData || [])) {
     personnelMap.set(p.service_id, p.id);
   }
+
+  console.log("[updateDutySlotsStatusWithMapping] DEBUG: Lookup maps built:", {
+    dutyTypeMapSize: dutyTypeMap.size,
+    personnelMapSize: personnelMap.size,
+    dutyTypeMapEntries: [...dutyTypeMap.entries()],
+    personnelMapEntries: [...personnelMap.entries()],
+  });
 
   // Prepare update operations with resolved IDs
   interface UpdateOperation {
@@ -1970,6 +2007,13 @@ export async function updateDutySlotsStatusWithMapping(
     // Execute batch in parallel
     const results = await Promise.all(
       batch.map(async (op) => {
+        console.log("[updateDutySlotsStatusWithMapping] DEBUG: Updating slot:", {
+          dutyTypeId: op.dutyTypeId,
+          personnelId: op.personnelId,
+          dateAssigned: op.dateAssigned,
+          newStatus,
+        });
+
         // Issue #26, #29: Use .select() to verify rows were actually updated
         // Use the actual UNIQUE constraint columns: (duty_type_id, personnel_id, date_assigned)
         const { data, error } = await supabase
@@ -1985,6 +2029,12 @@ export async function updateDutySlotsStatusWithMapping(
           .eq("personnel_id", op.personnelId)
           .eq("date_assigned", op.dateAssigned)
           .select("id"); // Issue #26, #29: Verify update occurred
+
+        console.log("[updateDutySlotsStatusWithMapping] DEBUG: Update result:", {
+          data,
+          error: error?.message,
+          rowsAffected: data?.length || 0,
+        });
 
         return { op, data, error };
       })
