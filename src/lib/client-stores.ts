@@ -3260,7 +3260,7 @@ export function updateDutyChangeRequest(
 export function acceptSwapRequest(
   requestId: string,
   accepterId: string
-): { success: boolean; error?: string } {
+): { success: boolean; error?: string; swapCompleted?: boolean } {
   const request = getDutyChangeRequestById(requestId);
   if (!request) return { success: false, error: 'Request not found' };
   if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
@@ -3287,7 +3287,24 @@ export function acceptSwapRequest(
     });
   }
 
-  return { success: true };
+  // Check if swap is now fully approved (both accepted + all approvals complete)
+  // This handles the case where no approvals are needed
+  if (isSwapFullyApproved(request.swap_pair_id)) {
+    const swapError = _executeDutySwap(request.swap_pair_id);
+    if (swapError) {
+      return { success: false, error: swapError };
+    }
+
+    // Mark both requests as approved
+    const requests = getDutyChangeRequestsBySwapPairId(request.swap_pair_id);
+    for (const req of requests) {
+      updateDutyChangeRequest(req.id, { status: 'approved' });
+    }
+
+    return { success: true, swapCompleted: true };
+  }
+
+  return { success: true, swapCompleted: false };
 }
 
 /**
