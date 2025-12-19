@@ -2485,6 +2485,156 @@ export async function createDutyScoreEvents(
   return result;
 }
 
+/**
+ * Create duty score events with mapping from local to Supabase IDs.
+ * Maps:
+ * - personnel: by service_id
+ * - unit_section: by unit_name within organization
+ * - duty_slot: by unique constraint (duty_type_id, personnel_id, date_assigned)
+ */
+export async function createDutyScoreEventsWithMapping(
+  rucCode: string,
+  events: Array<{
+    personnelServiceId: string;
+    dutyTypeName: string;
+    unitName: string;
+    points: number;
+    dateEarned: string;
+    rosterMonth: string;
+    approvedByServiceId?: string;
+  }>
+): Promise<{ created: number; errors: string[] }> {
+  if (!isSupabaseConfigured()) return { created: 0, errors: ["Supabase not configured"] };
+  if (events.length === 0) return { created: 0, errors: [] };
+
+  const supabase = getSupabase();
+  const result = { created: 0, errors: [] as string[] };
+
+  // Look up organization by RUC code
+  const orgResult = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("ruc_code", rucCode)
+    .maybeSingle();
+  const org = orgResult.data as { id: string } | null;
+
+  if (orgResult.error || !org) {
+    result.errors.push(`Organization not found by RUC code: ${rucCode}`);
+    return result;
+  }
+
+  // Gather unique values for batch lookup
+  const serviceIds = [...new Set(events.map(e => e.personnelServiceId))];
+  const unitNames = [...new Set(events.map(e => e.unitName))];
+  const dutyTypeNames = [...new Set(events.map(e => e.dutyTypeName))];
+  const approverServiceIds = [...new Set(events.filter(e => e.approvedByServiceId).map(e => e.approvedByServiceId!))];
+
+  // Batch lookup in parallel
+  type PersonnelRow = { id: string; service_id: string };
+  type UnitRow = { id: string; unit_name: string };
+  type DutyTypeRow = { id: string; name: string };
+
+  const allServiceIds = [...new Set([...serviceIds, ...approverServiceIds])];
+  const [personnelResult, unitsResult, dutyTypesResult] = await Promise.all([
+    supabase.from("personnel").select("id, service_id").in("service_id", allServiceIds).then(r => ({ data: r.data as PersonnelRow[] | null, error: r.error })),
+    supabase.from("units").select("id, unit_name").eq("organization_id", org.id).in("unit_name", unitNames).then(r => ({ data: r.data as UnitRow[] | null, error: r.error })),
+    supabase.from("duty_types").select("id, name").eq("organization_id", org.id).in("name", dutyTypeNames).then(r => ({ data: r.data as DutyTypeRow[] | null, error: r.error })),
+  ]);
+
+  // Build lookup maps
+  const personnelByServiceId = new Map<string, string>();
+  personnelResult.data?.forEach(p => personnelByServiceId.set(p.service_id, p.id));
+
+  const unitByName = new Map<string, string>();
+  unitsResult.data?.forEach(u => unitByName.set(u.unit_name, u.id));
+
+  const dutyTypeByName = new Map<string, string>();
+  dutyTypesResult.data?.forEach(dt => dutyTypeByName.set(dt.name, dt.id));
+
+  // Map events to Supabase format
+  const validInserts: Array<{
+    personnel_id: string;
+    duty_slot_id: string | null;
+    unit_section_id: string;
+    duty_type_name: string;
+    points: number;
+    date_earned: string;
+    roster_month: string;
+    approved_by: string | null;
+  }> = [];
+
+  for (const event of events) {
+    const personnelId = personnelByServiceId.get(event.personnelServiceId);
+    if (!personnelId) {
+      result.errors.push(`Personnel not found: ${event.personnelServiceId}`);
+      continue;
+    }
+
+    const unitId = unitByName.get(event.unitName);
+    if (!unitId) {
+      result.errors.push(`Unit not found: ${event.unitName}`);
+      continue;
+    }
+
+    const dutyTypeId = dutyTypeByName.get(event.dutyTypeName);
+    // duty_type_id is optional for duty_slot lookup
+
+    // Try to find the duty slot by unique constraint
+    let dutySlotId: string | null = null;
+    if (dutyTypeId) {
+      const slotResult = await supabase
+        .from("duty_slots")
+        .select("id")
+        .eq("duty_type_id", dutyTypeId)
+        .eq("personnel_id", personnelId)
+        .eq("date_assigned", event.dateEarned)
+        .maybeSingle();
+      dutySlotId = (slotResult.data as { id: string } | null)?.id || null;
+    }
+
+    const approvedById = event.approvedByServiceId
+      ? personnelByServiceId.get(event.approvedByServiceId) || null
+      : null;
+
+    validInserts.push({
+      personnel_id: personnelId,
+      duty_slot_id: dutySlotId,
+      unit_section_id: unitId,
+      duty_type_name: event.dutyTypeName,
+      points: event.points,
+      date_earned: event.dateEarned,
+      roster_month: event.rosterMonth,
+      approved_by: approvedById,
+    });
+  }
+
+  if (validInserts.length === 0) {
+    result.errors.push("No valid events to insert - all had missing references");
+    return result;
+  }
+
+  console.log(`[Supabase] Inserting ${validInserts.length} duty score events`);
+
+  // Insert in batches of 100
+  const batchSize = 100;
+  for (let i = 0; i < validInserts.length; i += batchSize) {
+    const batch = validInserts.slice(i, i + batchSize);
+
+    const { data, error } = await supabase
+      .from("duty_score_events")
+      .insert(batch as never)
+      .select();
+
+    if (error) {
+      result.errors.push(`Batch ${Math.floor(i / batchSize) + 1} failed: ${error.message}`);
+    } else {
+      result.created += data?.length || 0;
+    }
+  }
+
+  return result;
+}
+
 // Delete score events for a roster month (useful when un-approving)
 export async function deleteScoreEventsByRosterMonth(
   rosterMonth: string,
