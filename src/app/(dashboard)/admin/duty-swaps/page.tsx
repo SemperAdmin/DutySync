@@ -2,22 +2,21 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
-import type { Personnel, RoleName, DutyType, DutyChangeRequest, SwapRecommendation } from "@/types";
+import type { Personnel, RoleName, DutyType, SwapApproval, SwapRecommendation } from "@/types";
 import {
   getAllPersonnel,
-  getEnrichedDutyChangeRequests,
-  createDutyChangeRequest,
-  approveDutyChangeRequest,
-  rejectDutyChangeRequest,
-  deleteDutyChangeRequest,
-  determineApproverLevel,
+  getEnrichedSwapPairs,
+  createDutySwap,
+  approveSwapApproval,
+  rejectSwap,
+  deleteSwap,
+  acceptSwapRequest,
+  determineRequiredApprovalLevel,
   canApproveChangeRequest,
   canRecommendChangeRequest,
-  addRecommendation,
-  getApproverLevelName,
+  addSwapRecommendation,
   meetsAllDutyRequirements,
-  buildSwapApprovals,
-  type EnrichedDutyChangeRequest,
+  type EnrichedSwapPair,
   getUnitSections,
   getPersonnelByEdipi,
   getChildUnits,
@@ -27,6 +26,7 @@ import {
   getAllDescendantUnitIds,
   isRosterApproved,
   type EnrichedSlot,
+  getSwapApprovalsByRequestId,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/supabase-auth";
 import {
@@ -62,7 +62,7 @@ function formatDate(date: Date | string): string {
 
 export default function DutySwapsPage() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState<EnrichedDutyChangeRequest[]>([]);
+  const [swapPairs, setSwapPairs] = useState<EnrichedSwapPair[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,8 +171,8 @@ export default function DutySwapsPage() {
       const dutyTypesData = getAllDutyTypes();
       setDutyTypes(dutyTypesData);
 
-      const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
-      setRequests(requestsData);
+      const swapPairsData = getEnrichedSwapPairs(statusFilter === "all" ? undefined : statusFilter as 'pending' | 'approved' | 'rejected');
+      setSwapPairs(swapPairsData);
 
       // Fetch slots for current and next month (for swap requests)
       const now = new Date();
@@ -195,82 +195,99 @@ export default function DutySwapsPage() {
   // Listen for sync updates and refresh automatically
   useSyncRefresh(["personnel", "dutyTypes", "dutySlots"], fetchData);
 
-  // Check if user can approve a specific request
-  const canApproveRequest = (request: EnrichedDutyChangeRequest): boolean => {
-    if (!user?.roles) return false;
-    if (effectiveIsAppAdmin) return true;
+  // Filter swap pairs based on user's scope
+  const filteredSwapPairs = useMemo(() => {
+    if (effectiveIsAppAdmin) return swapPairs;
 
-    return canApproveChangeRequest(
-      user.roles.map(r => ({ name: r.role_name, scope_unit_id: r.scope_unit_id })),
-      request.required_approver_level,
-      request.original_personnel_id,
-      request.target_personnel_id
-    );
-  };
-
-  // Check if user can recommend (but not approve) a specific request
-  const canRecommendRequest = (request: EnrichedDutyChangeRequest): boolean => {
-    if (!user?.roles) return false;
-    // Admins should approve, not recommend
-    if (effectiveIsAppAdmin) return false;
-    // If user can approve, they should approve not recommend
-    if (canApproveRequest(request)) return false;
-
-    return canRecommendChangeRequest(
-      user.roles.map(r => ({ name: r.role_name, scope_unit_id: r.scope_unit_id })),
-      request.original_personnel_id,
-      request.target_personnel_id
-    );
-  };
-
-  // Check if user has already recommended this request
-  const hasRecommended = (request: EnrichedDutyChangeRequest): SwapRecommendation | undefined => {
-    if (!user?.id) return undefined;
-    return request.recommendations?.find(r => r.recommender_id === user.id);
-  };
-
-  // Filter requests based on user's scope
-  const filteredRequests = useMemo(() => {
-    if (effectiveIsAppAdmin) return requests;
-
-    // Show requests the user is involved in
-    const myRequests = requests.filter(r => {
+    // Show swap pairs the user is involved in
+    const mySwapPairs = swapPairs.filter(pair => {
       // User is the requester
-      if (r.requester_id === user?.id) return true;
+      if (pair.requester_id === user?.id) return true;
       // User is one of the personnel involved
       if (currentUserPersonnel && (
-        r.original_personnel_id === currentUserPersonnel.id ||
-        r.target_personnel_id === currentUserPersonnel.id
+        pair.personA.personnel_id === currentUserPersonnel.id ||
+        pair.personB.personnel_id === currentUserPersonnel.id
       )) return true;
-      // User can approve this request
-      if (canApproveRequest(r)) return true;
-      // User can recommend this request
-      if (canRecommendRequest(r)) return true;
+      // User can approve one of the approval steps
+      const canApproveA = pair.personA.approvals.some(a =>
+        a.status === 'pending' && canApproveApprovalStep(a)
+      );
+      const canApproveB = pair.personB.approvals.some(a =>
+        a.status === 'pending' && canApproveApprovalStep(a)
+      );
+      if (canApproveA || canApproveB) return true;
       return false;
     });
 
-    return myRequests;
-  }, [requests, effectiveIsAppAdmin, user?.id, currentUserPersonnel]);
+    return mySwapPairs;
+  }, [swapPairs, effectiveIsAppAdmin, user?.id, currentUserPersonnel]);
 
-  // Refresh requests data from storage
-  function refreshRequests() {
-    const requestsData = getEnrichedDutyChangeRequests(statusFilter === "all" ? undefined : statusFilter);
-    setRequests(requestsData);
+  // Check if user can approve a specific approval step
+  function canApproveApprovalStep(approval: SwapApproval): boolean {
+    if (!user?.roles) return false;
+
+    // Match approver_type to role names
+    const roleMapping: Record<string, RoleName> = {
+      'work_section_manager': 'Work Section Manager',
+      'section_manager': 'Section Manager',
+      'company_manager': 'Company Manager',
+    };
+
+    const requiredRole = roleMapping[approval.approver_type];
+    if (!requiredRole) return false;
+
+    return user.roles.some(role => {
+      if (role.role_name !== requiredRole) return false;
+      // Check scope - null scope means company-wide
+      if (!approval.scope_unit_id) return true;
+      if (!role.scope_unit_id) return true;
+      // Check if user's scope includes the approval's scope
+      const scopeUnits = getAllDescendantUnitIds(role.scope_unit_id);
+      return scopeUnits.includes(approval.scope_unit_id);
+    });
   }
 
-  // Handle approve
-  async function handleApprove(requestId: string) {
+  // Refresh swap pairs data from storage
+  function refreshSwapPairs() {
+    const swapPairsData = getEnrichedSwapPairs(statusFilter === "all" ? undefined : statusFilter as 'pending' | 'approved' | 'rejected');
+    setSwapPairs(swapPairsData);
+  }
+
+  // Handle approve an approval step
+  async function handleApproveStep(approvalId: string) {
+    if (!user) return;
+    setProcessingId(approvalId);
+    try {
+      const result = approveSwapApproval(approvalId, user.id);
+      if (result.success) {
+        refreshSwapPairs();
+        if (result.swapCompleted) {
+          alert("Swap completed! Both duties have been exchanged.");
+        }
+      } else {
+        alert(result.error || "Failed to approve");
+      }
+    } catch (err) {
+      console.error("Error approving:", err);
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  // Handle accept swap (partner acceptance)
+  async function handleAcceptSwap(requestId: string) {
     if (!user) return;
     setProcessingId(requestId);
     try {
-      const result = approveDutyChangeRequest(requestId, user.id);
+      const result = acceptSwapRequest(requestId, user.id);
       if (result.success) {
-        refreshRequests();
+        refreshSwapPairs();
+        alert("Swap request accepted! Waiting for manager approvals.");
       } else {
-        alert(result.error || "Failed to approve request");
+        alert(result.error || "Failed to accept swap");
       }
     } catch (err) {
-      console.error("Error approving request:", err);
+      console.error("Error accepting swap:", err);
     } finally {
       setProcessingId(null);
     }
@@ -290,8 +307,8 @@ export default function DutySwapsPage() {
 
     setProcessingId(rejectModal.requestId);
     try {
-      rejectDutyChangeRequest(rejectModal.requestId, user.id, rejectModal.reason);
-      refreshRequests();
+      rejectSwap(rejectModal.requestId, user.id, rejectModal.reason);
+      refreshSwapPairs();
       setRejectModal({ isOpen: false, requestId: null, reason: "" });
     } catch (err) {
       console.error("Error rejecting request:", err);
@@ -312,23 +329,15 @@ export default function DutySwapsPage() {
       return;
     }
 
-    // Get user's manager role name
-    const managerRoles = ['Work Section Manager', 'Section Manager', 'Company Manager', 'Unit Manager'];
-    const userManagerRole = user.roles?.find(r => managerRoles.includes(r.role_name));
-    const roleName = userManagerRole?.role_name || 'Manager';
-    const userName = user.displayName || user.email || 'Unknown';
-
     setProcessingId(recommendModal.requestId);
     try {
-      addRecommendation(
+      addSwapRecommendation(
         recommendModal.requestId,
         user.id,
-        userName,
-        roleName,
         recommendModal.recommendation,
         recommendModal.comment
       );
-      refreshRequests();
+      refreshSwapPairs();
       setRecommendModal({ isOpen: false, requestId: null, recommendation: 'recommend', comment: "" });
     } catch (err) {
       console.error("Error adding recommendation:", err);
@@ -338,16 +347,16 @@ export default function DutySwapsPage() {
     }
   }
 
-  // Handle delete (only for pending requests by the requester)
-  function handleDelete(requestId: string) {
-    if (!confirm("Are you sure you want to delete this request?")) return;
+  // Handle delete (only for pending swaps by the requester)
+  function handleDeleteSwap(swapPairId: string) {
+    if (!confirm("Are you sure you want to delete this swap request?")) return;
 
-    setProcessingId(requestId);
+    setProcessingId(swapPairId);
     try {
-      deleteDutyChangeRequest(requestId);
-      refreshRequests();
+      deleteSwap(swapPairId);
+      refreshSwapPairs();
     } catch (err) {
-      console.error("Error deleting request:", err);
+      console.error("Error deleting swap:", err);
     } finally {
       setProcessingId(null);
     }
@@ -502,47 +511,17 @@ export default function DutySwapsPage() {
     setSubmittingSwap(true);
 
     try {
-      const approverLevel = determineApproverLevel(
-        swapModal.originalSlot.personnel_id!,
-        swapModal.targetSlot.personnel_id!
-      );
-
-      // Build the multi-level approval workflow
-      const approvals = buildSwapApprovals(
-        swapModal.originalSlot.personnel_id!,
-        swapModal.targetSlot.personnel_id!
-      );
-
-      const request: DutyChangeRequest = {
-        id: crypto.randomUUID(),
-        requester_id: user.id,
-        requester_personnel_id: currentUserPersonnel?.id || null,
-
-        original_slot_id: swapModal.originalSlot.id,
-        original_personnel_id: swapModal.originalSlot.personnel_id!,
-        original_duty_date: new Date(swapModal.originalSlot.date_assigned),
-        original_duty_type_id: swapModal.originalSlot.duty_type_id,
-
-        target_slot_id: swapModal.targetSlot.id,
-        target_personnel_id: swapModal.targetSlot.personnel_id!,
-        target_duty_date: new Date(swapModal.targetSlot.date_assigned),
-        target_duty_type_id: swapModal.targetSlot.duty_type_id,
-
+      // Create swap with two linked rows
+      createDutySwap({
+        personAId: swapModal.originalSlot.personnel_id!,
+        personASlotId: swapModal.originalSlot.id,
+        personBId: swapModal.targetSlot.personnel_id!,
+        personBSlotId: swapModal.targetSlot.id,
+        requesterId: user.id,
         reason: swapModal.reason.trim(),
-        status: 'pending',
-        required_approver_level: approverLevel,
-        approvals: approvals,
-        recommendations: [],
-        approved_by: null,
-        approved_at: null,
-        rejection_reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+      });
 
-      createDutyChangeRequest(request);
-
-      refreshRequests();
+      refreshSwapPairs();
 
       alert("Swap request submitted successfully! The target person and chain of command will need to approve.");
 
@@ -625,12 +604,12 @@ export default function DutySwapsPage() {
         </div>
 
         <div className="ml-auto text-sm text-foreground-muted">
-          {filteredRequests.length} request{filteredRequests.length !== 1 ? "s" : ""}
+          {filteredSwapPairs.length} swap{filteredSwapPairs.length !== 1 ? "s" : ""}
         </div>
       </div>
 
-      {/* Requests Table */}
-      {filteredRequests.length === 0 ? (
+      {/* Swap Pairs Table */}
+      {filteredSwapPairs.length === 0 ? (
         <div className="bg-surface border border-border rounded-lg p-8 text-center">
           <p className="text-foreground-muted">No duty swap requests found.</p>
           <p className="text-sm text-foreground-muted mt-2">
@@ -638,153 +617,214 @@ export default function DutySwapsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-surface-elevated">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    Original Assignment
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    Swap With
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    Reason
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    Required Approval
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    Submitted
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredRequests.map((request) => (
-                  <tr key={request.id} className="hover:bg-surface-elevated/50">
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(request.status)}`}>
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm">
-                        <div className="font-medium text-foreground">
-                          {request.originalPersonnel?.rank} {request.originalPersonnel?.last_name}, {request.originalPersonnel?.first_name}
-                        </div>
-                        <div className="text-foreground-muted">
-                          {request.originalDutyType?.duty_name} - {formatDate(request.original_duty_date)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm">
-                        <div className="font-medium text-foreground">
-                          {request.targetPersonnel?.rank} {request.targetPersonnel?.last_name}, {request.targetPersonnel?.first_name}
-                        </div>
-                        <div className="text-foreground-muted">
-                          {request.targetDutyType?.duty_name} - {formatDate(request.target_duty_date)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-foreground max-w-xs truncate" title={request.reason}>
-                        {request.reason}
-                      </p>
-                      {request.rejection_reason && (
-                        <p className="text-xs text-red-400 mt-1">
-                          Rejection: {request.rejection_reason}
-                        </p>
+        <div className="space-y-4">
+          {filteredSwapPairs.map((pair) => {
+            const personADetails = pair.personADetails;
+            const personBDetails = pair.personBDetails;
+            const needsPartnerAccept = !pair.personA.partner_accepted || !pair.personB.partner_accepted;
+
+            // Find pending approvals that the current user can approve
+            const myApprovableSteps = [
+              ...pair.personA.approvals.filter(a => a.status === 'pending' && canApproveApprovalStep(a)),
+              ...pair.personB.approvals.filter(a => a.status === 'pending' && canApproveApprovalStep(a)),
+            ];
+
+            // Check if current user is the target person needing to accept
+            const isTargetPerson = currentUserPersonnel && (
+              (pair.personA.personnel_id === currentUserPersonnel.id && !pair.personA.partner_accepted) ||
+              (pair.personB.personnel_id === currentUserPersonnel.id && !pair.personB.partner_accepted)
+            );
+
+            // Get the request ID for the current user's side (for acceptance)
+            const myRequestId = currentUserPersonnel && pair.personA.personnel_id === currentUserPersonnel.id
+              ? pair.personA.request.id
+              : pair.personB.request.id;
+
+            return (
+              <div key={pair.swap_pair_id} className="bg-surface border border-border rounded-lg overflow-hidden">
+                {/* Header */}
+                <div className="p-4 border-b border-border bg-surface-elevated flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(pair.status)}`}>
+                      {pair.status.charAt(0).toUpperCase() + pair.status.slice(1)}
+                    </span>
+                    <span className="text-sm text-foreground-muted">
+                      Submitted {formatDate(pair.created_at)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {pair.status === "pending" && pair.requester_id === user?.id && (
+                      <button
+                        onClick={() => handleDeleteSwap(pair.swap_pair_id)}
+                        disabled={processingId !== null}
+                        className="px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded hover:bg-gray-500/30 disabled:opacity-50"
+                      >
+                        Cancel Request
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Swap Details */}
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Person A Side */}
+                  <div className="p-3 bg-blue-500/10 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-blue-300 uppercase tracking-wide">Person A</span>
+                      {pair.personA.partner_accepted ? (
+                        <span className="text-xs text-green-400">✓ Accepted</span>
+                      ) : (
+                        <span className="text-xs text-yellow-400">⏳ Pending Accept</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-foreground-muted">
-                        {getApproverLevelName(request.required_approver_level)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground-muted">
-                      {formatDate(request.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-2">
-                        {/* Show recommendations if any */}
-                        {request.recommendations && request.recommendations.length > 0 && (
-                          <div className="text-xs space-y-1">
-                            {request.recommendations.map((rec) => (
-                              <div key={rec.recommender_id} className={rec.recommendation === 'recommend' ? 'text-blue-300' : 'text-orange-300'}>
-                                {rec.recommendation === 'recommend' ? '👍' : '👎'} {rec.recommender_name} ({rec.role_name})
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          {request.status === "pending" && canApproveRequest(request) && (
-                            <>
-                              <button
-                                onClick={() => handleApprove(request.id)}
-                                disabled={processingId !== null}
-                                className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
-                              >
-                                {processingId === request.id ? "..." : "Approve"}
-                              </button>
-                              <button
-                                onClick={() => handleReject(request.id)}
-                                disabled={processingId !== null}
-                                className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 disabled:opacity-50"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          {request.status === "pending" && canRecommendRequest(request) && (() => {
-                            const userRecommendation = hasRecommended(request);
-                            return userRecommendation ? (
-                              <span className="text-xs text-foreground-muted">
-                                {userRecommendation.recommendation === 'recommend' ? '✓ Recommended' : '✗ Not Recommended'}
-                              </span>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => handleRecommend(request.id, 'recommend')}
-                                  disabled={processingId !== null}
-                                  className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded hover:bg-blue-500/30 disabled:opacity-50"
-                                >
-                                  Recommend
-                                </button>
-                                <button
-                                  onClick={() => handleRecommend(request.id, 'not_recommend')}
-                                  disabled={processingId !== null}
-                                  className="px-2 py-1 text-xs bg-orange-500/20 text-orange-300 rounded hover:bg-orange-500/30 disabled:opacity-50"
-                                >
-                                  Not Recommend
-                                </button>
-                              </>
-                            );
-                          })()}
-                          {request.status === "pending" && request.requester_id === user?.id && (
-                            <button
-                              onClick={() => handleDelete(request.id)}
-                              disabled={processingId !== null}
-                              className="px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded hover:bg-gray-500/30 disabled:opacity-50"
-                            >
-                              {processingId === request.id ? "..." : "Cancel"}
-                            </button>
-                          )}
-                        </div>
+                    </div>
+                    <div className="text-sm">
+                      <div className="font-medium text-foreground">
+                        {personADetails?.personnel?.rank} {personADetails?.personnel?.last_name}, {personADetails?.personnel?.first_name}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <div className="text-foreground-muted mt-1">
+                        <span className="text-red-300">Giving:</span> {personADetails?.givingDutyType?.duty_name} - {personADetails?.givingSlot && formatDate(personADetails.givingSlot.date_assigned)}
+                      </div>
+                      <div className="text-foreground-muted">
+                        <span className="text-green-300">Receiving:</span> {personADetails?.receivingDutyType?.duty_name} - {personADetails?.receivingSlot && formatDate(personADetails.receivingSlot.date_assigned)}
+                      </div>
+                    </div>
+                    {/* Person A Approval Chain */}
+                    <div className="mt-3 pt-3 border-t border-blue-500/20">
+                      <div className="text-xs text-foreground-muted mb-1">Approvals:</div>
+                      <div className="space-y-1">
+                        {pair.personA.approvals.map((approval) => (
+                          <div key={approval.id} className="flex items-center gap-2 text-xs">
+                            {approval.status === 'approved' ? (
+                              <span className="text-green-400">✓</span>
+                            ) : approval.status === 'rejected' ? (
+                              <span className="text-red-400">✗</span>
+                            ) : (
+                              <span className="text-yellow-400">○</span>
+                            )}
+                            <span className="text-foreground-muted">
+                              {approval.approver_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                            {approval.status === 'pending' && canApproveApprovalStep(approval) && (
+                              <button
+                                onClick={() => handleApproveStep(approval.id)}
+                                disabled={processingId !== null || needsPartnerAccept}
+                                className="ml-auto px-2 py-0.5 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
+                              >
+                                Approve
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Person B Side */}
+                  <div className="p-3 bg-purple-500/10 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-purple-300 uppercase tracking-wide">Person B</span>
+                      {pair.personB.partner_accepted ? (
+                        <span className="text-xs text-green-400">✓ Accepted</span>
+                      ) : (
+                        <span className="text-xs text-yellow-400">⏳ Pending Accept</span>
+                      )}
+                    </div>
+                    <div className="text-sm">
+                      <div className="font-medium text-foreground">
+                        {personBDetails?.personnel?.rank} {personBDetails?.personnel?.last_name}, {personBDetails?.personnel?.first_name}
+                      </div>
+                      <div className="text-foreground-muted mt-1">
+                        <span className="text-red-300">Giving:</span> {personBDetails?.givingDutyType?.duty_name} - {personBDetails?.givingSlot && formatDate(personBDetails.givingSlot.date_assigned)}
+                      </div>
+                      <div className="text-foreground-muted">
+                        <span className="text-green-300">Receiving:</span> {personBDetails?.receivingDutyType?.duty_name} - {personBDetails?.receivingSlot && formatDate(personBDetails.receivingSlot.date_assigned)}
+                      </div>
+                    </div>
+                    {/* Person B Approval Chain */}
+                    <div className="mt-3 pt-3 border-t border-purple-500/20">
+                      <div className="text-xs text-foreground-muted mb-1">Approvals:</div>
+                      <div className="space-y-1">
+                        {pair.personB.approvals.map((approval) => (
+                          <div key={approval.id} className="flex items-center gap-2 text-xs">
+                            {approval.status === 'approved' ? (
+                              <span className="text-green-400">✓</span>
+                            ) : approval.status === 'rejected' ? (
+                              <span className="text-red-400">✗</span>
+                            ) : (
+                              <span className="text-yellow-400">○</span>
+                            )}
+                            <span className="text-foreground-muted">
+                              {approval.approver_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                            {approval.status === 'pending' && canApproveApprovalStep(approval) && (
+                              <button
+                                onClick={() => handleApproveStep(approval.id)}
+                                disabled={processingId !== null || needsPartnerAccept}
+                                className="ml-auto px-2 py-0.5 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
+                              >
+                                Approve
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reason */}
+                <div className="px-4 pb-4">
+                  <div className="text-sm">
+                    <span className="text-foreground-muted">Reason: </span>
+                    <span className="text-foreground">{pair.reason}</span>
+                  </div>
+                  {pair.personA.request.rejection_reason && (
+                    <p className="text-xs text-red-400 mt-1">
+                      Rejection: {pair.personA.request.rejection_reason}
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                {pair.status === "pending" && (
+                  <div className="px-4 pb-4 flex items-center gap-2">
+                    {/* Accept button for target person */}
+                    {isTargetPerson && (
+                      <button
+                        onClick={() => handleAcceptSwap(myRequestId)}
+                        disabled={processingId !== null}
+                        className="px-3 py-1.5 text-sm bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
+                      >
+                        Accept Swap Request
+                      </button>
+                    )}
+
+                    {/* Reject button for approvers */}
+                    {(myApprovableSteps.length > 0 || isTargetPerson) && (
+                      <button
+                        onClick={() => handleReject(pair.personA.request.id)}
+                        disabled={processingId !== null}
+                        className="px-3 py-1.5 text-sm bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    )}
+
+                    {/* Recommendations */}
+                    {pair.recommendations && pair.recommendations.length > 0 && (
+                      <div className="ml-4 text-xs space-x-2">
+                        {pair.recommendations.map((rec) => (
+                          <span key={rec.id} className={rec.recommendation === 'recommend' ? 'text-blue-300' : 'text-orange-300'}>
+                            {rec.recommendation === 'recommend' ? '👍' : '👎'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -1085,12 +1125,18 @@ export default function DutySwapsPage() {
                   <div className="p-3 bg-yellow-500/10 rounded-lg text-sm">
                     <p className="text-yellow-400 font-medium">Approval Required:</p>
                     <p className="text-foreground-muted">
-                      {getApproverLevelName(
-                        determineApproverLevel(
+                      {(() => {
+                        const level = determineRequiredApprovalLevel(
                           swapModal.originalSlot.personnel_id!,
                           swapModal.targetSlot.personnel_id!
-                        )
-                      )}
+                        );
+                        const levelNames: Record<string, string> = {
+                          'work_section': 'Work Section Managers',
+                          'section': 'Section Managers',
+                          'company': 'Company Manager',
+                        };
+                        return levelNames[level] || 'Manager approval';
+                      })()}
                     </p>
                   </div>
                 </div>

@@ -9,7 +9,7 @@ import Card, {
 } from "@/components/ui/Card";
 import { useAuth } from "@/lib/supabase-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
-import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, DutyChangeRequest } from "@/types";
+import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, SwapPair } from "@/types";
 import {
   getAllPersonnel,
   getPersonnelByEdipi,
@@ -17,9 +17,8 @@ import {
   getNonAvailabilityByPersonnel,
   getUnitSections,
   getAllDutyTypes,
-  getDutyChangeRequestsByPersonnel,
 } from "@/lib/data-layer";
-import { calculateDutyScoreFromSlots } from "@/lib/client-stores";
+import { calculateDutyScoreFromSlots, getSwapPairsByPersonnel, getAllDutySlots } from "@/lib/client-stores";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
 
 interface DutyHistoryEntry {
@@ -37,7 +36,8 @@ export default function UserDashboard() {
   const [upcomingDuties, setUpcomingDuties] = useState<DutySlot[]>([]);
   const [pastDuties, setPastDuties] = useState<DutySlot[]>([]);
   const [nonAvailability, setNonAvailability] = useState<NonAvailability[]>([]);
-  const [dutyChangeRequests, setDutyChangeRequests] = useState<DutyChangeRequest[]>([]);
+  const [swapPairs, setSwapPairs] = useState<SwapPair[]>([]);
+  const [allDutySlots, setAllDutySlots] = useState<DutySlot[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,9 +84,13 @@ export default function UserDashboard() {
         const na = getNonAvailabilityByPersonnel(myPersonnel.id);
         setNonAvailability(na);
 
-        // Get duty change requests involving this personnel
-        const dcRequests = getDutyChangeRequestsByPersonnel(myPersonnel.id);
-        setDutyChangeRequests(dcRequests);
+        // Get swap pairs involving this personnel
+        const pairs = getSwapPairsByPersonnel(myPersonnel.id);
+        setSwapPairs(pairs);
+
+        // Get all duty slots for date lookups
+        const dutySlots = getAllDutySlots();
+        setAllDutySlots(dutySlots);
       }
     } catch (err) {
       console.error("Error loading dashboard data:", err);
@@ -200,7 +204,13 @@ export default function UserDashboard() {
   const pendingNA = nonAvailability.filter((na) => na.status === "pending");
 
   // Get pending duty swap requests (where the user is involved)
-  const pendingSwaps = dutyChangeRequests.filter((req) => req.status === "pending");
+  const pendingSwaps = swapPairs.filter((pair) => pair.status === "pending");
+
+  // Create a slot map for O(1) lookups
+  const slotMap = useMemo(() => new Map(allDutySlots.map(s => [s.id, s])), [allDutySlots]);
+
+  // Create a personnel map for O(1) lookups
+  const personnelMap = useMemo(() => new Map(allPersonnel.map(p => [p.id, p])), [allPersonnel]);
 
   // Build duty history
   const dutyHistory: DutyHistoryEntry[] = pastDuties
@@ -529,38 +539,50 @@ export default function UserDashboard() {
                     Duty Swap Requests
                   </p>
                   <div className="space-y-2">
-                    {pendingSwaps.map((swap) => (
-                      <div
-                        key={swap.id}
-                        className="flex justify-between items-center p-3 rounded-lg bg-surface-elevated border border-warning/20"
-                      >
-                        <div>
-                          <p className="font-medium text-foreground">
-                            Duty Swap Request
-                          </p>
-                          <p className="text-sm text-foreground-muted">
-                            {new Date(swap.original_duty_date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                            {swap.target_duty_date && (
-                              <>
-                                {" ↔ "}
-                                {new Date(swap.target_duty_date).toLocaleDateString("en-US", {
-                                  weekday: "short",
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                              </>
-                            )}
-                          </p>
+                    {pendingSwaps.map((pair) => {
+                      const personASlot = slotMap.get(pair.personA.giving_slot_id);
+                      const personBSlot = slotMap.get(pair.personB.giving_slot_id);
+                      const personA = personnelMap.get(pair.personA.personnel_id);
+                      const personB = personnelMap.get(pair.personB.personnel_id);
+                      // Determine if current user is personA or personB
+                      const isPersonA = personnel?.id === pair.personA.personnel_id;
+                      const partner = isPersonA ? personB : personA;
+
+                      return (
+                        <div
+                          key={pair.swap_pair_id}
+                          className="flex justify-between items-center p-3 rounded-lg bg-surface-elevated border border-warning/20"
+                        >
+                          <div>
+                            <p className="font-medium text-foreground">
+                              Swap with {partner?.rank} {partner?.last_name}
+                            </p>
+                            <p className="text-sm text-foreground-muted">
+                              {personASlot?.date_assigned
+                                ? new Date(personASlot.date_assigned).toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                  })
+                                : "Unknown date"}
+                              {personBSlot?.date_assigned && (
+                                <>
+                                  {" ↔ "}
+                                  {new Date(personBSlot.date_assigned).toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-warning/20 text-warning">
+                            Pending
+                          </span>
                         </div>
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-warning/20 text-warning">
-                          Pending
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

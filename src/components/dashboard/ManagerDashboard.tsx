@@ -9,14 +9,14 @@ import Card, {
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/lib/supabase-auth";
-import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, RoleName, DutyChangeRequest } from "@/types";
+import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, RoleName, SwapPair } from "@/types";
 import {
   getAllPersonnel,
   getUnitSections,
   getAllDutySlots,
   getAllNonAvailability,
   getAllDutyTypes,
-  getAllDutyChangeRequests,
+  getAllSwapPairs,
   updateNonAvailability,
   calculateDutyScoreFromSlots,
 } from "@/lib/client-stores";
@@ -43,7 +43,7 @@ export default function ManagerDashboard() {
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutySlots, setDutySlots] = useState<DutySlot[]>([]);
   const [nonAvailability, setNonAvailability] = useState<NonAvailability[]>([]);
-  const [dutyChangeRequests, setDutyChangeRequests] = useState<DutyChangeRequest[]>([]);
+  const [swapPairs, setSwapPairs] = useState<SwapPair[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,13 +56,13 @@ export default function ManagerDashboard() {
       const dutySlotsData = getAllDutySlots();
       const naData = getAllNonAvailability();
       const dutyTypesData = getAllDutyTypes();
-      const dcRequestsData = getAllDutyChangeRequests();
+      const swapPairsData = getAllSwapPairs();
 
       setAllPersonnel(personnelData);
       setUnits(unitsData);
       setDutySlots(dutySlotsData);
       setNonAvailability(naData);
-      setDutyChangeRequests(dcRequestsData);
+      setSwapPairs(swapPairsData);
       setDutyTypes(dutyTypesData);
     } catch (err) {
       console.error("Error loading manager dashboard data:", err);
@@ -148,6 +148,7 @@ export default function ManagerDashboard() {
   // Create Maps for O(1) lookups in calculations
   const personnelMap = useMemo(() => new Map(scopedPersonnel.map(p => [p.id, p])), [scopedPersonnel]);
   const dutyTypeMap = useMemo(() => new Map(dutyTypes.map(dt => [dt.id, dt])), [dutyTypes]);
+  const dutySlotMap = useMemo(() => new Map(dutySlots.map(s => [s.id, s])), [dutySlots]);
 
   // Categorize non-availability reason
   // Note: Medical is checked before leave to handle "medical leave" correctly
@@ -235,24 +236,26 @@ export default function ManagerDashboard() {
 
   // Get pending duty swap requests involving personnel within scope
   const pendingSwapRequests = useMemo(() => {
-    return dutyChangeRequests
-      .filter(req => {
-        if (req.status !== "pending") return false;
+    return swapPairs
+      .filter(pair => {
+        if (pair.status !== "pending") return false;
         // Check if either personnel is within scope
-        const origInScope = scopedPersonnelIds.has(req.original_personnel_id);
-        const targetInScope = req.target_personnel_id
-          ? scopedPersonnelIds.has(req.target_personnel_id)
-          : false;
-        return origInScope || targetInScope;
+        const personAInScope = scopedPersonnelIds.has(pair.personA.personnel_id);
+        const personBInScope = scopedPersonnelIds.has(pair.personB.personnel_id);
+        return personAInScope || personBInScope;
       })
-      .map(req => ({
-        ...req,
-        originalPerson: personnelMap.get(req.original_personnel_id),
-        targetPerson: req.target_personnel_id
-          ? personnelMap.get(req.target_personnel_id)
-          : undefined,
-      }));
-  }, [dutyChangeRequests, scopedPersonnelIds, personnelMap]);
+      .map(pair => {
+        const personASlot = dutySlotMap.get(pair.personA.giving_slot_id);
+        const personBSlot = dutySlotMap.get(pair.personB.giving_slot_id);
+        return {
+          ...pair,
+          personADetails: personnelMap.get(pair.personA.personnel_id),
+          personBDetails: personnelMap.get(pair.personB.personnel_id),
+          personASlotDate: personASlot?.date_assigned,
+          personBSlotDate: personBSlot?.date_assigned,
+        };
+      });
+  }, [swapPairs, scopedPersonnelIds, personnelMap, dutySlotMap]);
 
   // Get personnel on duty this week
   const personnelOnDutyThisWeek = useMemo(() => {
@@ -556,32 +559,34 @@ export default function ManagerDashboard() {
                     Duty Swap Requests ({pendingSwapRequests.length})
                   </p>
                   <div className="space-y-3">
-                    {pendingSwapRequests.map(request => (
+                    {pendingSwapRequests.map(pair => (
                       <div
-                        key={request.id}
+                        key={pair.swap_pair_id}
                         className="flex items-center justify-between p-4 rounded-lg bg-surface-elevated border border-warning/20"
                       >
                         <div className="flex-1">
                           <p className="font-medium text-foreground">
-                            {request.originalPerson?.rank} {request.originalPerson?.last_name}
-                            {request.targetPerson && (
+                            {pair.personADetails?.rank} {pair.personADetails?.last_name}
+                            {pair.personBDetails && (
                               <>
                                 {" ↔ "}
-                                {request.targetPerson.rank} {request.targetPerson.last_name}
+                                {pair.personBDetails.rank} {pair.personBDetails.last_name}
                               </>
                             )}
                           </p>
                           <p className="text-sm text-foreground-muted">
                             Duty Swap &bull;{" "}
-                            {new Date(request.original_duty_date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                            {request.target_duty_date && (
+                            {pair.personASlotDate
+                              ? new Date(pair.personASlotDate).toLocaleDateString("en-US", {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                })
+                              : "Unknown date"}
+                            {pair.personBSlotDate && (
                               <>
                                 {" ↔ "}
-                                {new Date(request.target_duty_date).toLocaleDateString("en-US", {
+                                {new Date(pair.personBSlotDate).toLocaleDateString("en-US", {
                                   weekday: "short",
                                   month: "short",
                                   day: "numeric",

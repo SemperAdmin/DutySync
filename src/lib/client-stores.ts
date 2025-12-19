@@ -12,6 +12,10 @@ import type {
   BlockedDuty,
   DutyChangeRequest,
   DutyScoreEvent,
+  SwapApproval,
+  SwapRecommendation,
+  SwapPair,
+  DutyChangeRequestWithApprovals,
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
@@ -46,6 +50,14 @@ import {
   createDutyChangeRequest as supabaseCreateDutyChangeRequest,
   updateDutyChangeRequest as supabaseUpdateDutyChangeRequest,
   deleteDutyChangeRequest as supabaseDeleteDutyChangeRequest,
+  deleteDutyChangeRequestsBySwapPairId as supabaseDeleteDutyChangeRequestsBySwapPairId,
+  // Swap approvals
+  createSwapApprovals as supabaseCreateSwapApprovals,
+  updateSwapApproval as supabaseUpdateSwapApproval,
+  deleteSwapApprovalsByRequestId as supabaseDeleteSwapApprovalsByRequestId,
+  // Swap recommendations
+  createSwapRecommendation as supabaseCreateSwapRecommendation,
+  deleteSwapRecommendationsByRequestId as supabaseDeleteSwapRecommendationsByRequestId,
   // Migration functions (use ID mapping by unique fields)
   createDutySlotsWithMapping as supabaseCreateDutySlotsWithMapping,
   createDutySlotWithMapping as supabaseCreateDutySlotWithMapping,
@@ -302,6 +314,8 @@ const KEYS = {
   dutySlots: "dutysync_duty_slots",
   nonAvailability: "dutysync_non_availability",
   dutyChangeRequests: "dutysync_duty_change_requests",
+  swapApprovals: "dutysync_swap_approvals",
+  swapRecommendations: "dutysync_swap_recommendations",
   qualifications: "dutysync_qualifications",
   blockedDuties: "dutysync_blocked_duties",
   users: "dutysync_users",
@@ -2801,48 +2815,110 @@ export function canRecommendChangeRequest(
   return true;
 }
 
-/**
- * Add a recommendation to a duty change request
- */
-export function addRecommendation(
-  requestId: string,
-  userId: string,
-  userName: string,
-  roleName: string,
-  recommendation: 'recommend' | 'not_recommend',
-  comment: string
-): DutyChangeRequest | null {
-  const request = getDutyChangeRequestById(requestId);
-  if (!request) return null;
-  if (request.status !== 'pending') return null;
+// ============================================================================
+// SWAP APPROVALS (localStorage)
+// ============================================================================
 
-  // Initialize recommendations array if not present (backwards compatibility)
-  const recommendations = request.recommendations || [];
-
-  // Check if user already recommended
-  const existingIdx = recommendations.findIndex(r => r.recommender_id === userId);
-  if (existingIdx >= 0) {
-    // Update existing recommendation
-    recommendations[existingIdx] = {
-      ...recommendations[existingIdx],
-      recommendation,
-      comment,
-      created_at: new Date(),
-    };
-  } else {
-    // Add new recommendation
-    recommendations.push({
-      recommender_id: userId,
-      recommender_name: userName,
-      role_name: roleName,
-      recommendation,
-      comment,
-      created_at: new Date(),
-    });
-  }
-
-  return updateDutyChangeRequest(requestId, { recommendations });
+export function getAllSwapApprovals(): SwapApproval[] {
+  return getFromStorage<SwapApproval>(KEYS.swapApprovals);
 }
+
+export function getSwapApprovalsByRequestId(requestId: string): SwapApproval[] {
+  return getFromStorage<SwapApproval>(KEYS.swapApprovals)
+    .filter(a => a.duty_change_request_id === requestId)
+    .sort((a, b) => a.approval_order - b.approval_order);
+}
+
+export function saveSwapApproval(approval: SwapApproval): SwapApproval {
+  const list = getFromStorage<SwapApproval>(KEYS.swapApprovals);
+  const idx = list.findIndex(a => a.id === approval.id);
+  if (idx >= 0) {
+    list[idx] = approval;
+  } else {
+    list.push(approval);
+  }
+  saveToStorage(KEYS.swapApprovals, list);
+  return approval;
+}
+
+export function saveSwapApprovals(approvals: SwapApproval[]): void {
+  const list = getFromStorage<SwapApproval>(KEYS.swapApprovals);
+  for (const approval of approvals) {
+    const idx = list.findIndex(a => a.id === approval.id);
+    if (idx >= 0) {
+      list[idx] = approval;
+    } else {
+      list.push(approval);
+    }
+  }
+  saveToStorage(KEYS.swapApprovals, list);
+}
+
+export function deleteSwapApprovalsByRequestId(requestId: string): void {
+  const list = getFromStorage<SwapApproval>(KEYS.swapApprovals);
+  const filtered = list.filter(a => a.duty_change_request_id !== requestId);
+  saveToStorage(KEYS.swapApprovals, filtered);
+}
+
+// ============================================================================
+// SWAP RECOMMENDATIONS (localStorage)
+// ============================================================================
+
+export function getAllSwapRecommendations(): SwapRecommendation[] {
+  return getFromStorage<SwapRecommendation>(KEYS.swapRecommendations);
+}
+
+export function getSwapRecommendationsByRequestId(requestId: string): SwapRecommendation[] {
+  return getFromStorage<SwapRecommendation>(KEYS.swapRecommendations)
+    .filter(r => r.duty_change_request_id === requestId)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+export function saveSwapRecommendation(recommendation: SwapRecommendation): SwapRecommendation {
+  const list = getFromStorage<SwapRecommendation>(KEYS.swapRecommendations);
+  // Check if user already has a recommendation for this request
+  const idx = list.findIndex(r =>
+    r.duty_change_request_id === recommendation.duty_change_request_id &&
+    r.recommender_id === recommendation.recommender_id
+  );
+  if (idx >= 0) {
+    list[idx] = recommendation;
+  } else {
+    list.push(recommendation);
+  }
+  saveToStorage(KEYS.swapRecommendations, list);
+
+  // Sync to Supabase
+  syncToSupabase(
+    () => supabaseCreateSwapRecommendation({
+      id: recommendation.id,
+      duty_change_request_id: recommendation.duty_change_request_id,
+      recommender_id: recommendation.recommender_id,
+      recommendation: recommendation.recommendation,
+      comment: recommendation.comment,
+    }),
+    "createSwapRecommendation"
+  );
+
+  return recommendation;
+}
+
+export function deleteSwapRecommendationsByRequestId(requestId: string): void {
+  const list = getFromStorage<SwapRecommendation>(KEYS.swapRecommendations);
+  const filtered = list.filter(r => r.duty_change_request_id !== requestId);
+  saveToStorage(KEYS.swapRecommendations, filtered);
+
+  // Sync to Supabase
+  syncToSupabase(
+    () => supabaseDeleteSwapRecommendationsByRequestId(requestId),
+    "deleteSwapRecommendations"
+  );
+}
+
+// ============================================================================
+// DUTY CHANGE REQUESTS (Two-Row Swap Model)
+// Each swap creates two linked rows - one for each person's side
+// ============================================================================
 
 export function getAllDutyChangeRequests(): DutyChangeRequest[] {
   return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).sort(
@@ -2854,9 +2930,14 @@ export function getDutyChangeRequestById(id: string): DutyChangeRequest | undefi
   return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).find((r) => r.id === id);
 }
 
+export function getDutyChangeRequestsBySwapPairId(swapPairId: string): DutyChangeRequest[] {
+  return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests)
+    .filter(r => r.swap_pair_id === swapPairId);
+}
+
 export function getDutyChangeRequestsByPersonnel(personnelId: string): DutyChangeRequest[] {
   return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).filter(
-    (r) => r.original_personnel_id === personnelId || r.target_personnel_id === personnelId
+    (r) => r.personnel_id === personnelId || r.swap_partner_id === personnelId
   );
 }
 
@@ -2887,115 +2968,247 @@ export function getMissingQualifications(personnelId: string, dutyTypeId: string
 }
 
 /**
- * Helper function to create a SwapApproval object with default pending status
+ * Build the approval chain for a single person's side of the swap
+ * Returns approvals needed based on their chain of command
  */
-function createSwapApproval(
-  approverType: import("@/types").SwapApproval['approver_type'],
-  forPersonnel: import("@/types").SwapApproval['for_personnel'],
-  scopeUnitId: string | null = null
-): import("@/types").SwapApproval {
-  return {
-    approver_type: approverType,
-    for_personnel: forPersonnel,
-    scope_unit_id: scopeUnitId,
+export function buildApprovalChainForPerson(
+  personnelId: string,
+  requestId: string
+): SwapApproval[] {
+  const approvals: SwapApproval[] = [];
+  const person = getPersonnelById(personnelId);
+
+  if (!person) {
+    // Default to company level if can't determine
+    approvals.push({
+      id: crypto.randomUUID(),
+      duty_change_request_id: requestId,
+      approval_order: 1,
+      approver_type: 'company_manager',
+      scope_unit_id: null,
+      status: 'pending',
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: null,
+      created_at: new Date(),
+    });
+    return approvals;
+  }
+
+  const unit = getUnitSectionById(person.unit_section_id);
+
+  // Work Section Manager approval
+  approvals.push({
+    id: crypto.randomUUID(),
+    duty_change_request_id: requestId,
+    approval_order: 1,
+    approver_type: 'work_section_manager',
+    scope_unit_id: person.unit_section_id,
     status: 'pending',
     approved_by: null,
     approved_at: null,
     rejection_reason: null,
-  };
-}
+    created_at: new Date(),
+  });
 
-/**
- * Build the list of required approvals for a duty swap
- * Returns approvals needed: target person + both chains of command up to common level
- */
-export function buildSwapApprovals(
-  originalPersonnelId: string,
-  targetPersonnelId: string
-): import("@/types").SwapApproval[] {
-  const approvals: import("@/types").SwapApproval[] = [];
+  // Section Manager approval (if unit has a parent)
+  if (unit?.parent_id) {
+    const section = getUnitSectionById(unit.parent_id);
+    if (section) {
+      approvals.push({
+        id: crypto.randomUUID(),
+        duty_change_request_id: requestId,
+        approval_order: 2,
+        approver_type: 'section_manager',
+        scope_unit_id: section.id,
+        status: 'pending',
+        approved_by: null,
+        approved_at: null,
+        rejection_reason: null,
+        created_at: new Date(),
+      });
 
-  // 1. Target person must approve (unless they initiated the request)
-  approvals.push(createSwapApproval('target_person', 'target'));
-
-  // 2. Determine the approval chain based on unit relationships
-  const originalPerson = getPersonnelById(originalPersonnelId);
-  const targetPerson = getPersonnelById(targetPersonnelId);
-
-  if (!originalPerson || !targetPerson) {
-    // Default to company level if can't determine
-    approvals.push(createSwapApproval('company_manager', 'both'));
-    return approvals;
+      // Company Manager approval (if section has a parent - for cross-section swaps)
+      if (section.parent_id) {
+        approvals.push({
+          id: crypto.randomUUID(),
+          duty_change_request_id: requestId,
+          approval_order: 3,
+          approver_type: 'company_manager',
+          scope_unit_id: section.parent_id,
+          status: 'pending',
+          approved_by: null,
+          approved_at: null,
+          rejection_reason: null,
+          created_at: new Date(),
+        });
+      }
+    }
   }
-
-  const originalUnit = getUnitSectionById(originalPerson.unit_section_id);
-  const targetUnit = getUnitSectionById(targetPerson.unit_section_id);
-
-  if (!originalUnit || !targetUnit) {
-    approvals.push(createSwapApproval('company_manager', 'both'));
-    return approvals;
-  }
-
-  // Same work section - only one work section manager needed
-  if (originalPerson.unit_section_id === targetPerson.unit_section_id) {
-    approvals.push(createSwapApproval('work_section_manager', 'both', originalPerson.unit_section_id));
-    return approvals;
-  }
-
-  // Different work sections - both work section managers needed
-  approvals.push(createSwapApproval('work_section_manager', 'original', originalPerson.unit_section_id));
-  approvals.push(createSwapApproval('work_section_manager', 'target', targetPerson.unit_section_id));
-
-  // Check if same section (same parent)
-  const originalSection = originalUnit.parent_id ? getUnitSectionById(originalUnit.parent_id) : null;
-  const targetSection = targetUnit.parent_id ? getUnitSectionById(targetUnit.parent_id) : null;
-
-  if (originalSection && targetSection && originalSection.id === targetSection.id) {
-    // Same section - section manager approval needed (shared)
-    approvals.push(createSwapApproval('section_manager', 'both', originalSection.id));
-    return approvals;
-  }
-
-  // Different sections - both section managers + company manager needed
-  if (originalSection) {
-    approvals.push(createSwapApproval('section_manager', 'original', originalSection.id));
-  }
-  if (targetSection) {
-    approvals.push(createSwapApproval('section_manager', 'target', targetSection.id));
-  }
-
-  // Company manager for cross-section swaps
-  approvals.push(createSwapApproval('company_manager', 'both'));
 
   return approvals;
 }
 
-export function createDutyChangeRequest(request: DutyChangeRequest): DutyChangeRequest {
+/**
+ * Determine if cross-section swap requires higher level approvals
+ */
+export function determineRequiredApprovalLevel(
+  personAId: string,
+  personBId: string
+): 'work_section' | 'section' | 'company' {
+  const personA = getPersonnelById(personAId);
+  const personB = getPersonnelById(personBId);
+
+  if (!personA || !personB) return 'company';
+
+  // Same work section - only work section manager needed
+  if (personA.unit_section_id === personB.unit_section_id) {
+    return 'work_section';
+  }
+
+  const unitA = getUnitSectionById(personA.unit_section_id);
+  const unitB = getUnitSectionById(personB.unit_section_id);
+
+  if (!unitA || !unitB) return 'company';
+
+  // Same section (same parent) - section manager needed
+  if (unitA.parent_id && unitA.parent_id === unitB.parent_id) {
+    return 'section';
+  }
+
+  // Different sections - company manager needed
+  return 'company';
+}
+
+/**
+ * Create a duty swap with two linked rows
+ * Returns the swap_pair_id and both request objects
+ */
+export function createDutySwap(params: {
+  personAId: string;
+  personASlotId: string;
+  personBId: string;
+  personBSlotId: string;
+  requesterId: string;
+  reason: string;
+}): { swapPairId: string; requestA: DutyChangeRequest; requestB: DutyChangeRequest } {
+  const swapPairId = crypto.randomUUID();
+  const now = new Date();
+
+  // Get slots to determine duty types
+  const slotA = getDutySlotById(params.personASlotId);
+  const slotB = getDutySlotById(params.personBSlotId);
+
+  // Determine who initiated - they auto-accept
+  const personA = getPersonnelById(params.personAId);
+  const isPersonARequester = personA?.id === params.personAId;
+
+  // Create Request A (Person A's side)
+  const requestA: DutyChangeRequest = {
+    id: crypto.randomUUID(),
+    swap_pair_id: swapPairId,
+    personnel_id: params.personAId,
+    giving_slot_id: params.personASlotId,
+    receiving_slot_id: params.personBSlotId,
+    swap_partner_id: params.personBId,
+    requester_id: params.requesterId,
+    reason: params.reason,
+    status: 'pending',
+    partner_accepted: isPersonARequester, // Requester auto-accepts their side
+    partner_accepted_at: isPersonARequester ? now : null,
+    partner_accepted_by: isPersonARequester ? params.requesterId : null,
+    rejection_reason: null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  // Create Request B (Person B's side)
+  const requestB: DutyChangeRequest = {
+    id: crypto.randomUUID(),
+    swap_pair_id: swapPairId,
+    personnel_id: params.personBId,
+    giving_slot_id: params.personBSlotId,
+    receiving_slot_id: params.personASlotId,
+    swap_partner_id: params.personAId,
+    requester_id: params.requesterId,
+    reason: params.reason,
+    status: 'pending',
+    partner_accepted: !isPersonARequester, // Non-requester needs to accept
+    partner_accepted_at: !isPersonARequester ? now : null,
+    partner_accepted_by: !isPersonARequester ? params.requesterId : null,
+    rejection_reason: null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  // Save to localStorage
   const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
-  list.push(request);
+  list.push(requestA, requestB);
   saveToStorage(KEYS.dutyChangeRequests, list);
   triggerAutoSave('dutyChangeRequests');
 
-  // Sync to Supabase in background
-  const originalPersonnel = getPersonnelById(request.original_personnel_id);
-  if (originalPersonnel) {
-    const orgId = getOrganizationIdFromUnit(originalPersonnel.unit_section_id);
+  // Build and save approval chains for each person
+  const approvalsA = buildApprovalChainForPerson(params.personAId, requestA.id);
+  const approvalsB = buildApprovalChainForPerson(params.personBId, requestB.id);
+  saveSwapApprovals([...approvalsA, ...approvalsB]);
+
+  // Sync to Supabase
+  if (personA) {
+    const orgId = getOrganizationIdFromUnit(personA.unit_section_id);
     if (orgId) {
+      // Sync request A
       syncToSupabase(
         () => supabaseCreateDutyChangeRequest(orgId, {
-          id: request.id,
-          originalSlotId: request.original_slot_id,
-          originalPersonnelId: request.original_personnel_id,
-          targetPersonnelId: request.target_personnel_id,
-          requestedBy: request.requester_id,
-          reason: request.reason || undefined,
+          id: requestA.id,
+          swapPairId: swapPairId,
+          personnelId: requestA.personnel_id,
+          givingSlotId: requestA.giving_slot_id,
+          receivingSlotId: requestA.receiving_slot_id,
+          swapPartnerId: requestA.swap_partner_id,
+          requestedBy: requestA.requester_id,
+          reason: requestA.reason,
+          partnerAccepted: requestA.partner_accepted,
+          partnerAcceptedAt: requestA.partner_accepted_at?.toISOString() || null,
+          partnerAcceptedBy: requestA.partner_accepted_by,
         }),
         "createDutyChangeRequest"
+      );
+
+      // Sync request B
+      syncToSupabase(
+        () => supabaseCreateDutyChangeRequest(orgId, {
+          id: requestB.id,
+          swapPairId: swapPairId,
+          personnelId: requestB.personnel_id,
+          givingSlotId: requestB.giving_slot_id,
+          receivingSlotId: requestB.receiving_slot_id,
+          swapPartnerId: requestB.swap_partner_id,
+          requestedBy: requestB.requester_id,
+          reason: requestB.reason,
+          partnerAccepted: requestB.partner_accepted,
+          partnerAcceptedAt: requestB.partner_accepted_at?.toISOString() || null,
+          partnerAcceptedBy: requestB.partner_accepted_by,
+        }),
+        "createDutyChangeRequest"
+      );
+
+      // Sync approvals
+      const allApprovals = [...approvalsA, ...approvalsB].map(a => ({
+        id: a.id,
+        duty_change_request_id: a.duty_change_request_id,
+        approval_order: a.approval_order,
+        approver_type: a.approver_type,
+        scope_unit_id: a.scope_unit_id,
+        status: a.status as "pending" | "approved" | "rejected",
+      }));
+      syncToSupabase(
+        () => supabaseCreateSwapApprovals(allApprovals),
+        "createSwapApprovals"
       );
     }
   }
 
-  return request;
+  return { swapPairId, requestA, requestB };
 }
 
 export function updateDutyChangeRequest(
@@ -3012,12 +3225,23 @@ export function updateDutyChangeRequest(
   // Sync to Supabase in background
   const supabaseUpdates: {
     status?: "pending" | "approved" | "rejected";
-    approvedBy?: string;
+    partnerAccepted?: boolean;
+    partnerAcceptedAt?: string | null;
+    partnerAcceptedBy?: string | null;
+    rejectionReason?: string | null;
     reason?: string;
   } = {};
-  if (updates.status !== undefined) {
-    supabaseUpdates.status = updates.status;
+  if (updates.status !== undefined) supabaseUpdates.status = updates.status;
+  if (updates.partner_accepted !== undefined) supabaseUpdates.partnerAccepted = updates.partner_accepted;
+  if (updates.partner_accepted_at !== undefined) {
+    supabaseUpdates.partnerAcceptedAt = updates.partner_accepted_at
+      ? (updates.partner_accepted_at instanceof Date
+          ? updates.partner_accepted_at.toISOString()
+          : updates.partner_accepted_at)
+      : null;
   }
+  if (updates.partner_accepted_by !== undefined) supabaseUpdates.partnerAcceptedBy = updates.partner_accepted_by;
+  if (updates.rejection_reason !== undefined) supabaseUpdates.rejectionReason = updates.rejection_reason;
   if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
 
   if (Object.keys(supabaseUpdates).length > 0) {
@@ -3031,24 +3255,69 @@ export function updateDutyChangeRequest(
 }
 
 /**
- * Execute the duty swap by swapping personnel assignments between two slots
- * Returns error message if slots don't exist, undefined on success
+ * Accept a swap request (partner acceptance)
  */
-function _executeDutySwap(request: DutyChangeRequest): string | undefined {
-  const originalSlot = getDutySlotById(request.original_slot_id);
-  const targetSlot = getDutySlotById(request.target_slot_id);
+export function acceptSwapRequest(
+  requestId: string,
+  accepterId: string
+): { success: boolean; error?: string } {
+  const request = getDutyChangeRequestById(requestId);
+  if (!request) return { success: false, error: 'Request not found' };
+  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+  if (request.partner_accepted) return { success: false, error: 'Already accepted' };
 
-  if (!originalSlot || !targetSlot) {
+  const now = new Date();
+
+  // Update this request's partner_accepted
+  updateDutyChangeRequest(requestId, {
+    partner_accepted: true,
+    partner_accepted_at: now,
+    partner_accepted_by: accepterId,
+  });
+
+  // Also update the partner's row to show this person accepted
+  const partnerRequests = getDutyChangeRequestsBySwapPairId(request.swap_pair_id)
+    .filter(r => r.id !== requestId);
+
+  for (const partnerReq of partnerRequests) {
+    updateDutyChangeRequest(partnerReq.id, {
+      partner_accepted: true,
+      partner_accepted_at: now,
+      partner_accepted_by: accepterId,
+    });
+  }
+
+  return { success: true };
+}
+
+/**
+ * Execute the duty swap by swapping personnel assignments between slots
+ * This is called when both sides have all approvals complete
+ */
+function _executeDutySwap(swapPairId: string): string | undefined {
+  const requests = getDutyChangeRequestsBySwapPairId(swapPairId);
+  if (requests.length !== 2) {
+    return 'Invalid swap pair - expected 2 requests';
+  }
+
+  const [reqA, reqB] = requests;
+
+  const slotA = getDutySlotById(reqA.giving_slot_id);
+  const slotB = getDutySlotById(reqB.giving_slot_id);
+
+  if (!slotA || !slotB) {
     return 'One or both duty slots no longer exist';
   }
 
   // Swap the personnel assignments
-  updateDutySlot(originalSlot.id, {
-    personnel_id: request.target_personnel_id,
+  updateDutySlot(slotA.id, {
+    personnel_id: reqA.swap_partner_id,
+    status: 'swapped',
     updated_at: new Date()
   });
-  updateDutySlot(targetSlot.id, {
-    personnel_id: request.original_personnel_id,
+  updateDutySlot(slotB.id, {
+    personnel_id: reqB.swap_partner_id,
+    status: 'swapped',
     updated_at: new Date()
   });
 
@@ -3056,144 +3325,286 @@ function _executeDutySwap(request: DutyChangeRequest): string | undefined {
 }
 
 /**
- * Approve a specific step in a duty change request
- * For multi-level approvals, this approves the appropriate step based on the user's role/identity
+ * Check if a swap is fully approved on both sides
  */
-export function approveDutyChangeRequest(
-  id: string,
-  approverId: string,
-  approvalIndex?: number // Optional: specify which approval step to approve
-): { success: boolean; error?: string; allApproved?: boolean } {
-  const request = getDutyChangeRequestById(id);
-  if (!request) return { success: false, error: 'Request not found' };
-  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+function isSwapFullyApproved(swapPairId: string): boolean {
+  const requests = getDutyChangeRequestsBySwapPairId(swapPairId);
+  if (requests.length !== 2) return false;
 
-  // Handle legacy requests without approvals array
-  if (!request.approvals || request.approvals.length === 0) {
-    // Legacy single-approval flow
-    const swapError = _executeDutySwap(request);
-    if (swapError) {
-      return { success: false, error: swapError };
-    }
+  // Both partners must have accepted
+  if (!requests.every(r => r.partner_accepted)) return false;
 
-    updateDutyChangeRequest(id, {
-      status: 'approved',
-      approved_by: approverId,
-      approved_at: new Date()
-    });
-
-    return { success: true, allApproved: true };
+  // All approvals for both requests must be approved
+  for (const req of requests) {
+    const approvals = getSwapApprovalsByRequestId(req.id);
+    if (approvals.length === 0) continue; // No approvals needed
+    if (!approvals.every(a => a.status === 'approved')) return false;
   }
-
-  // New multi-level approval flow
-  const updatedApprovals = [...request.approvals];
-  let approvedIdx = approvalIndex;
-
-  // If no specific index provided, find the first pending approval the user can approve
-  if (approvedIdx === undefined) {
-    approvedIdx = updatedApprovals.findIndex(a => a.status === 'pending');
-    if (approvedIdx === -1) {
-      return { success: false, error: 'No pending approvals found' };
-    }
-  }
-
-  if (approvedIdx < 0 || approvedIdx >= updatedApprovals.length) {
-    return { success: false, error: 'Invalid approval index' };
-  }
-
-  if (updatedApprovals[approvedIdx].status !== 'pending') {
-    return { success: false, error: 'This approval step is not pending' };
-  }
-
-  // Mark this approval as approved
-  updatedApprovals[approvedIdx] = {
-    ...updatedApprovals[approvedIdx],
-    status: 'approved',
-    approved_by: approverId,
-    approved_at: new Date(),
-  };
-
-  // Check if all approvals are now complete
-  const allApproved = updatedApprovals.every(a => a.status === 'approved');
-
-  if (allApproved) {
-    // All approvals complete - execute the swap
-    const swapError = _executeDutySwap(request);
-    if (swapError) {
-      return { success: false, error: swapError };
-    }
-
-    updateDutyChangeRequest(id, {
-      status: 'approved',
-      approvals: updatedApprovals,
-      approved_by: approverId,
-      approved_at: new Date()
-    });
-  } else {
-    // Update just the approvals array
-    updateDutyChangeRequest(id, {
-      approvals: updatedApprovals
-    });
-  }
-
-  return { success: true, allApproved };
-}
-
-export function rejectDutyChangeRequest(
-  id: string,
-  approverId: string,
-  reason: string
-): DutyChangeRequest | null {
-  return updateDutyChangeRequest(id, {
-    status: 'rejected',
-    approved_by: approverId,
-    approved_at: new Date(),
-    rejection_reason: reason
-  });
-}
-
-export function deleteDutyChangeRequest(id: string): boolean {
-  const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
-  const filtered = list.filter((r) => r.id !== id);
-  if (filtered.length === list.length) return false;
-  saveToStorage(KEYS.dutyChangeRequests, filtered);
-  triggerAutoSave('dutyChangeRequests');
-
-  // Sync to Supabase in background
-  syncToSupabase(() => supabaseDeleteDutyChangeRequest(id), "deleteDutyChangeRequest");
 
   return true;
 }
 
-// Enriched duty change request with personnel and duty type info
-export interface EnrichedDutyChangeRequest extends DutyChangeRequest {
-  originalPersonnel?: Personnel;
-  targetPersonnel?: Personnel;
-  originalDutyType?: DutyType;
-  targetDutyType?: DutyType;
-  requester?: Personnel;
-}
+/**
+ * Approve a specific step in a duty change request
+ */
+export function approveSwapApproval(
+  approvalId: string,
+  approverId: string
+): { success: boolean; error?: string; swapCompleted?: boolean } {
+  const allApprovals = getAllSwapApprovals();
+  const approval = allApprovals.find(a => a.id === approvalId);
 
-export function getEnrichedDutyChangeRequests(status?: string): EnrichedDutyChangeRequest[] {
-  let requests = getAllDutyChangeRequests();
-  if (status) {
-    requests = requests.filter(r => r.status === status);
+  if (!approval) return { success: false, error: 'Approval not found' };
+  if (approval.status !== 'pending') return { success: false, error: 'Approval is not pending' };
+
+  const request = getDutyChangeRequestById(approval.duty_change_request_id);
+  if (!request) return { success: false, error: 'Request not found' };
+  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+  if (!request.partner_accepted) return { success: false, error: 'Partner has not accepted yet' };
+
+  // Update the approval
+  const updatedApproval: SwapApproval = {
+    ...approval,
+    status: 'approved',
+    approved_by: approverId,
+    approved_at: new Date(),
+  };
+  saveSwapApproval(updatedApproval);
+
+  // Sync to Supabase
+  syncToSupabase(
+    () => supabaseUpdateSwapApproval(approvalId, {
+      status: 'approved',
+      approvedBy: approverId,
+      approvedAt: new Date().toISOString(),
+    }),
+    "updateSwapApproval"
+  );
+
+  // Check if the entire swap is now fully approved
+  if (isSwapFullyApproved(request.swap_pair_id)) {
+    // Execute the swap
+    const swapError = _executeDutySwap(request.swap_pair_id);
+    if (swapError) {
+      return { success: false, error: swapError };
+    }
+
+    // Mark both requests as approved
+    const requests = getDutyChangeRequestsBySwapPairId(request.swap_pair_id);
+    for (const req of requests) {
+      updateDutyChangeRequest(req.id, { status: 'approved' });
+    }
+
+    return { success: true, swapCompleted: true };
   }
 
+  return { success: true, swapCompleted: false };
+}
+
+/**
+ * Reject a swap - marks both sides as rejected
+ */
+export function rejectSwap(
+  requestId: string,
+  rejecterId: string,
+  reason: string
+): { success: boolean; error?: string } {
+  const request = getDutyChangeRequestById(requestId);
+  if (!request) return { success: false, error: 'Request not found' };
+  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+
+  // Reject both sides of the swap
+  const requests = getDutyChangeRequestsBySwapPairId(request.swap_pair_id);
+  for (const req of requests) {
+    updateDutyChangeRequest(req.id, {
+      status: 'rejected',
+      rejection_reason: reason,
+    });
+  }
+
+  return { success: true };
+}
+
+/**
+ * Delete a swap - removes both rows and their approvals
+ */
+export function deleteSwap(swapPairId: string): boolean {
+  const requests = getDutyChangeRequestsBySwapPairId(swapPairId);
+  if (requests.length === 0) return false;
+
+  // Delete approvals and recommendations for each request
+  for (const req of requests) {
+    deleteSwapApprovalsByRequestId(req.id);
+    deleteSwapRecommendationsByRequestId(req.id);
+  }
+
+  // Delete the requests
+  const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
+  const filtered = list.filter(r => r.swap_pair_id !== swapPairId);
+  saveToStorage(KEYS.dutyChangeRequests, filtered);
+  triggerAutoSave('dutyChangeRequests');
+
+  // Sync to Supabase
+  syncToSupabase(
+    () => supabaseDeleteDutyChangeRequestsBySwapPairId(swapPairId),
+    "deleteDutyChangeRequestsBySwapPairId"
+  );
+
+  return true;
+}
+
+/**
+ * Add a recommendation to a swap request
+ */
+export function addSwapRecommendation(
+  requestId: string,
+  userId: string,
+  recommendation: 'recommend' | 'not_recommend',
+  comment: string
+): SwapRecommendation | null {
+  const request = getDutyChangeRequestById(requestId);
+  if (!request) return null;
+  if (request.status !== 'pending') return null;
+
+  const rec: SwapRecommendation = {
+    id: crypto.randomUUID(),
+    duty_change_request_id: requestId,
+    recommender_id: userId,
+    recommendation,
+    comment,
+    created_at: new Date(),
+  };
+
+  return saveSwapRecommendation(rec);
+}
+
+/**
+ * Get all swap pairs with enriched data
+ */
+export function getAllSwapPairs(status?: 'pending' | 'approved' | 'rejected'): SwapPair[] {
+  const allRequests = getAllDutyChangeRequests();
+  const swapPairMap = new Map<string, DutyChangeRequest[]>();
+
+  // Group requests by swap_pair_id
+  for (const req of allRequests) {
+    if (status && req.status !== status) continue;
+    const existing = swapPairMap.get(req.swap_pair_id) || [];
+    existing.push(req);
+    swapPairMap.set(req.swap_pair_id, existing);
+  }
+
+  const swapPairs: SwapPair[] = [];
+
+  for (const [swapPairId, requests] of swapPairMap) {
+    if (requests.length !== 2) continue; // Invalid swap pair
+
+    const [reqA, reqB] = requests;
+
+    // Determine overall status
+    let overallStatus: 'pending' | 'approved' | 'rejected' = 'pending';
+    if (reqA.status === 'rejected' || reqB.status === 'rejected') {
+      overallStatus = 'rejected';
+    } else if (reqA.status === 'approved' && reqB.status === 'approved') {
+      overallStatus = 'approved';
+    }
+
+    swapPairs.push({
+      swap_pair_id: swapPairId,
+      requester_id: reqA.requester_id,
+      reason: reqA.reason,
+      status: overallStatus,
+      created_at: reqA.created_at,
+      personA: {
+        request: reqA,
+        personnel_id: reqA.personnel_id,
+        giving_slot_id: reqA.giving_slot_id,
+        receiving_slot_id: reqA.receiving_slot_id,
+        approvals: getSwapApprovalsByRequestId(reqA.id),
+        partner_accepted: reqA.partner_accepted,
+      },
+      personB: {
+        request: reqB,
+        personnel_id: reqB.personnel_id,
+        giving_slot_id: reqB.giving_slot_id,
+        receiving_slot_id: reqB.receiving_slot_id,
+        approvals: getSwapApprovalsByRequestId(reqB.id),
+        partner_accepted: reqB.partner_accepted,
+      },
+    });
+  }
+
+  return swapPairs.sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+}
+
+// Enriched swap pair with personnel and duty type info for UI display
+export interface EnrichedSwapPair extends SwapPair {
+  personADetails?: {
+    personnel?: Personnel;
+    givingSlot?: DutySlot;
+    receivingSlot?: DutySlot;
+    givingDutyType?: DutyType;
+    receivingDutyType?: DutyType;
+  };
+  personBDetails?: {
+    personnel?: Personnel;
+    givingSlot?: DutySlot;
+    receivingSlot?: DutySlot;
+    givingDutyType?: DutyType;
+    receivingDutyType?: DutyType;
+  };
+  recommendations: SwapRecommendation[];
+}
+
+export function getEnrichedSwapPairs(status?: 'pending' | 'approved' | 'rejected'): EnrichedSwapPair[] {
+  const swapPairs = getAllSwapPairs(status);
   const personnel = getAllPersonnel();
+  const dutySlots = getAllDutySlots();
   const dutyTypes = getAllDutyTypes();
 
   const personnelMap = new Map(personnel.map(p => [p.id, p]));
+  const slotMap = new Map(dutySlots.map(s => [s.id, s]));
   const dutyTypeMap = new Map(dutyTypes.map(dt => [dt.id, dt]));
 
-  return requests.map(r => ({
-    ...r,
-    originalPersonnel: personnelMap.get(r.original_personnel_id),
-    targetPersonnel: personnelMap.get(r.target_personnel_id),
-    originalDutyType: dutyTypeMap.get(r.original_duty_type_id),
-    targetDutyType: dutyTypeMap.get(r.target_duty_type_id),
-    requester: r.requester_personnel_id ? personnelMap.get(r.requester_personnel_id) : undefined,
-  }));
+  return swapPairs.map(pair => {
+    const givingSlotA = slotMap.get(pair.personA.giving_slot_id);
+    const receivingSlotA = slotMap.get(pair.personA.receiving_slot_id);
+    const givingSlotB = slotMap.get(pair.personB.giving_slot_id);
+    const receivingSlotB = slotMap.get(pair.personB.receiving_slot_id);
+
+    // Get recommendations from both requests
+    const recsA = getSwapRecommendationsByRequestId(pair.personA.request.id);
+    const recsB = getSwapRecommendationsByRequestId(pair.personB.request.id);
+
+    return {
+      ...pair,
+      personADetails: {
+        personnel: personnelMap.get(pair.personA.personnel_id),
+        givingSlot: givingSlotA,
+        receivingSlot: receivingSlotA,
+        givingDutyType: givingSlotA ? dutyTypeMap.get(givingSlotA.duty_type_id) : undefined,
+        receivingDutyType: receivingSlotA ? dutyTypeMap.get(receivingSlotA.duty_type_id) : undefined,
+      },
+      personBDetails: {
+        personnel: personnelMap.get(pair.personB.personnel_id),
+        givingSlot: givingSlotB,
+        receivingSlot: receivingSlotB,
+        givingDutyType: givingSlotB ? dutyTypeMap.get(givingSlotB.duty_type_id) : undefined,
+        receivingDutyType: receivingSlotB ? dutyTypeMap.get(receivingSlotB.duty_type_id) : undefined,
+      },
+      recommendations: [...recsA, ...recsB],
+    };
+  });
+}
+
+// Get swap pairs involving a specific personnel (as either personA or personB)
+export function getSwapPairsByPersonnel(personnelId: string, status?: 'pending' | 'approved' | 'rejected'): SwapPair[] {
+  const allPairs = getAllSwapPairs(status);
+  return allPairs.filter(pair =>
+    pair.personA.personnel_id === personnelId ||
+    pair.personB.personnel_id === personnelId
+  );
 }
 
 // Qualifications
@@ -4718,8 +5129,8 @@ export function exportDutyChangeRequests(unitId?: string): {
   if (unitId) {
     const unitPersonnelIds = new Set(getPersonnelByUnit(unitId).map(p => p.id));
     requests = requests.filter(r =>
-      unitPersonnelIds.has(r.original_personnel_id) ||
-      unitPersonnelIds.has(r.target_personnel_id)
+      unitPersonnelIds.has(r.personnel_id) ||
+      unitPersonnelIds.has(r.swap_partner_id)
     );
   }
 
