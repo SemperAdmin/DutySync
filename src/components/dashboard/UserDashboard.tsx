@@ -19,6 +19,7 @@ import {
   getAllDutyTypes,
   getDutyChangeRequestsByPersonnel,
 } from "@/lib/data-layer";
+import { calculateDutyScoreFromSlots } from "@/lib/client-stores";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
 
 interface DutyHistoryEntry {
@@ -102,7 +103,14 @@ export default function UserDashboard() {
   // Auto-refresh when personnel or duty slots change (e.g., after roster approval)
   useSyncRefresh(["personnel", "dutySlots"], fetchData);
 
-  // Calculate unit statistics
+  // Calculate duty score from duty_slots (approved/swapped only)
+  // This gives accurate score based on current organization's data
+  const myDutyScore = useMemo(() => {
+    if (!personnel) return 0;
+    return calculateDutyScoreFromSlots(personnel.id);
+  }, [personnel]);
+
+  // Calculate unit statistics using calculated scores from duty_slots
   const unitStats = useMemo(() => {
     if (!personnel) return { unitAvg: 0, rank: 0, total: 0 };
 
@@ -113,12 +121,18 @@ export default function UserDashboard() {
 
     if (unitPersonnel.length === 0) return { unitAvg: 0, rank: 0, total: 0 };
 
-    // Calculate average
-    const totalScore = unitPersonnel.reduce((sum, p) => sum + p.current_duty_score, 0);
-    const unitAvg = totalScore / unitPersonnel.length;
+    // Calculate scores for each personnel from duty_slots
+    const personnelWithScores = unitPersonnel.map(p => ({
+      ...p,
+      calculatedScore: calculateDutyScoreFromSlots(p.id)
+    }));
 
-    // Calculate rank (sorted by score descending)
-    const sorted = [...unitPersonnel].sort((a, b) => b.current_duty_score - a.current_duty_score);
+    // Calculate average
+    const totalScore = personnelWithScores.reduce((sum, p) => sum + p.calculatedScore, 0);
+    const unitAvg = totalScore / personnelWithScores.length;
+
+    // Calculate rank (sorted by calculated score descending)
+    const sorted = [...personnelWithScores].sort((a, b) => b.calculatedScore - a.calculatedScore);
     const rank = sorted.findIndex((p) => p.id === personnel.id) + 1;
 
     return { unitAvg, rank, total: unitPersonnel.length };
@@ -258,12 +272,12 @@ export default function UserDashboard() {
                     <div className="h-3 bg-surface-elevated rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-primary to-highlight rounded-full transition-all"
-                        style={{ width: `${Math.min(100, (personnel.current_duty_score / MAX_DUTY_SCORE) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (myDutyScore / MAX_DUTY_SCORE) * 100)}%` }}
                       />
                     </div>
                   </div>
                   <span className="text-2xl font-bold text-highlight">
-                    {personnel.current_duty_score.toFixed(1)}
+                    {myDutyScore.toFixed(1)}
                   </span>
                 </div>
 

@@ -18,6 +18,7 @@ import {
   getAllDutyTypes,
   getAllDutyChangeRequests,
   updateNonAvailability,
+  calculateDutyScoreFromSlots,
 } from "@/lib/client-stores";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
@@ -205,11 +206,12 @@ export default function ManagerDashboard() {
     return { total, available, onLeave, onTAD, medical };
   }, [scopedPersonnel, scopedNonAvailability]);
 
-  // Calculate fairness statistics
+  // Calculate fairness statistics using scores from duty_slots
   const fairnessStats = useMemo(() => {
     if (scopedPersonnel.length === 0) return { avg: 0, stdDev: 0, fairnessIndex: 0 };
 
-    const scores = scopedPersonnel.map(p => p.current_duty_score);
+    // Calculate scores from duty_slots (approved/swapped only)
+    const scores = scopedPersonnel.map(p => calculateDutyScoreFromSlots(p.id));
     const avg = scores.reduce((sum, s) => sum + s, 0) / scores.length;
     const variance = scores.reduce((sum, s) => sum + Math.pow(s - avg, 2), 0) / scores.length;
     const stdDev = Math.sqrt(variance);
@@ -300,9 +302,14 @@ export default function ManagerDashboard() {
     return days;
   }, [scopedDutySlots, personnelMap, dutyTypeMap]);
 
-  // Get top/bottom performers by duty score
+  // Get top/bottom performers by duty score (calculated from duty_slots)
   const performanceStats = useMemo(() => {
-    const sorted = [...scopedPersonnel].sort((a, b) => b.current_duty_score - a.current_duty_score);
+    // Calculate scores for each personnel
+    const withScores = scopedPersonnel.map(p => ({
+      ...p,
+      calculatedScore: calculateDutyScoreFromSlots(p.id)
+    }));
+    const sorted = withScores.sort((a, b) => b.calculatedScore - a.calculatedScore);
     return {
       top: sorted.slice(0, 5),
       bottom: sorted.slice(-5).reverse(),
@@ -662,7 +669,7 @@ export default function ManagerDashboard() {
                       {person.rank} {person.last_name}
                     </span>
                   </div>
-                  <span className="text-sm font-medium text-success">{person.current_duty_score.toFixed(1)}</span>
+                  <span className="text-sm font-medium text-success">{person.calculatedScore.toFixed(1)}</span>
                 </div>
               ))}
               {performanceStats.top.length === 0 && (
@@ -693,7 +700,7 @@ export default function ManagerDashboard() {
                       {person.rank} {person.last_name}
                     </span>
                   </div>
-                  <span className="text-sm font-medium text-warning">{person.current_duty_score.toFixed(1)}</span>
+                  <span className="text-sm font-medium text-warning">{person.calculatedScore.toFixed(1)}</span>
                 </div>
               ))}
               {performanceStats.bottom.length === 0 && (

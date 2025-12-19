@@ -1472,6 +1472,32 @@ export function getDutySlotsByDateAndType(date: Date, dutyTypeId: string): DutyS
   });
 }
 
+/**
+ * Calculate duty score for a personnel from duty_slots.
+ * Only counts slots with status 'approved' or 'swapped'.
+ * This gives an accurate score based on the current organization's data.
+ */
+export function calculateDutyScoreFromSlots(personnelId: string): number {
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  const relevantSlots = slots.filter(
+    slot => slot.personnel_id === personnelId &&
+            (slot.status === 'approved' || slot.status === 'swapped')
+  );
+  return relevantSlots.reduce((sum, slot) => sum + (slot.points || 0), 0);
+}
+
+/**
+ * Get duty slots for a personnel that count toward their score.
+ * Only returns slots with status 'approved' or 'swapped'.
+ */
+export function getDutySlotsForScore(personnelId: string): DutySlot[] {
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  return slots.filter(
+    slot => slot.personnel_id === personnelId &&
+            (slot.status === 'approved' || slot.status === 'swapped')
+  ).sort((a, b) => new Date(b.date_assigned).getTime() - new Date(a.date_assigned).getTime());
+}
+
 export function createDutySlot(slot: DutySlot): DutySlot {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   slots.push(slot);
