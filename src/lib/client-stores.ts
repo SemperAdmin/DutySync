@@ -44,8 +44,9 @@ import {
   createDutyChangeRequest as supabaseCreateDutyChangeRequest,
   updateDutyChangeRequest as supabaseUpdateDutyChangeRequest,
   deleteDutyChangeRequest as supabaseDeleteDutyChangeRequest,
-  // Migration functions
+  // Migration functions (use ID mapping by unique fields)
   createDutySlotsWithMapping as supabaseCreateDutySlotsWithMapping,
+  createDutySlotWithMapping as supabaseCreateDutySlotWithMapping,
 } from "@/lib/supabase-data";
 
 // Import sync status tracking
@@ -1338,16 +1339,26 @@ export function createDutySlot(slot: DutySlot): DutySlot {
   saveToStorage(KEYS.dutySlots, slots);
   triggerAutoSave('dutyRoster');
 
-  // Sync to Supabase in background
+  // Sync to Supabase in background using ID mapping
+  // We need to look up by unique fields since local IDs may not match Supabase IDs
   const dutyType = getDutyTypeById(slot.duty_type_id);
   if (!dutyType) {
     console.warn("[Supabase Sync] createDutySlot: Duty type not found", { dutyTypeId: slot.duty_type_id });
     return slot;
   }
 
-  const orgId = getOrganizationIdFromUnit(dutyType.unit_section_id);
-  if (!orgId) {
-    console.warn("[Supabase Sync] createDutySlot: Organization ID not found", {
+  // Get personnel to get their service_id for lookup
+  const personnel = getPersonnelById(slot.personnel_id);
+  if (!personnel) {
+    console.warn("[Supabase Sync] createDutySlot: Personnel not found", { personnelId: slot.personnel_id });
+    return slot;
+  }
+
+  // Get RUC code from the unit hierarchy
+  const unit = getUnitSectionById(dutyType.unit_section_id);
+  const rucCode = unit?.ruc || getRucCodeFromUnitHierarchy(dutyType.unit_section_id);
+  if (!rucCode) {
+    console.warn("[Supabase Sync] createDutySlot: RUC code not found", {
       unitId: dutyType.unit_section_id,
       dutyTypeId: slot.duty_type_id
     });
@@ -1357,28 +1368,45 @@ export function createDutySlot(slot: DutySlot): DutySlot {
   const dateStr = formatDateToString(new Date(slot.date_assigned));
 
   if (process.env.NODE_ENV === "development") {
-    console.log("[Supabase Sync] createDutySlot: Syncing slot to Supabase", {
+    console.log("[Supabase Sync] createDutySlot: Syncing slot to Supabase with mapping", {
       slotId: slot.id,
-      orgId,
-      dutyTypeId: slot.duty_type_id,
-      personnelId: slot.personnel_id,
+      rucCode,
+      dutyTypeName: dutyType.duty_name,
+      personnelServiceId: personnel.service_id,
       date: dateStr
     });
   }
 
+  // Use the mapping function that looks up by unique fields
   syncToSupabase(
-    () => supabaseCreateDutySlot(
-      orgId,
-      slot.duty_type_id,
-      slot.personnel_id,
+    () => supabaseCreateDutySlotWithMapping(
+      rucCode,
+      dutyType.duty_name,
+      personnel.service_id,
       dateStr,
-      slot.assigned_by || undefined,
-      slot.id
+      slot.assigned_by || undefined
     ),
     "createDutySlot"
   );
 
   return slot;
+}
+
+// Helper to get RUC code by traversing unit hierarchy
+function getRucCodeFromUnitHierarchy(unitId: string): string | null {
+  const units = getFromStorage<UnitSection>(KEYS.units);
+  let currentUnit = units.find(u => u.id === unitId);
+
+  // Traverse up the hierarchy looking for a unit with a RUC code
+  while (currentUnit) {
+    if (currentUnit.ruc) {
+      return currentUnit.ruc;
+    }
+    if (!currentUnit.parent_id) break;
+    currentUnit = units.find(u => u.id === currentUnit!.parent_id);
+  }
+
+  return null;
 }
 
 export function updateDutySlot(id: string, updates: Partial<DutySlot>): DutySlot | null {
@@ -1514,8 +1542,8 @@ export async function migrateDutySlotsToSupabase(rucCode?: string): Promise<{
   // Map unit to RUC code (look for ruc property or parent unit's ruc)
   const unitToRuc = new Map<string, string>();
   units.forEach(u => {
-    if ((u as unknown as { ruc?: string }).ruc) {
-      unitToRuc.set(u.id, (u as unknown as { ruc: string }).ruc);
+    if (u.ruc) {
+      unitToRuc.set(u.id, u.ruc);
     }
   });
 
