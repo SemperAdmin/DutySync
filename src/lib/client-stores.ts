@@ -1458,28 +1458,21 @@ export function deleteDutySlot(id: string): boolean {
   // Sync to Supabase using mapping (unique fields) since local IDs may not match Supabase IDs
   const dutyType = getDutyTypeById(slotToDelete.duty_type_id);
   const personnel = getPersonnelById(slotToDelete.personnel_id);
+  const rucCode = dutyType ? getRucCodeFromUnitHierarchy(dutyType.unit_section_id) || getCurrentRuc() : null;
 
-  if (dutyType && personnel) {
-    // Get RUC code from unit hierarchy or session
-    const rucCode = getRucCodeFromUnitHierarchy(dutyType.unit_section_id) || getCurrentRuc();
-
-    if (rucCode) {
-      const dateStr = formatDateToString(new Date(slotToDelete.date_assigned));
-      syncToSupabase(
-        () => supabaseDeleteDutySlotWithMapping(
-          rucCode,
-          dutyType.duty_name,
-          personnel.service_id,
-          dateStr
-        ),
-        "deleteDutySlot"
-      );
-    } else {
-      // Fallback to ID-based delete if we can't get RUC
-      syncToSupabase(() => supabaseDeleteDutySlot(id), "deleteDutySlot");
-    }
+  if (dutyType && personnel && rucCode) {
+    const dateStr = formatDateToString(new Date(slotToDelete.date_assigned));
+    syncToSupabase(
+      () => supabaseDeleteDutySlotWithMapping(
+        rucCode,
+        dutyType.duty_name,
+        personnel.service_id,
+        dateStr
+      ),
+      "deleteDutySlot"
+    );
   } else {
-    // Fallback to ID-based delete if we can't get duty type or personnel
+    // Fallback to ID-based delete if we can't get all required info for mapping
     syncToSupabase(() => supabaseDeleteDutySlot(id), "deleteDutySlot");
   }
 
@@ -1556,7 +1549,11 @@ export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, en
           ),
           "clearDutySlotsByDutyType"
         );
+      } else {
+        console.error(`[clearDutySlotsByDutyType] Could not sync deletion to Supabase: RUC code not found for duty type ${dutyTypeId}`);
       }
+    } else {
+      console.error(`[clearDutySlotsByDutyType] Could not sync deletion to Supabase: Duty type ${dutyTypeId} not found`);
     }
   }
 
@@ -2834,6 +2831,33 @@ export interface EnrichedSlot extends DutySlot {
   } | null;
 }
 
+/**
+ * Build assigned_by_info for a user-assigned duty slot.
+ * Extracts to reduce duplication between getEnrichedSlots and optimistic UI updates.
+ */
+export function buildUserAssignedByInfo(assigner: Personnel | null): NonNullable<EnrichedSlot["assigned_by_info"]> {
+  if (!assigner) {
+    return {
+      type: "user",
+      display: "Assigned by User",
+    };
+  }
+
+  const assignerUnit = getUnitSectionById(assigner.unit_section_id);
+  const sectionName = assignerUnit?.unit_name || "";
+  return {
+    type: "user",
+    display: `${assigner.rank} ${assigner.first_name} ${assigner.last_name}${sectionName ? ` - ${sectionName}` : ""}`,
+    personnel: {
+      id: assigner.id,
+      rank: assigner.rank,
+      first_name: assigner.first_name,
+      last_name: assigner.last_name,
+      section: sectionName,
+    },
+  };
+}
+
 export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: string): EnrichedSlot[] {
   let slots: DutySlot[];
 
@@ -2859,28 +2883,8 @@ export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: stri
       // Check if it's a valid UUID (user ID) or a string like "admin"/"scheduler"
       if (isValidUUID(slot.assigned_by)) {
         // Try to find the personnel who assigned this duty
-        const assigner = getPersonnelById(slot.assigned_by);
-        if (assigner) {
-          const assignerUnit = getUnitSectionById(assigner.unit_section_id);
-          const sectionName = assignerUnit?.unit_name || "";
-          assigned_by_info = {
-            type: "user",
-            display: `${assigner.rank} ${assigner.first_name} ${assigner.last_name}${sectionName ? ` - ${sectionName}` : ""}`,
-            personnel: {
-              id: assigner.id,
-              rank: assigner.rank,
-              first_name: assigner.first_name,
-              last_name: assigner.last_name,
-              section: sectionName,
-            },
-          };
-        } else {
-          // UUID but no matching personnel - might be a user without personnel record
-          assigned_by_info = {
-            type: "user",
-            display: "Assigned by User",
-          };
-        }
+        const assigner = getPersonnelById(slot.assigned_by) || null;
+        assigned_by_info = buildUserAssignedByInfo(assigner);
       } else {
         // Non-UUID value like "admin" or "scheduler"
         assigned_by_info = {

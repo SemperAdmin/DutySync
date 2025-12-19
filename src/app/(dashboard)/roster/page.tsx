@@ -31,6 +31,7 @@ import {
   getApproverLevelName,
   buildSwapApprovals,
   clearDutySlotsByDutyType,
+  buildUserAssignedByInfo,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -635,15 +636,51 @@ export default function RosterPage() {
     return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   }
 
-  function getStatusColor(status: string): string {
+  function getStatusColor(status: string, isDuplicate: boolean = false): string {
     switch (status) {
       case "completed":
         return "bg-green-500/20 text-green-400";
       case "cancelled":
         return "bg-red-500/20 text-red-400 line-through";
       default:
-        return "bg-primary/10 text-foreground";
+        // Show red/warning background for duplicates in the same month
+        if (isDuplicate) {
+          return "bg-red-500/20 text-red-400";
+        }
+        return "bg-slate-500/20 text-foreground";
     }
+  }
+
+  // Detect personnel with duplicate assignments in the current month view
+  const duplicatePersonnelIds = useMemo(() => {
+    const duplicates = new Set<string>();
+    const personnelAssignmentCount = new Map<string, number>();
+
+    // Count assignments per personnel in the current month
+    for (const slot of slots) {
+      if (!slot.personnel_id) continue;
+      const slotDate = new Date(slot.date_assigned);
+      // Only check slots in the current month view
+      if (slotDate.getMonth() === currentDate.getMonth() && slotDate.getFullYear() === currentDate.getFullYear()) {
+        const count = personnelAssignmentCount.get(slot.personnel_id) || 0;
+        personnelAssignmentCount.set(slot.personnel_id, count + 1);
+      }
+    }
+
+    // Mark personnel with more than one assignment as duplicates
+    for (const [personnelId, count] of personnelAssignmentCount) {
+      if (count > 1) {
+        duplicates.add(personnelId);
+      }
+    }
+
+    return duplicates;
+  }, [slots, currentDate]);
+
+  // Check if a slot's personnel is a duplicate in the current month
+  function isPersonnelDuplicate(personnelId: string | null): boolean {
+    if (!personnelId) return false;
+    return duplicatePersonnelIds.has(personnelId);
   }
 
   // Filter duty types based on selected unit
@@ -881,27 +918,7 @@ export default function RosterPage() {
       const assignedPerson = allPersonnelData.find(p => p.id === personnelId);
 
       // Build assigned_by_info using current user's personnel record
-      let assigned_by_info: EnrichedSlot["assigned_by_info"] = null;
-      if (currentUserPersonnel) {
-        const assignerUnit = getUnitSectionById(currentUserPersonnel.unit_section_id);
-        const sectionName = assignerUnit?.unit_name || "";
-        assigned_by_info = {
-          type: "user" as const,
-          display: `${currentUserPersonnel.rank} ${currentUserPersonnel.first_name} ${currentUserPersonnel.last_name}${sectionName ? ` - ${sectionName}` : ""}`,
-          personnel: {
-            id: currentUserPersonnel.id,
-            rank: currentUserPersonnel.rank,
-            first_name: currentUserPersonnel.first_name,
-            last_name: currentUserPersonnel.last_name,
-            section: sectionName,
-          },
-        };
-      } else {
-        assigned_by_info = {
-          type: "user" as const,
-          display: "Assigned by User",
-        };
-      }
+      const assigned_by_info = buildUserAssignedByInfo(currentUserPersonnel);
 
       const newEnrichedSlot: EnrichedSlot = {
         ...newSlot,
@@ -1635,7 +1652,7 @@ export default function RosterPage() {
                               {filledSlots.length > 0 ? (
                                 <div className={`flex flex-col gap-0.5 ${isSelected ? "opacity-50" : ""}`}>
                                   {filledSlots.map((slot, idx) => (
-                                    <div key={slot.id || idx} className={`px-2 py-0.5 rounded text-xs ${getStatusColor(slot.status)}`}>
+                                    <div key={slot.id || idx} className={`px-2 py-0.5 rounded text-xs ${getStatusColor(slot.status, isPersonnelDuplicate(slot.personnel_id))}`}>
                                       {slot.personnel ? (
                                         <span>{slot.personnel.rank} {slot.personnel.first_name} {slot.personnel.last_name}</span>
                                       ) : (
@@ -1678,7 +1695,7 @@ export default function RosterPage() {
                                         setSelectedSlot(slot);
                                       }
                                     }}
-                                    className={`px-2 py-0.5 rounded text-xs transition-colors hover:brightness-110 ${getStatusColor(slot.status)}`}
+                                    className={`px-2 py-0.5 rounded text-xs transition-colors hover:brightness-110 ${getStatusColor(slot.status, isPersonnelDuplicate(slot.personnel_id))}`}
                                   >
                                     {slot.personnel ? (
                                       <span>
@@ -1715,7 +1732,7 @@ export default function RosterPage() {
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-6 text-sm">
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded bg-primary/10" />
+          <span className="w-3 h-3 rounded bg-slate-500/20" />
           <span className="text-foreground-muted">Scheduled</span>
         </div>
         <div className="flex items-center gap-2">
