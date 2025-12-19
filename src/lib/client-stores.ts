@@ -60,6 +60,12 @@ import {
 
 import { isSupabaseConfigured } from "@/lib/supabase";
 
+// UUID validation helper - checks if a string is a valid UUID format
+function isValidUUID(str: string | null | undefined): boolean {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 // Auto-save notification function (lazy import to avoid circular dependency)
 let notifyAutoSave: ((dataType: string) => void) | null = null;
 
@@ -1380,13 +1386,16 @@ export function createDutySlot(slot: DutySlot): DutySlot {
   }
 
   // Use the mapping function that looks up by unique fields
+  // Only pass assigned_by if it's a valid UUID (localStorage may have "admin" or other non-UUID values)
+  const validAssignedBy = isValidUUID(slot.assigned_by) ? slot.assigned_by : undefined;
+
   syncToSupabase(
     () => supabaseCreateDutySlotWithMapping(
       rucCode,
       dutyType.duty_name,
       personnel.service_id,
       dateStr,
-      slot.assigned_by || undefined
+      validAssignedBy
     ),
     "createDutySlot"
   );
