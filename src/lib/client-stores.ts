@@ -51,6 +51,7 @@ import {
   deleteDutySlotWithMapping as supabaseDeleteDutySlotWithMapping,
   deleteDutySlotsByDutyTypeWithMapping as supabaseDeleteDutySlotsByDutyTypeWithMapping,
   createDutyScoreEventsWithMapping as supabaseCreateDutyScoreEventsWithMapping,
+  updateDutySlotsStatusWithMapping as supabaseUpdateDutySlotsStatusWithMapping,
 } from "@/lib/supabase-data";
 
 // Import sync status tracking
@@ -1820,12 +1821,29 @@ export function approveRoster(
   saveToStorage(KEYS.dutySlots, allSlots);
   triggerAutoSave('dutySlots');
 
-  // Sync slot status updates to Supabase
-  for (const slot of monthSlots) {
-    syncToSupabase(
-      () => supabaseUpdateDutySlot(slot.id, { status: "approved" }),
-      `approveSlotStatus-${slot.id}`
-    );
+  // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
+  const rucCode = getCurrentRuc();
+  if (rucCode) {
+    const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
+    const slotsToUpdate = monthSlots
+      .filter(slot => slot.personnel_id)
+      .map(slot => {
+        const dutyType = dutyTypesById.get(slot.duty_type_id);
+        const person = personnelById.get(slot.personnel_id);
+        return {
+          dutyTypeName: dutyType?.duty_name || "",
+          personnelServiceId: person?.service_id || "",
+          dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+        };
+      })
+      .filter(s => s.dutyTypeName && s.personnelServiceId);
+
+    if (slotsToUpdate.length > 0) {
+      syncToSupabase(
+        () => supabaseUpdateDutySlotsStatusWithMapping(rucCode, slotsToUpdate, "approved"),
+        "approveSlotStatuses"
+      );
+    }
   }
 
   console.log(`[approveRoster] Updated ${monthSlots.length} slots to 'approved' status`);
@@ -1898,12 +1916,19 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
 
   const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
   const dutyTypes = getAllDutyTypes();
+  const dutyTypesById = new Map(dutyTypes.map((dt) => [dt.id, dt]));
   const allUnitIdsInScope = getAllDescendantUnitIds(unitId);
   const unitDutyTypeIds = new Set(
     dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map((dt) => dt.id)
   );
 
-  const slotsToRevert: string[] = [];
+  interface SlotToRevert {
+    id: string;
+    duty_type_id: string;
+    personnel_id: string;
+    date_assigned: Date | string;
+  }
+  const slotsToRevert: SlotToRevert[] = [];
   for (let i = 0; i < allSlots.length; i++) {
     const slot = allSlots[i];
     const dateValue = slot.date_assigned as unknown;
@@ -1919,7 +1944,12 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
     ) {
       allSlots[i].status = "scheduled";
       allSlots[i].updated_at = new Date();
-      slotsToRevert.push(slot.id);
+      slotsToRevert.push({
+        id: slot.id,
+        duty_type_id: slot.duty_type_id,
+        personnel_id: slot.personnel_id,
+        date_assigned: slot.date_assigned,
+      });
     }
   }
 
@@ -1927,12 +1957,29 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
     saveToStorage(KEYS.dutySlots, allSlots);
     triggerAutoSave('dutySlots');
 
-    // Sync slot status updates to Supabase
-    for (const slotId of slotsToRevert) {
-      syncToSupabase(
-        () => supabaseUpdateDutySlot(slotId, { status: "scheduled" }),
-        `revertSlotStatus-${slotId}`
-      );
+    // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
+    const rucCode = getCurrentRuc();
+    if (rucCode) {
+      const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
+      const mappedSlots = slotsToRevert
+        .filter(slot => slot.personnel_id)
+        .map(slot => {
+          const dutyType = dutyTypesById.get(slot.duty_type_id);
+          const person = personnelById.get(slot.personnel_id);
+          return {
+            dutyTypeName: dutyType?.duty_name || "",
+            personnelServiceId: person?.service_id || "",
+            dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+          };
+        })
+        .filter(s => s.dutyTypeName && s.personnelServiceId);
+
+      if (mappedSlots.length > 0) {
+        syncToSupabase(
+          () => supabaseUpdateDutySlotsStatusWithMapping(rucCode, mappedSlots, "scheduled"),
+          "revertSlotStatuses"
+        );
+      }
     }
 
     console.log(`[unapproveRoster] Reverted ${slotsToRevert.length} slots to 'scheduled' status`);
