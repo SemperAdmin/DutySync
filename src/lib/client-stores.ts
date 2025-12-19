@@ -2775,6 +2775,11 @@ export function getEnrichedDutyTypes(unitId?: string): EnrichedDutyType[] {
 export interface EnrichedSlot extends DutySlot {
   duty_type: { id: string; duty_name: string; unit_section_id: string } | null;
   personnel: { id: string; first_name: string; last_name: string; rank: string } | null;
+  assigned_by_info: {
+    type: "scheduler" | "user";
+    display: string; // "Automated by Scheduler" or "RANK FIRSTNAME LASTNAME - SECTION"
+    personnel?: { id: string; rank: string; first_name: string; last_name: string; section?: string };
+  } | null;
 }
 
 export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: string): EnrichedSlot[] {
@@ -2796,10 +2801,48 @@ export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: stri
     const dutyType = getDutyTypeById(slot.duty_type_id);
     const personnel = slot.personnel_id ? getPersonnelById(slot.personnel_id) : undefined;
 
+    // Determine assigned_by_info
+    let assigned_by_info: EnrichedSlot["assigned_by_info"] = null;
+    if (slot.assigned_by) {
+      // Check if it's a valid UUID (user ID) or a string like "admin"/"scheduler"
+      if (isValidUUID(slot.assigned_by)) {
+        // Try to find the personnel who assigned this duty
+        const assigner = getPersonnelById(slot.assigned_by);
+        if (assigner) {
+          const assignerUnit = getUnitSectionById(assigner.unit_section_id);
+          const sectionName = assignerUnit?.unit_name || "";
+          assigned_by_info = {
+            type: "user",
+            display: `${assigner.rank} ${assigner.first_name} ${assigner.last_name}${sectionName ? ` - ${sectionName}` : ""}`,
+            personnel: {
+              id: assigner.id,
+              rank: assigner.rank,
+              first_name: assigner.first_name,
+              last_name: assigner.last_name,
+              section: sectionName,
+            },
+          };
+        } else {
+          // UUID but no matching personnel - might be a user without personnel record
+          assigned_by_info = {
+            type: "user",
+            display: "Assigned by User",
+          };
+        }
+      } else {
+        // Non-UUID value like "admin" or "scheduler"
+        assigned_by_info = {
+          type: "scheduler",
+          display: "Automated by Scheduler",
+        };
+      }
+    }
+
     return {
       ...slot,
       duty_type: dutyType ? { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id } : null,
       personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank } : null,
+      assigned_by_info,
     };
   });
 }

@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import type { UnitSection, DutyType, Personnel, RoleName, BlockedDuty } from "@/types";
 import {
   getUnitSections,
+  getUnitSectionById,
   getEnrichedSlots,
   getAllDutyTypes,
   getPersonnelByUnit,
@@ -878,10 +879,35 @@ export default function RosterPage() {
       // Optimistically update UI
       const allPersonnelData = getAllPersonnel();
       const assignedPerson = allPersonnelData.find(p => p.id === personnelId);
+
+      // Build assigned_by_info using current user's personnel record
+      let assigned_by_info: EnrichedSlot["assigned_by_info"] = null;
+      if (currentUserPersonnel) {
+        const assignerUnit = getUnitSectionById(currentUserPersonnel.unit_section_id);
+        const sectionName = assignerUnit?.unit_name || "";
+        assigned_by_info = {
+          type: "user" as const,
+          display: `${currentUserPersonnel.rank} ${currentUserPersonnel.first_name} ${currentUserPersonnel.last_name}${sectionName ? ` - ${sectionName}` : ""}`,
+          personnel: {
+            id: currentUserPersonnel.id,
+            rank: currentUserPersonnel.rank,
+            first_name: currentUserPersonnel.first_name,
+            last_name: currentUserPersonnel.last_name,
+            section: sectionName,
+          },
+        };
+      } else {
+        assigned_by_info = {
+          type: "user" as const,
+          display: "Assigned by User",
+        };
+      }
+
       const newEnrichedSlot: EnrichedSlot = {
         ...newSlot,
         duty_type: { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id },
         personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank } : null,
+        assigned_by_info,
       };
 
       const updatedSlots = [...existingSlots, newEnrichedSlot];
@@ -1611,7 +1637,7 @@ export default function RosterPage() {
                                   {filledSlots.map((slot, idx) => (
                                     <div key={slot.id || idx} className={`px-2 py-0.5 rounded text-xs ${getStatusColor(slot.status)}`}>
                                       {slot.personnel ? (
-                                        <span>{slot.personnel.rank} {slot.personnel.last_name}</span>
+                                        <span>{slot.personnel.rank} {slot.personnel.first_name} {slot.personnel.last_name}</span>
                                       ) : (
                                         <span className="text-foreground-muted italic">Unassigned</span>
                                       )}
@@ -1656,7 +1682,7 @@ export default function RosterPage() {
                                   >
                                     {slot.personnel ? (
                                       <span>
-                                        {slot.personnel.rank} {slot.personnel.last_name}
+                                        {slot.personnel.rank} {slot.personnel.first_name} {slot.personnel.last_name}
                                       </span>
                                     ) : (
                                       <span className="text-foreground-muted italic">Unassigned</span>
@@ -2015,10 +2041,15 @@ export default function RosterPage() {
                     <div className="space-y-1">
                       {filledSlots.map((slot) => (
                         <div key={slot.id} className="flex items-center justify-between p-2 bg-primary/10 rounded-lg">
-                          <div>
+                          <div className="flex-1">
                             <span className="text-foreground font-medium">
                               {slot.personnel?.rank} {slot.personnel?.first_name} {slot.personnel?.last_name}
                             </span>
+                            {slot.assigned_by_info && (
+                              <p className="text-xs text-foreground-muted mt-0.5">
+                                Assigned by: {slot.assigned_by_info.display}
+                              </p>
+                            )}
                           </div>
                           {isManager && (
                             <button
