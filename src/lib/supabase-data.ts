@@ -1164,25 +1164,16 @@ export async function createDutyValue(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
-  // TODO: The database schema uses day_of_week/value but the app uses base_weight/multipliers.
-  // weekendMultiplier and holidayMultiplier are not currently stored in the database schema.
-  // A schema migration is needed to support these fields.
-  if (options.weekendMultiplier !== undefined || options.holidayMultiplier !== undefined) {
-    console.warn(
-      "[Supabase Sync] weekendMultiplier and holidayMultiplier are not stored in the database. " +
-      "These values will only persist in localStorage/GitHub sync. Schema migration needed."
-    );
-  }
-
   // Use upsert to handle both create and update cases
   const { data, error } = await supabase
     .from("duty_values")
     .upsert({
       id: options.id,
       duty_type_id: dutyTypeId,
-      day_of_week: 0, // Base value - schema stores per-day values, app uses base weight
-      value: options.baseWeight ?? 1,
-    } as never, { onConflict: 'id' })
+      base_weight: options.baseWeight ?? 1,
+      weekend_multiplier: options.weekendMultiplier ?? 1.5,
+      holiday_multiplier: options.holidayMultiplier ?? 2.0,
+    } as never, { onConflict: 'duty_type_id' })
     .select()
     .single();
 
