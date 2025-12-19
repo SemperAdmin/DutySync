@@ -1,6 +1,7 @@
 "use client";
 
 import { getSupabase, isSupabaseConfigured } from "./supabase";
+import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "./constants";
 import type {
   Organization,
   Unit,
@@ -483,29 +484,45 @@ export async function updatePersonnel(id: string, updates: Partial<Personnel>): 
 
 /**
  * Update personnel by service_id (for when local IDs don't match Supabase IDs).
+ * Requires rucCode to look up organization and ensure updates are correctly scoped.
  * Returns true if update succeeded, false otherwise.
  */
 export async function updatePersonnelByServiceId(
+  rucCode: string,
   serviceId: string,
   updates: Partial<Personnel>
 ): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   const supabase = getSupabase();
 
+  // Look up organization by RUC code first
+  const orgResult = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("ruc_code", rucCode)
+    .maybeSingle();
+  const org = orgResult.data as { id: string } | null;
+
+  if (orgResult.error || !org) {
+    console.error("Error updating personnel by service_id: Organization not found", { rucCode, serviceId });
+    return false;
+  }
+
   const { data, error } = await supabase
     .from("personnel")
     .update(updates as never)
+    .eq("organization_id", org.id)
     .eq("service_id", serviceId)
     .select("id");
 
   if (error) {
-    console.error("Error updating personnel by service_id:", { serviceId, error: error.message });
+    console.error("Error updating personnel by service_id:", { rucCode, serviceId, error: error.message });
     return false;
   }
 
   // Check if any row was actually updated
   if (!data || data.length === 0) {
-    console.warn(`Personnel not found for service_id: ${serviceId}`);
+    console.warn(`Personnel not found for service_id: ${serviceId} in organization ${rucCode}`);
     return false;
   }
 
@@ -1202,8 +1219,8 @@ export async function createDutyValue(
       id: options.id,
       duty_type_id: dutyTypeId,
       base_weight: options.baseWeight ?? 1,
-      weekend_multiplier: options.weekendMultiplier ?? 1.5,
-      holiday_multiplier: options.holidayMultiplier ?? 2.0,
+      weekend_multiplier: options.weekendMultiplier ?? DEFAULT_WEEKEND_MULTIPLIER,
+      holiday_multiplier: options.holidayMultiplier ?? DEFAULT_HOLIDAY_MULTIPLIER,
     } as never, { onConflict: 'duty_type_id' })
     .select()
     .single();
@@ -1869,6 +1886,7 @@ export async function updateDutySlotsStatusWithMapping(
   const serviceIds = [...new Set(slots.map(s => s.personnelServiceId))];
 
   // Batch lookup duty types and personnel in parallel
+  // Both are scoped by organization_id to ensure correct mapping
   const [dutyTypesResult, personnelResult] = await Promise.all([
     supabase
       .from("duty_types")
@@ -1878,6 +1896,7 @@ export async function updateDutySlotsStatusWithMapping(
     supabase
       .from("personnel")
       .select("id, service_id")
+      .eq("organization_id", org.id)
       .in("service_id", serviceIds),
   ]);
 
@@ -1957,7 +1976,9 @@ export async function updateDutySlotsStatusWithMapping(
           .from("duty_slots")
           .update({
             status: newStatus,
-            points: 0, // Prevent trigger from double-counting scores
+            // Only set points to 0 for 'approved' status to prevent trigger double-counting
+            // Other statuses may rely on the trigger or have valid point values
+            ...(newStatus === 'approved' && { points: 0 }),
             updated_at: new Date().toISOString()
           } as never)
           .eq("duty_type_id", op.dutyTypeId)

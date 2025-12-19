@@ -197,12 +197,12 @@ export default function UserDashboard() {
       date: new Date(slot.date_assigned),
       dutyType: getDutyTypeName(slot.duty_type_id),
       duration: "24hr",
-      points: slot.points,
+      points: slot.points ?? 0,
     }));
 
   // Calculate total points in last 90 days
   const totalPointsLast90Days = pastDuties.reduce(
-    (sum, slot) => sum + slot.points,
+    (sum, slot) => sum + (slot.points ?? 0),
     0
   );
 

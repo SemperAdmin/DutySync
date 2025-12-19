@@ -108,7 +108,16 @@ function convertDutyType(dt: SupabaseDbDutyType): DutyType {
 }
 
 function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
-  // Status types are now aligned - no conversion needed
+  // Validate status to ensure type safety even with unexpected database values
+  const validStatuses: DutySlot['status'][] = ['scheduled', 'approved', 'completed', 'missed', 'swapped'];
+  const status = validStatuses.includes(slot.status as DutySlot['status'])
+    ? slot.status as DutySlot['status']
+    : 'scheduled'; // Default to a safe value
+
+  if (status !== slot.status) {
+    console.warn(`Invalid status "${slot.status}" for duty slot ${slot.id}. Defaulting to "${status}".`);
+  }
+
   return {
     id: slot.id,
     duty_type_id: slot.duty_type_id,
@@ -116,7 +125,7 @@ function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
     date_assigned: new Date(slot.date_assigned),
     assigned_by: slot.assigned_by || "",
     points: slot.points ?? 0,
-    status: slot.status,
+    status,
     created_at: new Date(slot.created_at),
     updated_at: new Date(slot.updated_at),
   };
@@ -783,9 +792,9 @@ export async function loadAllData(rucCode?: string): Promise<void> {
     organizationId = organizationsCache[0].id;
   }
 
-  // Check if organization context is changing
-  if (currentOrganizationId && organizationId && currentOrganizationId !== organizationId) {
-    console.log(`[Data Layer] Organization context changing from ${currentOrganizationId} to ${organizationId}. Clearing old data.`);
+  // Check if organization context is changing (including change to no org)
+  if (currentOrganizationId && currentOrganizationId !== organizationId) {
+    console.log(`[Data Layer] Organization context changing from ${currentOrganizationId} to ${organizationId || 'none'}. Clearing old data.`);
     clearAllDataCaches();
     // Reload orgs since we just cleared
     await loadRucs();
