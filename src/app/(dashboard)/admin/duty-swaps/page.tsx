@@ -282,7 +282,11 @@ export default function DutySwapsPage() {
       const result = acceptSwapRequest(requestId, user.id);
       if (result.success) {
         refreshSwapPairs();
-        alert("Swap request accepted! Waiting for manager approvals.");
+        if (result.swapCompleted) {
+          alert("Swap completed! The duty roster has been updated.");
+        } else {
+          alert("Swap request accepted! Waiting for manager approvals.");
+        }
       } else {
         alert(result.error || "Failed to accept swap");
       }
