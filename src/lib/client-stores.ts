@@ -1905,29 +1905,27 @@ export async function approveRoster(
   const startDateStr = formatDateToString(startDate);
   const endDateStr = formatDateToString(endDate);
 
-  // Get all duty slots for this month and unit (including descendant units)
+  // Get all duty slots for this month
+  // Note: We match slots by duty_type_id existence, not by unit hierarchy
+  // The Unit Admin role already controls access - if they can see the roster, they can approve it
   const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
   const dutyTypes = getAllDutyTypes();
   const dutyTypesById = new Map(dutyTypes.map((dt) => [dt.id, dt]));
-  const allUnitIdsInScope = getAllDescendantUnitIds(unitId);
-  const unitDutyTypeIds = new Set(
-    dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map((dt) => dt.id)
-  );
+
+  // Get all duty type IDs that exist in localStorage (for matching slots)
+  const allDutyTypeIds = new Set(dutyTypes.map((dt) => dt.id));
 
   // ============ DIAGNOSTIC LOGGING FOR APPROVAL FLOW ============
-  // This logging helps diagnose why duty_slots.status may not be updating
   console.group("🔍 [approveRoster] DIAGNOSTIC LOG");
   console.log("📅 Input Parameters:", { unitId, year, month: month + 1, approvedBy });
   console.log("📅 Date Range:", { startDateStr, endDateStr });
   console.log("📦 Total slots in localStorage:", allSlots.length);
   console.log("📋 Total duty types:", dutyTypes.length);
-  console.log("🏢 Unit IDs in scope (from getAllDescendantUnitIds):", allUnitIdsInScope);
-  console.log("🎯 Duty types in scope:", dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map(dt => ({
+  console.log("📋 Duty types available:", dutyTypes.map(dt => ({
     id: dt.id,
     name: dt.duty_name,
     unit_section_id: dt.unit_section_id
   })));
-  console.log("🎯 Duty type IDs that will be matched:", [...unitDutyTypeIds]);
 
   // Log first few slots to see their structure
   if (allSlots.length > 0) {
@@ -1937,52 +1935,36 @@ export async function approveRoster(
       personnel_id: s.personnel_id,
       date_assigned: s.date_assigned,
       status: s.status,
-      dutyTypeName: dutyTypesById.get(s.duty_type_id)?.duty_name || "NOT FOUND"
+      dutyTypeName: dutyTypesById.get(s.duty_type_id)?.duty_name || "NOT FOUND",
+      dutyTypeExists: allDutyTypeIds.has(s.duty_type_id) ? "✅ YES" : "❌ NO"
     })));
-
-    // Check slots in date range (before unit filter)
-    const slotsInDateRange = allSlots.filter((slot) => {
-      const dateValue = slot.date_assigned as unknown;
-      const slotDateStr = dateValue instanceof Date
-        ? formatDateToString(dateValue)
-        : String(dateValue).split('T')[0];
-      return slotDateStr >= startDateStr && slotDateStr <= endDateStr;
-    });
-    console.log("📆 Slots in date range (before unit filter):", slotsInDateRange.length);
-    if (slotsInDateRange.length > 0) {
-      console.log("📆 Sample slots in date range:", slotsInDateRange.slice(0, 5).map(s => ({
-        id: s.id,
-        duty_type_id: s.duty_type_id,
-        date_assigned: s.date_assigned,
-        dutyTypeName: dutyTypesById.get(s.duty_type_id)?.duty_name || "NOT FOUND",
-        dutyTypeInScope: unitDutyTypeIds.has(s.duty_type_id) ? "YES ✅" : "NO ❌"
-      })));
-    }
   }
   // ============ END DIAGNOSTIC LOGGING ============
 
+  // Filter slots by date range AND by whether their duty type exists in localStorage
   const monthSlots = allSlots.filter((slot) => {
     // Use string comparison to avoid timezone issues with date parsing
-    // slot.date_assigned could be a Date object or ISO string depending on source
     const dateValue = slot.date_assigned as unknown;
     const slotDateStr = dateValue instanceof Date
       ? formatDateToString(dateValue)
       : String(dateValue).split('T')[0];  // Handle ISO date strings
+
+    // Match if: in date range AND duty type exists in localStorage
     return (
       slotDateStr >= startDateStr &&
       slotDateStr <= endDateStr &&
-      unitDutyTypeIds.has(slot.duty_type_id)
+      allDutyTypeIds.has(slot.duty_type_id)
     );
   });
 
   // Continue diagnostic logging after filter
-  console.log("✅ Filtered monthSlots (matched date AND unit):", monthSlots.length);
+  console.log("✅ Filtered monthSlots (in date range with valid duty type):", monthSlots.length);
   if (monthSlots.length === 0) {
     console.warn("⚠️ NO SLOTS FOUND! This is why 0 scores will be applied.");
     console.warn("⚠️ Possible causes:");
-    console.warn("   1. Slots exist in Supabase but not in localStorage (data not loaded)");
-    console.warn("   2. Duty types' unit_section_id doesn't match unit hierarchy");
-    console.warn("   3. Date format mismatch");
+    console.warn("   1. No slots exist in localStorage for this date range");
+    console.warn("   2. Slots exist but their duty_type_id doesn't match any loaded duty type");
+    console.warn("   3. Data not loaded from Supabase (try refreshing the page)");
   } else {
     console.log("✅ Sample matched slots:", monthSlots.slice(0, 3).map(s => ({
       id: s.id,
@@ -2243,10 +2225,10 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
   const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
   const dutyTypes = getAllDutyTypes();
   const dutyTypesById = new Map(dutyTypes.map((dt) => [dt.id, dt]));
-  const allUnitIdsInScope = getAllDescendantUnitIds(unitId);
-  const unitDutyTypeIds = new Set(
-    dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map((dt) => dt.id)
-  );
+
+  // Get all duty type IDs that exist in localStorage (for matching slots)
+  // We match by duty type existence, not unit hierarchy (same as approveRoster)
+  const allDutyTypeIds = new Set(dutyTypes.map((dt) => dt.id));
 
   interface SlotToRevert {
     id: string;
@@ -2265,7 +2247,7 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
     if (
       slotDateStr >= startDateStr &&
       slotDateStr <= endDateStr &&
-      unitDutyTypeIds.has(slot.duty_type_id) &&
+      allDutyTypeIds.has(slot.duty_type_id) &&
       slot.status === "approved"
     ) {
       allSlots[i].status = "scheduled";
