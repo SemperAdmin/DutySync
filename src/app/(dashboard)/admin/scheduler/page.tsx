@@ -371,7 +371,7 @@ export default function SchedulerPage() {
                               </span>
                             </div>
                             <span className="text-foreground-muted">
-                              +{(slot.points ?? 0).toFixed(1)} pts
+                              +{slot.points.toFixed(1)} pts
                             </span>
                           </div>
                         ))}

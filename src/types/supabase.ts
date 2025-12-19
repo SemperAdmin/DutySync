@@ -302,22 +302,25 @@ export interface Database {
         Row: {
           id: string;
           duty_type_id: string;
-          day_of_week: number;
-          value: number;
+          base_weight: number;
+          weekend_multiplier: number;
+          holiday_multiplier: number;
           created_at: string;
         };
         Insert: {
           id?: string;
           duty_type_id: string;
-          day_of_week: number;
-          value: number;
+          base_weight?: number;
+          weekend_multiplier?: number;
+          holiday_multiplier?: number;
           created_at?: string;
         };
         Update: {
           id?: string;
           duty_type_id?: string;
-          day_of_week?: number;
-          value?: number;
+          base_weight?: number;
+          weekend_multiplier?: number;
+          holiday_multiplier?: number;
           created_at?: string;
         };
       };

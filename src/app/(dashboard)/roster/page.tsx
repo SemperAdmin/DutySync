@@ -45,11 +45,10 @@ import {
   VIEW_MODE_USER,
   type ViewMode,
 } from "@/lib/constants";
-import { matchesFilter } from "@/lib/duty-thruster";
+import { matchesFilter, calculateDutyPoints } from "@/lib/duty-thruster";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
-import { formatDateToString, isHoliday, isWeekend } from "@/lib/date-utils";
-import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
+import { formatDateToString } from "@/lib/date-utils";
 
 // Manager role names that can assign duties within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -897,18 +896,9 @@ export default function RosterPage() {
         return;
       }
 
-      // Calculate points based on duty value and date
+      // Calculate points using centralized function
       const dutyValue = getDutyValueByDutyType(dutyType.id);
-      const baseWeight = dutyValue?.base_weight ?? 1;
-      const weekendMultiplier = dutyValue?.weekend_multiplier ?? DEFAULT_WEEKEND_MULTIPLIER;
-      const holidayMultiplier = dutyValue?.holiday_multiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
-
-      let calculatedPoints = baseWeight;
-      if (isHoliday(date)) {
-        calculatedPoints = baseWeight * holidayMultiplier;
-      } else if (isWeekend(date)) {
-        calculatedPoints = baseWeight * weekendMultiplier;
-      }
+      const calculatedPoints = calculateDutyPoints(date, dutyValue);
 
       // Create new slot
       const newSlot = {
@@ -1856,7 +1846,7 @@ export default function RosterPage() {
                 <div>
                   <label className="text-sm text-foreground-muted">Points Earned</label>
                   <p className="text-foreground font-medium">
-                    {(selectedSlot.points ?? 0).toFixed(1)} pts
+                    {selectedSlot.points.toFixed(1)} pts
                   </p>
                 </div>
               </div>
