@@ -597,3 +597,13 @@ export function onSyncStatusChanged(
     window.removeEventListener(SYNC_EVENTS.SYNC_ERROR, handleError);
   };
 }
+
+/**
+ * Manually notify listeners that specific data types have changed
+ * Call this after operations that modify data (e.g., roster approval)
+ */
+export function notifyDataChanged(dataTypes: SyncDataType[]): void {
+  if (dataTypes.length === 0) return;
+  console.log("[Sync Service] Manual data change notification:", dataTypes.join(", "));
+  dispatchSyncEvent(SYNC_EVENTS.DATA_CHANGED, { dataTypesUpdated: dataTypes });
+}

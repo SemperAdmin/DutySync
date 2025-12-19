@@ -8,6 +8,7 @@ import Card, {
   CardContent,
 } from "@/components/ui/Card";
 import { useAuth } from "@/lib/supabase-auth";
+import { useSyncRefresh } from "@/hooks/useSync";
 import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, DutyChangeRequest } from "@/types";
 import {
   getAllPersonnel,
@@ -97,6 +98,9 @@ export default function UserDashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Auto-refresh when personnel or duty slots change (e.g., after roster approval)
+  useSyncRefresh(["personnel", "dutySlots"], fetchData);
 
   // Calculate unit statistics
   const unitStats = useMemo(() => {

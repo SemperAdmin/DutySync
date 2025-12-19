@@ -1671,9 +1671,20 @@ export async function createDutySlot(
   return data as DutySlot;
 }
 
+// Valid duty slot status values
+const VALID_DUTY_SLOT_STATUSES = ['scheduled', 'approved', 'completed', 'missed', 'swapped'] as const;
+
 export async function updateDutySlot(id: string, updates: Partial<DutySlot>): Promise<DutySlot | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
+
+  // Validate status if provided
+  if (updates.status !== undefined) {
+    if (!VALID_DUTY_SLOT_STATUSES.includes(updates.status as typeof VALID_DUTY_SLOT_STATUSES[number])) {
+      console.error(`Invalid duty slot status: "${updates.status}". Valid values: ${VALID_DUTY_SLOT_STATUSES.join(', ')}`);
+      return null;
+    }
+  }
 
   const { data, error } = await supabase
     .from("duty_slots")

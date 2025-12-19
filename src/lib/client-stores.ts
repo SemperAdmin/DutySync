@@ -62,6 +62,9 @@ import {
   logSyncOperation,
 } from "@/lib/sync-status";
 
+// Import sync service for data change notifications
+import { notifyDataChanged } from "@/lib/sync-service";
+
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 // UUID validation helper - checks if a string is a valid UUID format
@@ -153,23 +156,65 @@ function getOrganizationIdFromUnit(unitId: string): string | null {
   return defaultOrgId;
 }
 
-// Fire-and-forget async sync to Supabase with status tracking
-function syncToSupabase(operation: () => Promise<unknown>, context: string): void {
+// Sync configuration
+const SYNC_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000, // 1 second base delay
+  maxDelayMs: 8000,  // Max 8 seconds delay
+};
+
+// Helper to delay with exponential backoff
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Calculate exponential backoff delay
+function getBackoffDelay(attempt: number): number {
+  const delayMs = SYNC_CONFIG.baseDelayMs * Math.pow(2, attempt);
+  return Math.min(delayMs, SYNC_CONFIG.maxDelayMs);
+}
+
+// Async sync to Supabase with retry mechanism and status tracking
+async function syncToSupabaseWithRetry(
+  operation: () => Promise<unknown>,
+  context: string,
+  maxRetries: number = SYNC_CONFIG.maxRetries
+): Promise<boolean> {
   recordSyncAttempt();
-  operation()
-    .then((result) => {
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await operation();
       recordSyncSuccess();
       if (process.env.NODE_ENV === "development") {
-        console.log(`[Supabase Sync] ${context}: Success`, result);
+        console.log(`[Supabase Sync] ${context}: Success${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`, result);
       }
       logSyncOperation("SYNC", context, true, result ? "OK" : "No result");
-    })
-    .catch((err) => {
+      return true;
+    } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error(`[Supabase Sync] ${context}: FAILED`, errorMessage);
-      recordSyncError(`${context}: ${errorMessage}`);
-      logSyncOperation("SYNC", context, false, errorMessage);
-    });
+      const isLastAttempt = attempt === maxRetries;
+
+      if (isLastAttempt) {
+        console.error(`[Supabase Sync] ${context}: FAILED after ${maxRetries + 1} attempts`, errorMessage);
+        recordSyncError(`${context}: ${errorMessage}`);
+        logSyncOperation("SYNC", context, false, `${errorMessage} (after ${maxRetries + 1} attempts)`);
+        return false;
+      } else {
+        const backoffDelay = getBackoffDelay(attempt);
+        console.warn(`[Supabase Sync] ${context}: Attempt ${attempt + 1} failed, retrying in ${backoffDelay}ms...`, errorMessage);
+        await delay(backoffDelay);
+      }
+    }
+  }
+  return false;
+}
+
+// Fire-and-forget wrapper that uses retry mechanism (backward compatible)
+function syncToSupabase(operation: () => Promise<unknown>, context: string): void {
+  syncToSupabaseWithRetry(operation, context).catch(() => {
+    // Error already logged in syncToSupabaseWithRetry
+  });
 }
 
 // ============ Base Path Helper ============
@@ -265,53 +310,112 @@ const KEYS = {
   dutyScoreEvents: "dutysync_duty_score_events",
 };
 
+// Track localStorage errors for diagnostics
+let lastStorageError: { key: string; error: string; timestamp: Date } | null = null;
+
+export function getLastStorageError(): { key: string; error: string; timestamp: Date } | null {
+  return lastStorageError;
+}
+
+// Track skipped syncs due to missing RUC code
+interface SkippedSync {
+  operation: string;
+  reason: string;
+  timestamp: Date;
+  itemCount?: number;
+}
+
+let skippedSyncs: SkippedSync[] = [];
+const MAX_SKIPPED_SYNCS = 50;
+
+function recordSkippedSync(operation: string, reason: string, itemCount?: number): void {
+  skippedSyncs.push({
+    operation,
+    reason,
+    timestamp: new Date(),
+    itemCount,
+  });
+  // Keep only the last N entries
+  if (skippedSyncs.length > MAX_SKIPPED_SYNCS) {
+    skippedSyncs = skippedSyncs.slice(-MAX_SKIPPED_SYNCS);
+  }
+}
+
+export function getSkippedSyncs(): SkippedSync[] {
+  return [...skippedSyncs];
+}
+
+export function clearSkippedSyncs(): void {
+  skippedSyncs = [];
+}
+
+// Validate RUC code is available before sync operations
+function validateRucForSync(operation: string, itemCount?: number): string | null {
+  const rucCode = getCurrentRuc();
+  if (!rucCode) {
+    console.warn(`[${operation}] No RUC code available, skipping Supabase sync`);
+    recordSkippedSync(operation, "No RUC code available", itemCount);
+    return null;
+  }
+  return rucCode;
+}
+
 // ============ Sync Supabase Data to localStorage ============
 // These functions allow data-layer.ts to sync Supabase data to localStorage
 // so that client-stores functions use the correct Supabase IDs
 
-export function syncUnitsToLocalStorage(units: UnitSection[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEYS.units, JSON.stringify(units));
-  // Update cache
-  const currentVersion = cacheVersions.get(KEYS.units) || 0;
-  dataCache.set(KEYS.units, { data: units, version: currentVersion });
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Sync] Synced ${units.length} units from Supabase to localStorage`);
-  }
-}
+// Helper function for localStorage sync with error handling
+function syncToLocalStorageWithErrorHandling<T>(
+  key: string,
+  data: T[],
+  dataType: string
+): boolean {
+  if (typeof window === "undefined") return false;
 
-export function syncDutyTypesToLocalStorage(dutyTypes: DutyType[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEYS.dutyTypes, JSON.stringify(dutyTypes));
-  const currentVersion = cacheVersions.get(KEYS.dutyTypes) || 0;
-  dataCache.set(KEYS.dutyTypes, { data: dutyTypes, version: currentVersion });
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Sync] Synced ${dutyTypes.length} duty types from Supabase to localStorage`);
-  }
-}
-
-export function syncPersonnelToLocalStorage(personnel: Personnel[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEYS.personnel, JSON.stringify(personnel));
-  const currentVersion = cacheVersions.get(KEYS.personnel) || 0;
-  dataCache.set(KEYS.personnel, { data: personnel, version: currentVersion });
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Sync] Synced ${personnel.length} personnel from Supabase to localStorage`);
-  }
-}
-
-export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): void {
-  if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(KEYS.dutySlots, JSON.stringify(dutySlots));
-    const currentVersion = cacheVersions.get(KEYS.dutySlots) || 0;
-    dataCache.set(KEYS.dutySlots, { data: dutySlots, version: currentVersion });
+    const jsonData = JSON.stringify(data);
+    localStorage.setItem(key, jsonData);
+    const currentVersion = cacheVersions.get(key) || 0;
+    dataCache.set(key, { data, version: currentVersion });
+
     if (process.env.NODE_ENV === "development") {
-      console.log(`[Sync] Synced ${dutySlots.length} duty slots from Supabase to localStorage`);
+      console.log(`[Sync] Synced ${data.length} ${dataType} from Supabase to localStorage`);
     }
+    return true;
   } catch (error) {
-    console.error("[Sync] Failed to sync duty slots to localStorage:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    lastStorageError = { key, error: errorMessage, timestamp: new Date() };
+
+    if (errorMessage.includes("QuotaExceeded") || errorMessage.includes("quota")) {
+      console.error(
+        `[Sync] localStorage quota exceeded while syncing ${dataType}. ` +
+        `Data has ${data.length} items.`
+      );
+    } else {
+      console.error(`[Sync] Failed to sync ${dataType} to localStorage:`, errorMessage);
+    }
+
+    // Still update the in-memory cache so the app can continue
+    const currentVersion = cacheVersions.get(key) || 0;
+    dataCache.set(key, { data, version: currentVersion });
+    return false;
   }
+}
+
+export function syncUnitsToLocalStorage(units: UnitSection[]): boolean {
+  return syncToLocalStorageWithErrorHandling(KEYS.units, units, "units");
+}
+
+export function syncDutyTypesToLocalStorage(dutyTypes: DutyType[]): boolean {
+  return syncToLocalStorageWithErrorHandling(KEYS.dutyTypes, dutyTypes, "duty types");
+}
+
+export function syncPersonnelToLocalStorage(personnel: Personnel[]): boolean {
+  return syncToLocalStorageWithErrorHandling(KEYS.personnel, personnel, "personnel");
+}
+
+export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): boolean {
+  return syncToLocalStorageWithErrorHandling(KEYS.dutySlots, dutySlots, "duty slots");
 }
 
 // ============ Migration: Sync localStorage TO Supabase ============
@@ -927,14 +1031,37 @@ function getFromStorage<T>(key: string): T[] {
   }
 }
 
-// Helper to save to localStorage and update cache
-function saveToStorage<T>(key: string, data: T[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(data));
+// Helper to save to localStorage and update cache with error handling
+function saveToStorage<T>(key: string, data: T[]): boolean {
+  if (typeof window === "undefined") return false;
 
-  // Update cache with new data
-  const currentVersion = cacheVersions.get(key) || 0;
-  dataCache.set(key, { data, version: currentVersion });
+  try {
+    const jsonData = JSON.stringify(data);
+    localStorage.setItem(key, jsonData);
+
+    // Update cache with new data
+    const currentVersion = cacheVersions.get(key) || 0;
+    dataCache.set(key, { data, version: currentVersion });
+    return true;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    lastStorageError = { key, error: errorMessage, timestamp: new Date() };
+
+    // Check if it's a quota exceeded error
+    if (errorMessage.includes("QuotaExceeded") || errorMessage.includes("quota")) {
+      console.error(
+        `[Storage] localStorage quota exceeded while saving ${key}. ` +
+        `Data has ${data.length} items. Consider clearing old data.`
+      );
+    } else {
+      console.error(`[Storage] Failed to save ${key} to localStorage:`, errorMessage);
+    }
+
+    // Still update the in-memory cache so the app can continue
+    const currentVersion = cacheVersions.get(key) || 0;
+    dataCache.set(key, { data, version: currentVersion });
+    return false;
+  }
 }
 
 // Deduplicate array by ID
@@ -1818,7 +1945,7 @@ export function approveRoster(
   triggerAutoSave('dutySlots');
 
   // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
-  const rucCode = getCurrentRuc();
+  const rucCode = validateRucForSync("approveRoster-slots", monthSlots.length);
   if (rucCode) {
     const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
     const slotsToUpdate = monthSlots
@@ -1889,6 +2016,10 @@ export function approveRoster(
   saveToStorage(KEYS.approvedRosters, approvals);
   triggerAutoSave('approvedRosters');
 
+  // Notify listeners that personnel and duty slots have changed
+  // This triggers dashboard refresh for any listening components
+  notifyDataChanged(["personnel", "dutySlots"]);
+
   return { approval, scoresApplied, eventsCreated };
 }
 
@@ -1952,7 +2083,7 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
     triggerAutoSave('dutySlots');
 
     // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
-    const rucCode = getCurrentRuc();
+    const rucCode = validateRucForSync("unapproveRoster", slotsToRevert.length);
     if (rucCode) {
       const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
       const mappedSlots = slotsToRevert
@@ -1975,6 +2106,9 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
         );
       }
     }
+
+    // Notify listeners that duty slots have changed
+    notifyDataChanged(["dutySlots"]);
   }
 
   return true;
@@ -2021,10 +2155,9 @@ export function createDutyScoreEvents(newEvents: DutyScoreEvent[]): number {
   saveToStorage(KEYS.dutyScoreEvents, events);
   triggerAutoSave('dutyScoreEvents');
 
-  // Get RUC code for Supabase sync
-  const rucCode = getCurrentRuc();
+  // Get RUC code for Supabase sync with validation
+  const rucCode = validateRucForSync("createDutyScoreEvents", newEvents.length);
   if (!rucCode) {
-    console.warn("[createDutyScoreEvents] No RUC code available, skipping Supabase sync");
     return newEvents.length;
   }
 
@@ -3027,6 +3160,45 @@ export function buildUserAssignedByInfo(assigner: Personnel | null): NonNullable
   };
 }
 
+// Track missing data for diagnostics
+interface DataIntegrityIssue {
+  type: 'missing_personnel' | 'missing_duty_type';
+  referenceId: string;
+  referencedFrom: string;
+  slotId: string;
+  timestamp: Date;
+}
+
+let dataIntegrityIssues: DataIntegrityIssue[] = [];
+let lastIntegrityWarningTime = 0;
+const INTEGRITY_WARNING_THROTTLE_MS = 5000; // Only warn every 5 seconds
+
+// Get current data integrity issues
+export function getDataIntegrityIssues(): DataIntegrityIssue[] {
+  return [...dataIntegrityIssues];
+}
+
+// Clear data integrity issues (call after data reload)
+export function clearDataIntegrityIssues(): void {
+  dataIntegrityIssues = [];
+}
+
+// Report data integrity summary
+export function reportDataIntegrity(): { missingPersonnel: number; missingDutyTypes: number; details: DataIntegrityIssue[] } {
+  const missingPersonnel = dataIntegrityIssues.filter(i => i.type === 'missing_personnel').length;
+  const missingDutyTypes = dataIntegrityIssues.filter(i => i.type === 'missing_duty_type').length;
+
+  if (missingPersonnel > 0 || missingDutyTypes > 0) {
+    console.warn(`[Data Integrity] Issues found: ${missingPersonnel} missing personnel, ${missingDutyTypes} missing duty types`);
+  }
+
+  return {
+    missingPersonnel,
+    missingDutyTypes,
+    details: [...dataIntegrityIssues],
+  };
+}
+
 export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: string): EnrichedSlot[] {
   let slots: DutySlot[];
 
@@ -3042,9 +3214,37 @@ export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: stri
     slots = slots.filter((slot) => unitDutyTypeIds.has(slot.duty_type_id));
   }
 
-  return slots.map((slot) => {
+  // Track missing data in this batch for throttled logging
+  const batchMissingPersonnel: string[] = [];
+  const batchMissingDutyTypes: string[] = [];
+
+  const enrichedSlots = slots.map((slot) => {
     const dutyType = getDutyTypeById(slot.duty_type_id);
     const personnel = slot.personnel_id ? getPersonnelById(slot.personnel_id) : undefined;
+
+    // Track missing personnel for diagnostics
+    if (slot.personnel_id && !personnel) {
+      batchMissingPersonnel.push(slot.personnel_id);
+      dataIntegrityIssues.push({
+        type: 'missing_personnel',
+        referenceId: slot.personnel_id,
+        referencedFrom: 'duty_slot.personnel_id',
+        slotId: slot.id,
+        timestamp: new Date(),
+      });
+    }
+
+    // Track missing duty types for diagnostics
+    if (slot.duty_type_id && !dutyType) {
+      batchMissingDutyTypes.push(slot.duty_type_id);
+      dataIntegrityIssues.push({
+        type: 'missing_duty_type',
+        referenceId: slot.duty_type_id,
+        referencedFrom: 'duty_slot.duty_type_id',
+        slotId: slot.id,
+        timestamp: new Date(),
+      });
+    }
 
     // Determine assigned_by_info
     let assigned_by_info: EnrichedSlot["assigned_by_info"] = null;
@@ -3070,6 +3270,36 @@ export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: stri
       assigned_by_info,
     };
   });
+
+  // Throttled warning for missing data (avoid console spam)
+  const now = Date.now();
+  if ((batchMissingPersonnel.length > 0 || batchMissingDutyTypes.length > 0) &&
+      (now - lastIntegrityWarningTime > INTEGRITY_WARNING_THROTTLE_MS)) {
+    lastIntegrityWarningTime = now;
+
+    if (batchMissingPersonnel.length > 0) {
+      const uniqueIds = [...new Set(batchMissingPersonnel)];
+      console.warn(
+        `[Data Integrity] ${batchMissingPersonnel.length} duty slots reference ${uniqueIds.length} missing personnel. ` +
+        `This may indicate data was not loaded or organization mismatch. First few IDs: ${uniqueIds.slice(0, 3).join(', ')}`
+      );
+    }
+
+    if (batchMissingDutyTypes.length > 0) {
+      const uniqueIds = [...new Set(batchMissingDutyTypes)];
+      console.warn(
+        `[Data Integrity] ${batchMissingDutyTypes.length} duty slots reference ${uniqueIds.length} missing duty types. ` +
+        `First few IDs: ${uniqueIds.slice(0, 3).join(', ')}`
+      );
+    }
+  }
+
+  // Cap the issues list to prevent memory bloat
+  if (dataIntegrityIssues.length > 1000) {
+    dataIntegrityIssues = dataIntegrityIssues.slice(-500);
+  }
+
+  return enrichedSlots;
 }
 
 // Get non-availability requests with personnel info

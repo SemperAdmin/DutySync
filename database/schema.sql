@@ -153,9 +153,9 @@ CREATE TABLE duty_slots (
     personnel_id UUID NOT NULL REFERENCES personnel(id) ON DELETE RESTRICT,
     date_assigned DATE NOT NULL,
     assigned_by UUID REFERENCES users(id),
-    duty_points_earned NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    points NUMERIC(10, 2) DEFAULT 0.00,  -- Calculated duty score (base_weight * multipliers)
     status VARCHAR(50) NOT NULL DEFAULT 'scheduled' CHECK (
-        status IN ('scheduled', 'completed', 'cancelled', 'swapped')
+        status IN ('scheduled', 'approved', 'completed', 'missed', 'swapped')
     ),
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -295,22 +295,30 @@ CREATE TRIGGER update_duty_slots_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to update personnel duty score after assignment
+-- NOTE: This is a backup mechanism. Primary score updates happen in the application
+-- when rosters are approved (see approveRoster in client-stores.ts).
+-- The trigger fires on 'approved' or 'completed' status to catch direct DB updates.
 CREATE OR REPLACE FUNCTION update_duty_score_after_assignment()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND NEW.status = 'completed') THEN
+    -- Only add points when status changes to approved or completed
+    -- and only if points > 0 to avoid duplicate additions
+    IF NEW.points > 0 AND
+       (OLD IS NULL OR OLD.status NOT IN ('approved', 'completed')) AND
+       NEW.status IN ('approved', 'completed') THEN
         UPDATE personnel
-        SET current_duty_score = current_duty_score + NEW.duty_points_earned
+        SET current_duty_score = current_duty_score + NEW.points,
+            updated_at = NOW()
         WHERE id = NEW.personnel_id;
     END IF;
     RETURN NEW;
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_duty_score_on_completion
+CREATE TRIGGER update_duty_score_on_approval
     AFTER INSERT OR UPDATE ON duty_slots
     FOR EACH ROW
-    WHEN (NEW.status = 'completed')
+    WHEN (NEW.status IN ('approved', 'completed'))
     EXECUTE FUNCTION update_duty_score_after_assignment();
 
 -- ============================================
@@ -353,7 +361,7 @@ SELECT
     ds.id,
     ds.date_assigned,
     ds.status,
-    ds.duty_points_earned,
+    ds.points,
     ds.notes,
     dt.duty_name,
     dt.slots_needed,
