@@ -481,6 +481,37 @@ export async function updatePersonnel(id: string, updates: Partial<Personnel>): 
   return data as Personnel;
 }
 
+/**
+ * Update personnel by service_id (for when local IDs don't match Supabase IDs).
+ * Returns true if update succeeded, false otherwise.
+ */
+export async function updatePersonnelByServiceId(
+  serviceId: string,
+  updates: Partial<Personnel>
+): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("personnel")
+    .update(updates as never)
+    .eq("service_id", serviceId)
+    .select("id");
+
+  if (error) {
+    console.error("Error updating personnel by service_id:", { serviceId, error: error.message });
+    return false;
+  }
+
+  // Check if any row was actually updated
+  if (!data || data.length === 0) {
+    console.warn(`Personnel not found for service_id: ${serviceId}`);
+    return false;
+  }
+
+  return true;
+}
+
 export async function deletePersonnel(id: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   const supabase = getSupabase();
@@ -1796,13 +1827,13 @@ export async function deleteDutySlotWithMapping(
 
 /**
  * Batch update duty slot status using unique fields (for when local IDs don't match Supabase IDs).
- * Uses the unique constraint: (personnel_id, date_assigned)
+ * Uses the unique constraint: (duty_type_id, personnel_id, date_assigned)
  *
  * Improvements:
  * - Uses .select() to verify rows were actually updated (#26, #29)
- * - Uses only UNIQUE constraint columns for matching (#27)
+ * - Uses all UNIQUE constraint columns for matching (#27)
  * - Executes updates in parallel batches for performance (#28)
- * - Validates organization context (#31)
+ * - Validates organization context for lookups (#31)
  */
 export async function updateDutySlotsStatusWithMapping(
   rucCode: string,
@@ -1833,20 +1864,38 @@ export async function updateDutySlotsStatusWithMapping(
     return { updated: 0, errors: [`Organization not found for RUC: ${rucCode}`], notFound: 0 };
   }
 
-  // Get all unique personnel service IDs (duty type names kept for logging only)
+  // Get all unique duty type names and personnel service IDs
+  const dutyTypeNames = [...new Set(slots.map(s => s.dutyTypeName))];
   const serviceIds = [...new Set(slots.map(s => s.personnelServiceId))];
 
-  // Batch lookup personnel - we only need personnel IDs for the UNIQUE constraint
-  const personnelResult = await supabase
-    .from("personnel")
-    .select("id, service_id")
-    .in("service_id", serviceIds);
+  // Batch lookup duty types and personnel in parallel
+  const [dutyTypesResult, personnelResult] = await Promise.all([
+    supabase
+      .from("duty_types")
+      .select("id, name")
+      .eq("organization_id", org.id)
+      .in("name", dutyTypeNames),
+    supabase
+      .from("personnel")
+      .select("id, service_id")
+      .in("service_id", serviceIds),
+  ]);
+
+  if (dutyTypesResult.error) {
+    return { updated: 0, errors: [`Error fetching duty types: ${dutyTypesResult.error.message}`], notFound: 0 };
+  }
 
   if (personnelResult.error) {
     return { updated: 0, errors: [`Error fetching personnel: ${personnelResult.error.message}`], notFound: 0 };
   }
 
-  // Build personnel lookup map
+  // Build lookup maps
+  const dutyTypeMap = new Map<string, string>();
+  const dutyTypesData = dutyTypesResult.data as Array<{ id: string; name: string }> | null;
+  for (const dt of (dutyTypesData || [])) {
+    dutyTypeMap.set(dt.name, dt.id);
+  }
+
   const personnelMap = new Map<string, string>();
   const personnelData = personnelResult.data as Array<{ id: string; service_id: string }> | null;
   for (const p of (personnelData || [])) {
@@ -1855,6 +1904,7 @@ export async function updateDutySlotsStatusWithMapping(
 
   // Prepare update operations with resolved IDs
   interface UpdateOperation {
+    dutyTypeId: string;
     personnelId: string;
     dateAssigned: string;
     dutyTypeName: string; // For logging
@@ -1863,7 +1913,13 @@ export async function updateDutySlotsStatusWithMapping(
 
   const updateOps: UpdateOperation[] = [];
   for (const slot of slots) {
+    const dutyTypeId = dutyTypeMap.get(slot.dutyTypeName);
     const personnelId = personnelMap.get(slot.personnelServiceId);
+
+    if (!dutyTypeId) {
+      errors.push(`Duty type not found: ${slot.dutyTypeName}`);
+      continue;
+    }
 
     if (!personnelId) {
       errors.push(`Personnel not found: ${slot.personnelServiceId}`);
@@ -1871,6 +1927,7 @@ export async function updateDutySlotsStatusWithMapping(
     }
 
     updateOps.push({
+      dutyTypeId,
       personnelId,
       dateAssigned: slot.dateAssigned,
       dutyTypeName: slot.dutyTypeName,
@@ -1895,8 +1952,7 @@ export async function updateDutySlotsStatusWithMapping(
     const results = await Promise.all(
       batch.map(async (op) => {
         // Issue #26, #29: Use .select() to verify rows were actually updated
-        // Issue #27: Use only UNIQUE constraint columns (personnel_id, date_assigned)
-        // Issue #31: Filter by organization_id to ensure correct org context
+        // Use the actual UNIQUE constraint columns: (duty_type_id, personnel_id, date_assigned)
         const { data, error } = await supabase
           .from("duty_slots")
           .update({
@@ -1904,7 +1960,7 @@ export async function updateDutySlotsStatusWithMapping(
             points: 0, // Prevent trigger from double-counting scores
             updated_at: new Date().toISOString()
           } as never)
-          .eq("organization_id", org.id) // Issue #31: Ensure correct organization
+          .eq("duty_type_id", op.dutyTypeId)
           .eq("personnel_id", op.personnelId)
           .eq("date_assigned", op.dateAssigned)
           .select("id"); // Issue #26, #29: Verify update occurred
