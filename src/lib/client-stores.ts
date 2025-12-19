@@ -30,6 +30,7 @@ import {
   deleteDutySlotsInRange as supabaseDeleteDutySlotsInRange,
   createDutyScoreEvents as supabaseCreateDutyScoreEvents,
   updatePersonnel as supabaseUpdatePersonnel,
+  updatePersonnelByServiceId as supabaseUpdatePersonnelByServiceId,
   // Duty values
   createDutyValue as supabaseCreateDutyValue,
   updateDutyValue as supabaseUpdateDutyValue,
@@ -2013,7 +2014,7 @@ export async function approveRoster(
   // This recalculates the entire score from events for accuracy
   const personnel = getFromStorage<Personnel>(KEYS.personnel);
   let scoresApplied = 0;
-  const updatedPersonnelScores: { id: string; newScore: number }[] = [];
+  const updatedPersonnelScores: { serviceId: string; newScore: number }[] = [];
 
   for (const [personnelId, points] of personnelScores) {
     const idx = personnel.findIndex((p) => p.id === personnelId);
@@ -2023,7 +2024,8 @@ export async function approveRoster(
       personnel[idx].current_duty_score = newScore;
       personnel[idx].updated_at = new Date();
       scoresApplied++;
-      updatedPersonnelScores.push({ id: personnelId, newScore });
+      // Track by service_id for Supabase sync (local IDs may differ from Supabase IDs)
+      updatedPersonnelScores.push({ serviceId: personnel[idx].service_id, newScore });
     }
   }
 
@@ -2032,21 +2034,22 @@ export async function approveRoster(
     triggerAutoSave('unitMembers');
 
     // Sync personnel scores to Supabase - await all updates in parallel
+    // Use service_id for lookup since local IDs may differ from Supabase IDs
     if (isSupabaseConfigured()) {
-      const scorePromises = updatedPersonnelScores.map(async ({ id, newScore }) => {
+      const scorePromises = updatedPersonnelScores.map(async ({ serviceId, newScore }) => {
         try {
-          const result = await supabaseUpdatePersonnel(id, { current_duty_score: newScore });
-          if (result) {
+          const success = await supabaseUpdatePersonnelByServiceId(serviceId, { current_duty_score: newScore });
+          if (success) {
             syncStatus.scoresUpdated++;
-            return { success: true, id };
+            return { success: true, serviceId };
           } else {
-            syncStatus.scoreErrors.push(`Failed to update score for personnel ${id}`);
-            return { success: false, id };
+            syncStatus.scoreErrors.push(`Failed to update score for personnel ${serviceId}`);
+            return { success: false, serviceId };
           }
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : String(err);
-          syncStatus.scoreErrors.push(`Personnel ${id}: ${errorMsg}`);
-          return { success: false, id };
+          syncStatus.scoreErrors.push(`Personnel ${serviceId}: ${errorMsg}`);
+          return { success: false, serviceId };
         }
       });
 
