@@ -1927,21 +1927,31 @@ export async function createDutySlotWithMapping(
   }
 
   // Now create the duty slot with the correct Supabase IDs
+  const insertData = {
+    organization_id: org.id,
+    duty_type_id: dutyType.id,
+    personnel_id: personnel.id,
+    date_assigned: dateAssigned,
+    status: "scheduled" as const,
+    assigned_by: assignedBy || null,
+  };
+
+  console.log("[Supabase] Inserting duty slot:", insertData);
+
   const { data, error } = await supabase
     .from("duty_slots")
-    .insert({
-      organization_id: org.id,
-      duty_type_id: dutyType.id,
-      personnel_id: personnel.id,
-      date_assigned: dateAssigned,
-      status: "scheduled",
-      assigned_by: assignedBy || null,
-    } as never)
+    .insert(asInsert(insertData))
     .select()
     .single();
 
   if (error) {
-    console.error("Error creating duty slot with mapping:", error);
+    console.error("Error creating duty slot with mapping:", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      insertData,
+    });
     return null;
   }
   return data as DutySlot;
