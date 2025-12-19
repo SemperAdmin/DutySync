@@ -1792,6 +1792,113 @@ export async function deleteDutySlotWithMapping(
   return true;
 }
 
+/**
+ * Batch update duty slot status using unique fields (for when local IDs don't match Supabase IDs).
+ * Uses the unique constraint: (duty_type_id, personnel_id, date_assigned)
+ */
+export async function updateDutySlotsStatusWithMapping(
+  rucCode: string,
+  slots: Array<{
+    dutyTypeName: string;
+    personnelServiceId: string;
+    dateAssigned: string;
+  }>,
+  newStatus: "scheduled" | "approved" | "completed" | "missed" | "swapped"
+): Promise<{ updated: number; errors: string[] }> {
+  if (!isSupabaseConfigured()) return { updated: 0, errors: ["Supabase not configured"] };
+  if (slots.length === 0) return { updated: 0, errors: [] };
+
+  const supabase = getSupabase();
+  const errors: string[] = [];
+  let updated = 0;
+
+  // Look up organization by RUC code first
+  const orgResult = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("ruc_code", rucCode)
+    .maybeSingle();
+  const org = orgResult.data as { id: string } | null;
+
+  if (orgResult.error || !org) {
+    return { updated: 0, errors: [`Organization not found for RUC: ${rucCode}`] };
+  }
+
+  // Get all unique duty type names and personnel service IDs
+  const dutyTypeNames = [...new Set(slots.map(s => s.dutyTypeName))];
+  const serviceIds = [...new Set(slots.map(s => s.personnelServiceId))];
+
+  // Batch lookup duty types and personnel
+  const [dutyTypesResult, personnelResult] = await Promise.all([
+    supabase
+      .from("duty_types")
+      .select("id, name")
+      .eq("organization_id", org.id)
+      .in("name", dutyTypeNames),
+    supabase
+      .from("personnel")
+      .select("id, service_id")
+      .in("service_id", serviceIds),
+  ]);
+
+  if (dutyTypesResult.error) {
+    return { updated: 0, errors: [`Error fetching duty types: ${dutyTypesResult.error.message}`] };
+  }
+
+  if (personnelResult.error) {
+    return { updated: 0, errors: [`Error fetching personnel: ${personnelResult.error.message}`] };
+  }
+
+  // Build lookup maps
+  const dutyTypeMap = new Map<string, string>();
+  const dutyTypesData = dutyTypesResult.data as Array<{ id: string; name: string }> | null;
+  for (const dt of (dutyTypesData || [])) {
+    dutyTypeMap.set(dt.name, dt.id);
+  }
+
+  const personnelMap = new Map<string, string>();
+  const personnelData = personnelResult.data as Array<{ id: string; service_id: string }> | null;
+  for (const p of (personnelData || [])) {
+    personnelMap.set(p.service_id, p.id);
+  }
+
+  // Update each slot
+  for (const slot of slots) {
+    const dutyTypeId = dutyTypeMap.get(slot.dutyTypeName);
+    const personnelId = personnelMap.get(slot.personnelServiceId);
+
+    if (!dutyTypeId) {
+      errors.push(`Duty type not found: ${slot.dutyTypeName}`);
+      continue;
+    }
+
+    if (!personnelId) {
+      errors.push(`Personnel not found: ${slot.personnelServiceId}`);
+      continue;
+    }
+
+    const { error } = await supabase
+      .from("duty_slots")
+      .update({ status: newStatus, updated_at: new Date().toISOString() } as never)
+      .eq("duty_type_id", dutyTypeId)
+      .eq("personnel_id", personnelId)
+      .eq("date_assigned", slot.dateAssigned);
+
+    if (error) {
+      errors.push(`Error updating slot ${slot.dutyTypeName}/${slot.personnelServiceId}/${slot.dateAssigned}: ${error.message}`);
+    } else {
+      updated++;
+    }
+  }
+
+  console.log(`[Supabase] Updated ${updated}/${slots.length} duty slot statuses to '${newStatus}'`);
+  if (errors.length > 0) {
+    console.warn(`[Supabase] ${errors.length} errors during status update:`, errors.slice(0, 5));
+  }
+
+  return { updated, errors };
+}
+
 // Batch create duty slots (for scheduler)
 export async function createDutySlots(
   slots: Array<{
