@@ -44,6 +44,8 @@ import {
   createDutyChangeRequest as supabaseCreateDutyChangeRequest,
   updateDutyChangeRequest as supabaseUpdateDutyChangeRequest,
   deleteDutyChangeRequest as supabaseDeleteDutyChangeRequest,
+  // Migration functions
+  createDutySlotsWithMapping as supabaseCreateDutySlotsWithMapping,
 } from "@/lib/supabase-data";
 
 // Import sync status tracking
@@ -1468,6 +1470,128 @@ export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, en
   saveToStorage(KEYS.dutySlots, filtered);
   if (count > 0) triggerAutoSave('dutyRoster');
   return count;
+}
+
+// ============ Duty Slots Migration to Supabase ============
+
+/**
+ * Migrate duty slots from localStorage to Supabase by mapping IDs to unique fields.
+ * This function looks up personnel by service_id and duty types by name.
+ * Use this when localStorage IDs don't match Supabase IDs.
+ *
+ * Call from browser console: window.migrateDutySlotsToSupabase()
+ */
+export async function migrateDutySlotsToSupabase(rucCode?: string): Promise<{
+  total: number;
+  migrated: number;
+  errors: string[];
+}> {
+  const result = { total: 0, migrated: 0, errors: [] as string[] };
+
+  // Get duty slots from localStorage
+  const dutySlots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  result.total = dutySlots.length;
+
+  if (dutySlots.length === 0) {
+    result.errors.push("No duty slots found in localStorage");
+    return result;
+  }
+
+  console.log(`[Migration] Found ${dutySlots.length} duty slots in localStorage`);
+
+  // Get all personnel and duty types from localStorage for mapping
+  const personnel = getFromStorage<Personnel>(KEYS.personnel);
+  const dutyTypes = getFromStorage<DutyType>(KEYS.dutyTypes);
+  const units = getFromStorage<UnitSection>(KEYS.units);
+
+  // Build lookup maps
+  const personnelById = new Map<string, Personnel>();
+  personnel.forEach(p => personnelById.set(p.id, p));
+
+  const dutyTypeById = new Map<string, DutyType>();
+  dutyTypes.forEach(dt => dutyTypeById.set(dt.id, dt));
+
+  // Map unit to RUC code (look for ruc property or parent unit's ruc)
+  const unitToRuc = new Map<string, string>();
+  units.forEach(u => {
+    if ((u as unknown as { ruc?: string }).ruc) {
+      unitToRuc.set(u.id, (u as unknown as { ruc: string }).ruc);
+    }
+  });
+
+  // Determine RUC code - use provided one or try to find from units
+  let targetRuc = rucCode;
+  if (!targetRuc) {
+    // Try to find a RUC from the units
+    const rucValues = [...unitToRuc.values()];
+    if (rucValues.length > 0) {
+      targetRuc = rucValues[0];
+    } else {
+      result.errors.push("No RUC code provided and couldn't find one in localStorage. Pass a RUC code as parameter.");
+      return result;
+    }
+  }
+
+  console.log(`[Migration] Using RUC code: ${targetRuc}`);
+
+  // Build migration data
+  const migrationSlots: Array<{
+    rucCode: string;
+    dutyTypeName: string;
+    personnelServiceId: string;
+    dateAssigned: string;
+    assignedBy?: string;
+  }> = [];
+
+  for (const slot of dutySlots) {
+    const person = personnelById.get(slot.personnel_id);
+    const dutyType = dutyTypeById.get(slot.duty_type_id);
+
+    if (!person) {
+      result.errors.push(`Slot ${slot.id}: Personnel ${slot.personnel_id} not found in localStorage`);
+      continue;
+    }
+
+    if (!dutyType) {
+      result.errors.push(`Slot ${slot.id}: Duty type ${slot.duty_type_id} not found in localStorage`);
+      continue;
+    }
+
+    migrationSlots.push({
+      rucCode: targetRuc,
+      dutyTypeName: dutyType.duty_name,
+      personnelServiceId: person.service_id,
+      dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+      assignedBy: slot.assigned_by || undefined,
+    });
+  }
+
+  console.log(`[Migration] Prepared ${migrationSlots.length} slots for migration`);
+
+  if (migrationSlots.length === 0) {
+    result.errors.push("No valid slots to migrate");
+    return result;
+  }
+
+  // Call the Supabase migration function
+  const migrationResult = await supabaseCreateDutySlotsWithMapping(migrationSlots);
+  result.migrated = migrationResult.created;
+  result.errors.push(...migrationResult.errors);
+
+  console.log(`[Migration] Complete! ${result.migrated}/${result.total} slots migrated`);
+  if (result.errors.length > 0) {
+    console.log(`[Migration] Errors:`, result.errors.slice(0, 10));
+    if (result.errors.length > 10) {
+      console.log(`[Migration] ... and ${result.errors.length - 10} more errors`);
+    }
+  }
+
+  return result;
+}
+
+// Expose migration function on window for console access
+if (typeof window !== "undefined") {
+  (window as unknown as { migrateDutySlotsToSupabase: typeof migrateDutySlotsToSupabase }).migrateDutySlotsToSupabase = migrateDutySlotsToSupabase;
 }
 
 // ============ Roster Approval ============
