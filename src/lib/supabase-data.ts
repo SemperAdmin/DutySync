@@ -1618,6 +1618,54 @@ export async function createDutySlot(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
+  // Verify the organization exists in Supabase before attempting upsert
+  const { data: orgExists, error: orgError } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  if (orgError || !orgExists) {
+    console.error("Error: Organization does not exist in Supabase:", {
+      organizationId,
+      error: orgError?.message,
+      hint: "The organization must exist in Supabase before creating duty slots.",
+    });
+    return null;
+  }
+
+  // Verify the duty type exists in Supabase
+  const { data: dutyTypeExists, error: dutyTypeError } = await supabase
+    .from("duty_types")
+    .select("id")
+    .eq("id", dutyTypeId)
+    .maybeSingle();
+
+  if (dutyTypeError || !dutyTypeExists) {
+    console.error("Error: Duty type does not exist in Supabase:", {
+      dutyTypeId,
+      error: dutyTypeError?.message,
+      hint: "The duty type must exist in Supabase before creating duty slots. Sync duty types first.",
+    });
+    return null;
+  }
+
+  // Verify the personnel exists in Supabase
+  const { data: personnelExists, error: personnelError } = await supabase
+    .from("personnel")
+    .select("id")
+    .eq("id", personnelId)
+    .maybeSingle();
+
+  if (personnelError || !personnelExists) {
+    console.error("Error: Personnel does not exist in Supabase:", {
+      personnelId,
+      error: personnelError?.message,
+      hint: "The personnel must exist in Supabase before creating duty slots. Sync personnel first.",
+    });
+    return null;
+  }
+
   // Use upsert to handle both create and update cases (matching duty type pattern)
   const { data, error } = await supabase
     .from("duty_slots")
@@ -1697,8 +1745,54 @@ export async function createDutySlots(
   const supabase = getSupabase();
   const result = { created: 0, errors: [] as string[] };
 
+  // Gather unique IDs that need to be validated
+  const orgIds = [...new Set(slots.map(s => s.organizationId))];
+  const dutyTypeIds = [...new Set(slots.map(s => s.dutyTypeId))];
+  const personnelIds = [...new Set(slots.map(s => s.personnelId))];
+
+  // Validate organizations exist
+  const { data: validOrgs } = await supabase
+    .from("organizations")
+    .select("id")
+    .in("id", orgIds) as { data: { id: string }[] | null };
+  const validOrgIds = new Set(validOrgs?.map(o => o.id) || []);
+
+  // Validate duty types exist
+  const { data: validDutyTypes } = await supabase
+    .from("duty_types")
+    .select("id")
+    .in("id", dutyTypeIds) as { data: { id: string }[] | null };
+  const validDutyTypeIds = new Set(validDutyTypes?.map(dt => dt.id) || []);
+
+  // Validate personnel exist
+  const { data: validPersonnel } = await supabase
+    .from("personnel")
+    .select("id")
+    .in("id", personnelIds) as { data: { id: string }[] | null };
+  const validPersonnelIds = new Set(validPersonnel?.map(p => p.id) || []);
+
+  // Filter slots to only include those with valid foreign keys
+  const validSlots = slots.filter(slot => {
+    const isValid = validOrgIds.has(slot.organizationId) &&
+                    validDutyTypeIds.has(slot.dutyTypeId) &&
+                    validPersonnelIds.has(slot.personnelId);
+    if (!isValid) {
+      const reasons: string[] = [];
+      if (!validOrgIds.has(slot.organizationId)) reasons.push(`org ${slot.organizationId} not found`);
+      if (!validDutyTypeIds.has(slot.dutyTypeId)) reasons.push(`duty type ${slot.dutyTypeId} not found`);
+      if (!validPersonnelIds.has(slot.personnelId)) reasons.push(`personnel ${slot.personnelId} not found`);
+      result.errors.push(`Skipping slot ${slot.id || 'new'} on ${slot.dateAssigned}: ${reasons.join(', ')}`);
+    }
+    return isValid;
+  });
+
+  if (validSlots.length === 0) {
+    result.errors.push("No valid slots to insert - all slots had missing foreign key references");
+    return result;
+  }
+
   // Convert to Supabase format
-  const insertData = slots.map((slot) => ({
+  const insertData = validSlots.map((slot) => ({
     id: slot.id,
     organization_id: slot.organizationId,
     duty_type_id: slot.dutyTypeId,
