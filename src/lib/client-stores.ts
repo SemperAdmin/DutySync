@@ -1908,6 +1908,15 @@ export async function approveRoster(
   console.log("📅 Date Range:", { startDateStr, endDateStr });
   console.log("📦 Total slots in localStorage:", allSlots.length);
   console.log("📋 Total duty types:", dutyTypes.length);
+
+  // Show ALL duty types with their unit_section_id for debugging the mismatch
+  console.log("📋 ALL duty types in localStorage:", dutyTypes.map(dt => ({
+    id: dt.id,
+    name: dt.duty_name,
+    unit_section_id: dt.unit_section_id,
+    matchesUnitScope: allUnitIdsInScope.includes(dt.unit_section_id) ? "✅ YES" : "❌ NO"
+  })));
+
   console.log("🏢 Unit IDs in scope (from getAllDescendantUnitIds):", allUnitIdsInScope);
   console.log("🎯 Duty types in scope:", dutyTypes.filter((dt) => allUnitIdsInScope.includes(dt.unit_section_id)).map(dt => ({
     id: dt.id,
@@ -1915,6 +1924,14 @@ export async function approveRoster(
     unit_section_id: dt.unit_section_id
   })));
   console.log("🎯 Duty type IDs that will be matched:", [...unitDutyTypeIds]);
+
+  // Show the mismatch clearly if no duty types match
+  if (unitDutyTypeIds.size === 0 && dutyTypes.length > 0) {
+    console.error("❌ MISMATCH DETECTED: Duty types exist but none match the unit scope!");
+    console.error("   Unit being approved:", unitId);
+    console.error("   Duty types have unit_section_id values:", [...new Set(dutyTypes.map(dt => dt.unit_section_id))]);
+    console.error("   💡 The duty type's unit_section_id needs to match the approval unit or be a descendant");
+  }
 
   // Log first few slots to see their structure
   if (allSlots.length > 0) {
