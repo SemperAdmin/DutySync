@@ -1399,7 +1399,8 @@ export function createDutySlot(slot: DutySlot): DutySlot {
       dutyType.duty_name,
       personnel.service_id,
       dateStr,
-      validAssignedBy
+      validAssignedBy,
+      slot.points
     ),
     "createDutySlot"
   );
@@ -1631,6 +1632,7 @@ export async function migrateDutySlotsToSupabase(rucCode?: string): Promise<{
     personnelServiceId: string;
     dateAssigned: string;
     assignedBy?: string;
+    points?: number;
   }> = [];
 
   for (const slot of dutySlots) {
@@ -1653,6 +1655,7 @@ export async function migrateDutySlotsToSupabase(rucCode?: string): Promise<{
       personnelServiceId: person.service_id,
       dateAssigned: formatDateToString(new Date(slot.date_assigned)),
       assignedBy: slot.assigned_by || undefined,
+      points: slot.points,
     });
   }
 

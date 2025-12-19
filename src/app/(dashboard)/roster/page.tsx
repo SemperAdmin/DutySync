@@ -48,7 +48,8 @@ import {
 import { matchesFilter } from "@/lib/duty-thruster";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
-import { formatDateToString } from "@/lib/date-utils";
+import { formatDateToString, isHoliday, isWeekend } from "@/lib/date-utils";
+import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
 
 // Manager role names that can assign duties within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -896,6 +897,19 @@ export default function RosterPage() {
         return;
       }
 
+      // Calculate points based on duty value and date
+      const dutyValue = getDutyValueByDutyType(dutyType.id);
+      const baseWeight = dutyValue?.base_weight ?? 1;
+      const weekendMultiplier = dutyValue?.weekend_multiplier ?? DEFAULT_WEEKEND_MULTIPLIER;
+      const holidayMultiplier = dutyValue?.holiday_multiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
+
+      let calculatedPoints = baseWeight;
+      if (isHoliday(date)) {
+        calculatedPoints = baseWeight * holidayMultiplier;
+      } else if (isWeekend(date)) {
+        calculatedPoints = baseWeight * weekendMultiplier;
+      }
+
       // Create new slot
       const newSlot = {
         id: crypto.randomUUID(),
@@ -903,7 +917,7 @@ export default function RosterPage() {
         personnel_id: personnelId,
         date_assigned: date,
         assigned_by: user.id,
-        duty_points_earned: 1.0,
+        points: calculatedPoints,
         status: "scheduled" as const,
         created_at: new Date(),
         updated_at: new Date(),
@@ -1842,7 +1856,7 @@ export default function RosterPage() {
                 <div>
                   <label className="text-sm text-foreground-muted">Points Earned</label>
                   <p className="text-foreground font-medium">
-                    {selectedSlot.duty_points_earned.toFixed(1)} pts
+                    {(selectedSlot.points ?? 0).toFixed(1)} pts
                   </p>
                 </div>
               </div>

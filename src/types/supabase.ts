@@ -352,6 +352,7 @@ export interface Database {
           personnel_id: string;
           date_assigned: string;
           status: DutySlotStatus;
+          points: number | null;
           assigned_by: string | null;
           created_at: string;
           updated_at: string;
@@ -363,6 +364,7 @@ export interface Database {
           personnel_id: string;
           date_assigned: string;
           status?: DutySlotStatus;
+          points?: number | null;
           assigned_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -374,6 +376,7 @@ export interface Database {
           personnel_id?: string;
           date_assigned?: string;
           status?: DutySlotStatus;
+          points?: number | null;
           assigned_by?: string | null;
           created_at?: string;
           updated_at?: string;

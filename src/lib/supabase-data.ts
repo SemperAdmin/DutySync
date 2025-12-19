@@ -2116,7 +2116,8 @@ export async function createDutySlotWithMapping(
   dutyTypeName: string,
   personnelServiceId: string,
   dateAssigned: string,
-  assignedBy?: string
+  assignedBy?: string,
+  points?: number
 ): Promise<DutySlot | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
@@ -2181,6 +2182,7 @@ export async function createDutySlotWithMapping(
     personnel_id: personnel.id,
     date_assigned: dateAssigned,
     status: "scheduled" as const,
+    points: points ?? null,
     assigned_by: assignedBy || null,
   };
 
@@ -2220,6 +2222,7 @@ export async function createDutySlotsWithMapping(
     personnelServiceId: string;
     dateAssigned: string;
     assignedBy?: string;
+    points?: number;
   }>
 ): Promise<{ created: number; errors: string[] }> {
   if (!isSupabaseConfigured()) return { created: 0, errors: ["Supabase not configured"] };
@@ -2265,6 +2268,7 @@ export async function createDutySlotsWithMapping(
     personnel_id: string;
     date_assigned: string;
     status: "scheduled";
+    points: number | null;
     assigned_by: string | null;
   }> = [];
 
@@ -2293,6 +2297,7 @@ export async function createDutySlotsWithMapping(
       personnel_id: personnelId,
       date_assigned: slot.dateAssigned,
       status: "scheduled",
+      points: slot.points ?? null,
       assigned_by: slot.assignedBy || null,
     });
   }

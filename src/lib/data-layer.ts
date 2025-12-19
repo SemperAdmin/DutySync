@@ -113,7 +113,7 @@ function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
     personnel_id: slot.personnel_id,
     date_assigned: new Date(slot.date_assigned),
     assigned_by: slot.assigned_by || "",
-    duty_points_earned: 0, // Calculate based on duty values if needed
+    points: slot.points ?? 0,
     status,
     created_at: new Date(slot.created_at),
     updated_at: new Date(slot.updated_at),

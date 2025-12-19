@@ -371,7 +371,7 @@ export default function SchedulerPage() {
                               </span>
                             </div>
                             <span className="text-foreground-muted">
-                              +{slot.duty_points_earned.toFixed(1)} pts
+                              +{(slot.points ?? 0).toFixed(1)} pts
                             </span>
                           </div>
                         ))}
