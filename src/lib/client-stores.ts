@@ -80,6 +80,7 @@ let cachedOrganizationId: string | null = null;
 
 // Set the default organization ID (call this after loading data from Supabase)
 export function setDefaultOrganizationId(orgId: string | null): void {
+  console.log("[Supabase Sync] Setting default organization ID:", orgId);
   cachedOrganizationId = orgId;
   try {
     if (orgId) {
@@ -142,10 +143,12 @@ function syncToSupabase(operation: () => Promise<unknown>, context: string): voi
   operation()
     .then((result) => {
       recordSyncSuccess();
+      console.log(`[Supabase Sync] ${context}: Success`, result);
       logSyncOperation("SYNC", context, true, result ? "OK" : "No result");
     })
     .catch((err) => {
       const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error(`[Supabase Sync] ${context}: FAILED`, errorMessage);
       recordSyncError(`${context}: ${errorMessage}`);
       logSyncOperation("SYNC", context, false, errorMessage);
     });
@@ -1225,22 +1228,39 @@ export function createDutySlot(slot: DutySlot): DutySlot {
 
   // Sync to Supabase in background
   const dutyType = getDutyTypeById(slot.duty_type_id);
-  if (dutyType) {
-    const orgId = getOrganizationIdFromUnit(dutyType.unit_section_id);
-    if (orgId) {
-      syncToSupabase(
-        () => supabaseCreateDutySlot(
-          orgId,
-          slot.duty_type_id,
-          slot.personnel_id,
-          formatDateToString(new Date(slot.date_assigned)),
-          slot.assigned_by || undefined,
-          slot.id
-        ),
-        "createDutySlot"
-      );
-    }
+  if (!dutyType) {
+    console.warn("[Supabase Sync] createDutySlot: Duty type not found", { dutyTypeId: slot.duty_type_id });
+    return slot;
   }
+
+  const orgId = getOrganizationIdFromUnit(dutyType.unit_section_id);
+  if (!orgId) {
+    console.warn("[Supabase Sync] createDutySlot: Organization ID not found", {
+      unitId: dutyType.unit_section_id,
+      dutyTypeId: slot.duty_type_id
+    });
+    return slot;
+  }
+
+  console.log("[Supabase Sync] createDutySlot: Syncing slot to Supabase", {
+    slotId: slot.id,
+    orgId,
+    dutyTypeId: slot.duty_type_id,
+    personnelId: slot.personnel_id,
+    date: formatDateToString(new Date(slot.date_assigned))
+  });
+
+  syncToSupabase(
+    () => supabaseCreateDutySlot(
+      orgId,
+      slot.duty_type_id,
+      slot.personnel_id,
+      formatDateToString(new Date(slot.date_assigned)),
+      slot.assigned_by || undefined,
+      slot.id
+    ),
+    "createDutySlot"
+  );
 
   return slot;
 }
