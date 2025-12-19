@@ -1451,7 +1451,13 @@ export function getDutySlotById(id: string): DutySlot | undefined {
 
 export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    const slotDate = new Date(slot.date_assigned);
+    // Use parseLocalDate to avoid timezone issues where "2025-12-31" parsed as UTC
+    // shifts to Dec 30 in US timezones, causing the last day of month to be filtered out
+    // Note: date_assigned can be a string from localStorage/Supabase despite the Date type
+    const dateValue = slot.date_assigned as unknown;
+    const slotDate = dateValue instanceof Date
+      ? dateValue
+      : parseLocalDate(String(dateValue).split('T')[0]);  // Handle "2025-12-31" or "2025-12-31T00:00:00"
     return slotDate >= startDate && slotDate <= endDate;
   });
 }
@@ -1634,7 +1640,11 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   let count = 0;
   const filtered = slots.filter((slot) => {
-    const slotDate = new Date(slot.date_assigned);
+    // Use parseLocalDate to avoid timezone issues with last day of month
+    const dateValue = slot.date_assigned as unknown;
+    const slotDate = dateValue instanceof Date
+      ? dateValue
+      : parseLocalDate(String(dateValue).split('T')[0]);
     const inRange = slotDate >= startDate && slotDate <= endDate;
     if (!inRange) return true;
     if (unitId) {
@@ -1673,8 +1683,11 @@ export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, en
   const filtered = slots.filter((slot) => {
     // Keep slots that don't match this duty type
     if (slot.duty_type_id !== dutyTypeId) return true;
-    // Keep slots outside the date range
-    const slotDate = new Date(slot.date_assigned);
+    // Keep slots outside the date range - use parseLocalDate to avoid timezone issues
+    const dateValue = slot.date_assigned as unknown;
+    const slotDate = dateValue instanceof Date
+      ? dateValue
+      : parseLocalDate(String(dateValue).split('T')[0]);
     const inRange = slotDate >= startDate && slotDate <= endDate;
     if (!inRange) return true;
     // This slot matches - remove it

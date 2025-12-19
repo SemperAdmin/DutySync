@@ -8,6 +8,7 @@
  */
 
 import * as supabase from "./supabase-data";
+import { parseLocalDate } from "./date-utils";
 import {
   setDefaultOrganizationId,
   syncUnitsToLocalStorage,
@@ -482,7 +483,12 @@ export function getAllDutySlots(): DutySlot[] {
 
 export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
   return dutySlotsCache.filter(slot => {
-    const slotDate = new Date(slot.date_assigned);
+    // Use parseLocalDate to avoid timezone issues where "2025-12-31" parsed as UTC
+    // shifts to Dec 30 in US timezones, causing the last day of month to be filtered out
+    const dateValue = slot.date_assigned;
+    const slotDate = dateValue instanceof Date
+      ? dateValue
+      : parseLocalDate(String(dateValue).split('T')[0]);
     return slotDate >= startDate && slotDate <= endDate;
   });
 }
