@@ -1880,7 +1880,7 @@ export default function RosterPage() {
                 <div>
                   <label className="text-sm text-foreground-muted">Points Earned</label>
                   <p className="text-foreground font-medium">
-                    {selectedSlot.points.toFixed(1)} pts
+                    {(selectedSlot.points ?? 0).toFixed(1)} pts
                   </p>
                 </div>
               </div>

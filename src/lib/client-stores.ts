@@ -2035,10 +2035,12 @@ export async function approveRoster(
 
     // Sync personnel scores to Supabase - await all updates in parallel
     // Use service_id for lookup since local IDs may differ from Supabase IDs
-    if (isSupabaseConfigured()) {
+    // Use the same rucCode that was validated earlier for slot sync
+    const personnelRucCode = validateRucForSync("approveRoster-scores", updatedPersonnelScores.length);
+    if (personnelRucCode && isSupabaseConfigured()) {
       const scorePromises = updatedPersonnelScores.map(async ({ serviceId, newScore }) => {
         try {
-          const success = await supabaseUpdatePersonnelByServiceId(serviceId, { current_duty_score: newScore });
+          const success = await supabaseUpdatePersonnelByServiceId(personnelRucCode, serviceId, { current_duty_score: newScore });
           if (success) {
             syncStatus.scoresUpdated++;
             return { success: true, serviceId };
@@ -2061,6 +2063,9 @@ export async function approveRoster(
         console.warn(`[approveRoster] Score sync incomplete: ${syncStatus.scoresUpdated}/${updatedPersonnelScores.length} updated`);
       }
       logSyncOperation("SYNC", "approvePersonnelScores", failedCount === 0, `${syncStatus.scoresUpdated}/${updatedPersonnelScores.length} scores`);
+    } else if (isSupabaseConfigured()) {
+      syncStatus.allSynced = false;
+      syncStatus.scoreErrors.push("No RUC code available for score sync");
     }
   }
 
