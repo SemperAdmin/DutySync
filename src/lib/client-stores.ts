@@ -1109,6 +1109,12 @@ export function getDutyTypesByUnit(unitId: string): DutyType[] {
   return getFromStorage<DutyType>(KEYS.dutyTypes).filter((dt) => dt.unit_section_id === unitId);
 }
 
+// Get duty types from a unit and all its descendant units
+export function getDutyTypesByUnitWithDescendants(unitId: string): DutyType[] {
+  const unitIds = new Set(getAllDescendantUnitIds(unitId));
+  return getFromStorage<DutyType>(KEYS.dutyTypes).filter((dt) => unitIds.has(dt.unit_section_id));
+}
+
 export function getDutyTypeById(id: string): DutyType | undefined {
   return getFromStorage<DutyType>(KEYS.dutyTypes).find((dt) => dt.id === id);
 }

@@ -15,7 +15,7 @@
 
 import type { DutySlot, DutyType, Personnel, DutyValue } from "@/types";
 import {
-  getDutyTypesByUnit,
+  getDutyTypesByUnitWithDescendants,
   getPersonnelByUnitWithDescendants,
   getDutyRequirements,
   getDutyValueByDutyType,
@@ -388,7 +388,7 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
   }
 
   // Get all active duty types for this unit
-  const dutyTypes = getDutyTypesByUnit(unitId).filter((dt) => dt.is_active);
+  const dutyTypes = getDutyTypesByUnitWithDescendants(unitId).filter((dt) => dt.is_active);
 
   if (dutyTypes.length === 0) {
     result.warnings.push("No active duty types found for this unit");
@@ -495,7 +495,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
   };
 
   // Get all active duty types for this unit
-  const dutyTypes = getDutyTypesByUnit(unitId).filter((dt) => dt.is_active);
+  const dutyTypes = getDutyTypesByUnitWithDescendants(unitId).filter((dt) => dt.is_active);
 
   if (dutyTypes.length === 0) {
     result.warnings.push("No active duty types found for this unit");
