@@ -117,7 +117,7 @@ export interface DutySlot {
   personnel_id: UUID;
   date_assigned: Date;
   assigned_by: UUID; // User who assigned
-  duty_points_earned: number;
+  points: number; // Calculated duty score (base_weight * multipliers)
   status: 'scheduled' | 'approved' | 'completed' | 'cancelled';
   created_at: Date;
   updated_at: Date;
