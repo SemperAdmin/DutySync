@@ -118,7 +118,7 @@ export interface DutySlot {
   date_assigned: Date;
   assigned_by: UUID; // User who assigned
   duty_points_earned: number;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'approved' | 'completed' | 'cancelled';
   created_at: Date;
   updated_at: Date;
 }
