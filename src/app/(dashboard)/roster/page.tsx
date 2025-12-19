@@ -23,6 +23,7 @@ import {
   getDutyValueByDutyType,
   isRosterApproved,
   approveRoster,
+  unapproveRoster,
   getDutySlotsByDateAndType,
   createDutyChangeRequest,
   determineApproverLevel,
@@ -417,6 +418,37 @@ export default function RosterPage() {
       alert(err instanceof Error ? err.message : "Failed to approve roster");
     } finally {
       setApproving(false);
+    }
+  }
+
+  // Handle roster unlock (unapprove)
+  function handleUnlockRoster() {
+    if (!unitAdminUnitId || !rosterApproval) return;
+
+    const confirmed = confirm(
+      "Are you sure you want to unlock this roster?\n\n" +
+      "This will allow editing but will NOT reverse the duty scores that were applied. " +
+      "The scores have already been recorded in personnel records."
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const success = unapproveRoster(
+        unitAdminUnitId,
+        currentDate.getFullYear(),
+        currentDate.getMonth()
+      );
+      if (success) {
+        setRosterApproval(null);
+        alert("Roster unlocked. You can now make changes.");
+        fetchData();
+      } else {
+        alert("Failed to unlock roster.");
+      }
+    } catch (err) {
+      console.error("Error unlocking roster:", err);
+      alert(err instanceof Error ? err.message : "Failed to unlock roster");
     }
   }
 
@@ -1210,11 +1242,25 @@ export default function RosterPage() {
           {/* Approve Roster Button - Unit Admin only */}
           {isUnitAdmin && isUnitAdminView && unitAdminUnitId && (
             rosterApproval ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-lg">
-                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm text-green-400 font-medium">Roster Approved</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-lg">
+                  <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-green-400 font-medium">Roster Approved</span>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleUnlockRoster}
+                  className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border-yellow-500/30"
+                  title="Unlock roster for editing (scores will not be reversed)"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                  </svg>
+                  Unlock
+                </Button>
               </div>
             ) : (
               <Button
