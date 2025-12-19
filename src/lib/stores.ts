@@ -3,6 +3,7 @@
 
 import type { UnitSection, Personnel, DutyType, UserRole, DutyValue, DutyRequirement, DutySlot, NonAvailability, Qualification } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
+import { parseLocalDate } from "@/lib/date-utils";
 
 // Unit Sections Store
 export const unitSectionStore: Map<string, UnitSection> = new Map();
@@ -285,7 +286,12 @@ export function getDutySlotById(id: string): DutySlot | undefined {
 
 export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
   return Array.from(dutySlotStore.values()).filter((slot) => {
-    const slotDate = new Date(slot.date_assigned);
+    // Use parseLocalDate to avoid timezone issues where "2025-12-31" parsed as UTC
+    // shifts to Dec 30 in US timezones, causing the last day of month to be filtered out
+    const dateValue = slot.date_assigned;
+    const slotDate = dateValue instanceof Date
+      ? dateValue
+      : parseLocalDate(String(dateValue).split('T')[0]);
     return slotDate >= startDate && slotDate <= endDate;
   });
 }
