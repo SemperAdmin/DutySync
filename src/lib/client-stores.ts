@@ -1907,6 +1907,10 @@ export function createDutyScoreEvents(newEvents: DutyScoreEvent[]): number {
     return newEvents.length;
   }
 
+  // Build lookup maps for O(1) lookups (performance optimization)
+  const personnelMap = new Map(getAllPersonnel().map(p => [p.id, p]));
+  const unitMap = new Map(getUnitSections().map(u => [u.id, u]));
+
   // Map events with service_id and unit_name for Supabase sync
   const mappedEvents: Array<{
     personnelServiceId: string;
@@ -1920,14 +1924,14 @@ export function createDutyScoreEvents(newEvents: DutyScoreEvent[]): number {
 
   for (const e of newEvents) {
     // Look up personnel to get service_id
-    const personnel = getPersonnelById(e.personnel_id);
+    const personnel = personnelMap.get(e.personnel_id);
     if (!personnel) {
       console.warn(`[createDutyScoreEvents] Personnel not found: ${e.personnel_id}`);
       continue;
     }
 
     // Look up unit to get unit_name
-    const unit = getUnitSectionById(e.unit_section_id);
+    const unit = unitMap.get(e.unit_section_id);
     if (!unit) {
       console.warn(`[createDutyScoreEvents] Unit not found: ${e.unit_section_id}`);
       continue;
@@ -1936,7 +1940,7 @@ export function createDutyScoreEvents(newEvents: DutyScoreEvent[]): number {
     // Look up approver service_id if approved_by is set
     let approverServiceId: string | undefined;
     if (e.approved_by) {
-      const approver = getPersonnelById(e.approved_by);
+      const approver = personnelMap.get(e.approved_by);
       if (approver) {
         approverServiceId = approver.service_id;
       }

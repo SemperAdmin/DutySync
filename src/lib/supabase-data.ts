@@ -2533,6 +2533,7 @@ export async function createDutyScoreEventsWithMapping(
   type PersonnelRow = { id: string; service_id: string };
   type UnitRow = { id: string; unit_name: string };
   type DutyTypeRow = { id: string; name: string };
+  type DutySlotRow = { id: string; duty_type_id: string; personnel_id: string; date_assigned: string };
 
   const allServiceIds = [...new Set([...serviceIds, ...approverServiceIds])];
   const [personnelResult, unitsResult, dutyTypesResult] = await Promise.all([
@@ -2550,6 +2551,30 @@ export async function createDutyScoreEventsWithMapping(
 
   const dutyTypeByName = new Map<string, string>();
   dutyTypesResult.data?.forEach(dt => dutyTypeByName.set(dt.name, dt.id));
+
+  // Batch fetch all duty slots for this organization (performance optimization - avoids N+1 queries)
+  const dutyTypeIds = [...dutyTypeByName.values()];
+  const personnelIds = [...personnelByServiceId.values()];
+  const dateEarnedValues = [...new Set(events.map(e => e.dateEarned))];
+
+  let dutySlotMap = new Map<string, string>(); // key: "dutyTypeId:personnelId:dateAssigned" -> slot id
+
+  if (dutyTypeIds.length > 0 && personnelIds.length > 0 && dateEarnedValues.length > 0) {
+    const slotsResult = await supabase
+      .from("duty_slots")
+      .select("id, duty_type_id, personnel_id, date_assigned")
+      .in("duty_type_id", dutyTypeIds)
+      .in("personnel_id", personnelIds)
+      .in("date_assigned", dateEarnedValues);
+
+    const slots = slotsResult.data as DutySlotRow[] | null;
+    if (slots) {
+      slots.forEach(slot => {
+        const key = `${slot.duty_type_id}:${slot.personnel_id}:${slot.date_assigned}`;
+        dutySlotMap.set(key, slot.id);
+      });
+    }
+  }
 
   // Map events to Supabase format
   const validInserts: Array<{
@@ -2577,19 +2602,12 @@ export async function createDutyScoreEventsWithMapping(
     }
 
     const dutyTypeId = dutyTypeByName.get(event.dutyTypeName);
-    // duty_type_id is optional for duty_slot lookup
 
-    // Try to find the duty slot by unique constraint
+    // Look up duty slot from pre-fetched map (O(1) lookup instead of DB query)
     let dutySlotId: string | null = null;
     if (dutyTypeId) {
-      const slotResult = await supabase
-        .from("duty_slots")
-        .select("id")
-        .eq("duty_type_id", dutyTypeId)
-        .eq("personnel_id", personnelId)
-        .eq("date_assigned", event.dateEarned)
-        .maybeSingle();
-      dutySlotId = (slotResult.data as { id: string } | null)?.id || null;
+      const slotKey = `${dutyTypeId}:${personnelId}:${event.dateEarned}`;
+      dutySlotId = dutySlotMap.get(slotKey) || null;
     }
 
     const approvedById = event.approvedByServiceId
