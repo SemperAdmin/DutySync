@@ -295,8 +295,8 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     ];
     keysToRemove.forEach(key => localStorage.removeItem(key));
 
-    // Clear data layer caches
-    dataLayer.invalidateCache();
+    // Clear data layer caches and organization context
+    dataLayer.clearAllDataCaches();
   };
 
   const refreshSession = async () => {

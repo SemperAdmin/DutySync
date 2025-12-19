@@ -14,6 +14,7 @@ import {
   syncDutyTypesToLocalStorage,
   syncPersonnelToLocalStorage,
   syncDutySlotsToLocalStorage,
+  clearDataIntegrityIssues,
 } from "./client-stores";
 import type {
   UnitSection,
@@ -36,6 +37,22 @@ import type {
   NonAvailability as SupabaseNonAvailability,
   Organization,
 } from "@/types/supabase";
+
+// ============================================================================
+// ORGANIZATION CONTEXT TRACKING
+// ============================================================================
+
+// Track the organization ID used for current data load
+let currentOrganizationId: string | null = null;
+let dataLoadTimestamp: Date | null = null;
+
+// Get the current organization context
+export function getCurrentOrganizationContext(): { organizationId: string | null; loadedAt: Date | null } {
+  return {
+    organizationId: currentOrganizationId,
+    loadedAt: dataLoadTimestamp,
+  };
+}
 
 // ============================================================================
 // TYPE CONVERTERS - Convert Supabase types to local types
@@ -721,6 +738,49 @@ export function invalidateAllCaches(): void {
   invalidateCache();
 }
 
+// Validate that the organization context is consistent
+export function validateOrganizationContext(expectedOrgId: string): boolean {
+  if (!currentOrganizationId) {
+    console.warn("[Data Layer] No organization context set. Data may not be loaded.");
+    return false;
+  }
+  if (currentOrganizationId !== expectedOrgId) {
+    console.warn(
+      `[Data Layer] Organization mismatch: expected ${expectedOrgId}, but current context is ${currentOrganizationId}. ` +
+      `Data may be inconsistent. Consider reloading data.`
+    );
+    return false;
+  }
+  return true;
+}
+
+// Clear all cached data (call when organization changes or user logs out)
+export function clearAllDataCaches(): void {
+  console.log("[Data Layer] Clearing all data caches due to context change");
+  currentOrganizationId = null;
+  dataLoadTimestamp = null;
+
+  // Clear all caches
+  organizationsCache = [];
+  unitsCache = [];
+  unitsByIdCache.clear();
+  personnelCache = [];
+  personnelByIdCache.clear();
+  dutyTypesCache = [];
+  dutyTypesByIdCache.clear();
+  dutyValuesCache = [];
+  dutySlotsCache = [];
+  nonAvailabilityCache = [];
+  dutyChangeRequestsCache = [];
+  usersCache = [];
+  qualificationsCache = [];
+  blockedDutiesCache = [];
+  rucEntriesCache = [];
+
+  // Clear integrity issues from client-stores
+  clearDataIntegrityIssues();
+}
+
 // ============================================================================
 // DATA LOADING - Load all data for an organization
 // ============================================================================
@@ -738,12 +798,28 @@ export async function loadAllData(rucCode?: string): Promise<void> {
     organizationId = organizationsCache[0].id;
   }
 
-  // Set the default organization ID for client-stores sync operations
-  if (organizationId) {
-    setDefaultOrganizationId(organizationId);
+  // Check if organization context is changing
+  if (currentOrganizationId && organizationId && currentOrganizationId !== organizationId) {
+    console.log(`[Data Layer] Organization context changing from ${currentOrganizationId} to ${organizationId}. Clearing old data.`);
+    clearAllDataCaches();
+    // Reload orgs since we just cleared
+    await loadRucs();
   }
 
-  // Load all other data
+  // Set the organization context
+  if (organizationId) {
+    currentOrganizationId = organizationId;
+    dataLoadTimestamp = new Date();
+    setDefaultOrganizationId(organizationId);
+    console.log(`[Data Layer] Loading data for organization: ${organizationId}${rucCode ? ` (RUC: ${rucCode})` : ''}`);
+  } else {
+    console.warn("[Data Layer] No organization ID found. Data loading may be incomplete.");
+  }
+
+  // Clear data integrity issues before fresh load
+  clearDataIntegrityIssues();
+
+  // Load all other data with the same organization context
   await Promise.all([
     loadUnits(organizationId),
     loadPersonnel(organizationId),
@@ -752,6 +828,14 @@ export async function loadAllData(rucCode?: string): Promise<void> {
     loadNonAvailability(organizationId),
     loadUsers(),
   ]);
+
+  // Log summary after loading
+  console.log(
+    `[Data Layer] Data loaded successfully: ` +
+    `${personnelCache.length} personnel, ` +
+    `${dutySlotsCache.length} duty slots, ` +
+    `${dutyTypesCache.length} duty types`
+  );
 }
 
 // ============================================================================

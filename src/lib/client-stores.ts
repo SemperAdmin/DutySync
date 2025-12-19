@@ -153,23 +153,65 @@ function getOrganizationIdFromUnit(unitId: string): string | null {
   return defaultOrgId;
 }
 
-// Fire-and-forget async sync to Supabase with status tracking
-function syncToSupabase(operation: () => Promise<unknown>, context: string): void {
+// Sync configuration
+const SYNC_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000, // 1 second base delay
+  maxDelayMs: 8000,  // Max 8 seconds delay
+};
+
+// Helper to delay with exponential backoff
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Calculate exponential backoff delay
+function getBackoffDelay(attempt: number): number {
+  const delayMs = SYNC_CONFIG.baseDelayMs * Math.pow(2, attempt);
+  return Math.min(delayMs, SYNC_CONFIG.maxDelayMs);
+}
+
+// Async sync to Supabase with retry mechanism and status tracking
+async function syncToSupabaseWithRetry(
+  operation: () => Promise<unknown>,
+  context: string,
+  maxRetries: number = SYNC_CONFIG.maxRetries
+): Promise<boolean> {
   recordSyncAttempt();
-  operation()
-    .then((result) => {
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await operation();
       recordSyncSuccess();
       if (process.env.NODE_ENV === "development") {
-        console.log(`[Supabase Sync] ${context}: Success`, result);
+        console.log(`[Supabase Sync] ${context}: Success${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`, result);
       }
       logSyncOperation("SYNC", context, true, result ? "OK" : "No result");
-    })
-    .catch((err) => {
+      return true;
+    } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error(`[Supabase Sync] ${context}: FAILED`, errorMessage);
-      recordSyncError(`${context}: ${errorMessage}`);
-      logSyncOperation("SYNC", context, false, errorMessage);
-    });
+      const isLastAttempt = attempt === maxRetries;
+
+      if (isLastAttempt) {
+        console.error(`[Supabase Sync] ${context}: FAILED after ${maxRetries + 1} attempts`, errorMessage);
+        recordSyncError(`${context}: ${errorMessage}`);
+        logSyncOperation("SYNC", context, false, `${errorMessage} (after ${maxRetries + 1} attempts)`);
+        return false;
+      } else {
+        const backoffDelay = getBackoffDelay(attempt);
+        console.warn(`[Supabase Sync] ${context}: Attempt ${attempt + 1} failed, retrying in ${backoffDelay}ms...`, errorMessage);
+        await delay(backoffDelay);
+      }
+    }
+  }
+  return false;
+}
+
+// Fire-and-forget wrapper that uses retry mechanism (backward compatible)
+function syncToSupabase(operation: () => Promise<unknown>, context: string): void {
+  syncToSupabaseWithRetry(operation, context).catch(() => {
+    // Error already logged in syncToSupabaseWithRetry
+  });
 }
 
 // ============ Base Path Helper ============
@@ -3027,6 +3069,45 @@ export function buildUserAssignedByInfo(assigner: Personnel | null): NonNullable
   };
 }
 
+// Track missing data for diagnostics
+interface DataIntegrityIssue {
+  type: 'missing_personnel' | 'missing_duty_type';
+  referenceId: string;
+  referencedFrom: string;
+  slotId: string;
+  timestamp: Date;
+}
+
+let dataIntegrityIssues: DataIntegrityIssue[] = [];
+let lastIntegrityWarningTime = 0;
+const INTEGRITY_WARNING_THROTTLE_MS = 5000; // Only warn every 5 seconds
+
+// Get current data integrity issues
+export function getDataIntegrityIssues(): DataIntegrityIssue[] {
+  return [...dataIntegrityIssues];
+}
+
+// Clear data integrity issues (call after data reload)
+export function clearDataIntegrityIssues(): void {
+  dataIntegrityIssues = [];
+}
+
+// Report data integrity summary
+export function reportDataIntegrity(): { missingPersonnel: number; missingDutyTypes: number; details: DataIntegrityIssue[] } {
+  const missingPersonnel = dataIntegrityIssues.filter(i => i.type === 'missing_personnel').length;
+  const missingDutyTypes = dataIntegrityIssues.filter(i => i.type === 'missing_duty_type').length;
+
+  if (missingPersonnel > 0 || missingDutyTypes > 0) {
+    console.warn(`[Data Integrity] Issues found: ${missingPersonnel} missing personnel, ${missingDutyTypes} missing duty types`);
+  }
+
+  return {
+    missingPersonnel,
+    missingDutyTypes,
+    details: [...dataIntegrityIssues],
+  };
+}
+
 export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: string): EnrichedSlot[] {
   let slots: DutySlot[];
 
@@ -3042,9 +3123,37 @@ export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: stri
     slots = slots.filter((slot) => unitDutyTypeIds.has(slot.duty_type_id));
   }
 
-  return slots.map((slot) => {
+  // Track missing data in this batch for throttled logging
+  const batchMissingPersonnel: string[] = [];
+  const batchMissingDutyTypes: string[] = [];
+
+  const enrichedSlots = slots.map((slot) => {
     const dutyType = getDutyTypeById(slot.duty_type_id);
     const personnel = slot.personnel_id ? getPersonnelById(slot.personnel_id) : undefined;
+
+    // Track missing personnel for diagnostics
+    if (slot.personnel_id && !personnel) {
+      batchMissingPersonnel.push(slot.personnel_id);
+      dataIntegrityIssues.push({
+        type: 'missing_personnel',
+        referenceId: slot.personnel_id,
+        referencedFrom: 'duty_slot.personnel_id',
+        slotId: slot.id,
+        timestamp: new Date(),
+      });
+    }
+
+    // Track missing duty types for diagnostics
+    if (slot.duty_type_id && !dutyType) {
+      batchMissingDutyTypes.push(slot.duty_type_id);
+      dataIntegrityIssues.push({
+        type: 'missing_duty_type',
+        referenceId: slot.duty_type_id,
+        referencedFrom: 'duty_slot.duty_type_id',
+        slotId: slot.id,
+        timestamp: new Date(),
+      });
+    }
 
     // Determine assigned_by_info
     let assigned_by_info: EnrichedSlot["assigned_by_info"] = null;
@@ -3070,6 +3179,36 @@ export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: stri
       assigned_by_info,
     };
   });
+
+  // Throttled warning for missing data (avoid console spam)
+  const now = Date.now();
+  if ((batchMissingPersonnel.length > 0 || batchMissingDutyTypes.length > 0) &&
+      (now - lastIntegrityWarningTime > INTEGRITY_WARNING_THROTTLE_MS)) {
+    lastIntegrityWarningTime = now;
+
+    if (batchMissingPersonnel.length > 0) {
+      const uniqueIds = [...new Set(batchMissingPersonnel)];
+      console.warn(
+        `[Data Integrity] ${batchMissingPersonnel.length} duty slots reference ${uniqueIds.length} missing personnel. ` +
+        `This may indicate data was not loaded or organization mismatch. First few IDs: ${uniqueIds.slice(0, 3).join(', ')}`
+      );
+    }
+
+    if (batchMissingDutyTypes.length > 0) {
+      const uniqueIds = [...new Set(batchMissingDutyTypes)];
+      console.warn(
+        `[Data Integrity] ${batchMissingDutyTypes.length} duty slots reference ${uniqueIds.length} missing duty types. ` +
+        `First few IDs: ${uniqueIds.slice(0, 3).join(', ')}`
+      );
+    }
+  }
+
+  // Cap the issues list to prevent memory bloat
+  if (dataIntegrityIssues.length > 1000) {
+    dataIntegrityIssues = dataIntegrityIssues.slice(-500);
+  }
+
+  return enrichedSlots;
 }
 
 // Get non-availability requests with personnel info
