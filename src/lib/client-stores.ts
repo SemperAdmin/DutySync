@@ -80,7 +80,9 @@ let cachedOrganizationId: string | null = null;
 
 // Set the default organization ID (call this after loading data from Supabase)
 export function setDefaultOrganizationId(orgId: string | null): void {
-  console.log("[Supabase Sync] Setting default organization ID:", orgId);
+  if (process.env.NODE_ENV === "development") {
+    console.log("[Supabase Sync] Setting default organization ID:", orgId);
+  }
   cachedOrganizationId = orgId;
   try {
     if (orgId) {
@@ -143,7 +145,9 @@ function syncToSupabase(operation: () => Promise<unknown>, context: string): voi
   operation()
     .then((result) => {
       recordSyncSuccess();
-      console.log(`[Supabase Sync] ${context}: Success`, result);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[Supabase Sync] ${context}: Success`, result);
+      }
       logSyncOperation("SYNC", context, true, result ? "OK" : "No result");
     })
     .catch((err) => {
@@ -257,7 +261,9 @@ export function syncUnitsToLocalStorage(units: UnitSection[]): void {
   // Update cache
   const currentVersion = cacheVersions.get(KEYS.units) || 0;
   dataCache.set(KEYS.units, { data: units, version: currentVersion });
-  console.log(`[Sync] Synced ${units.length} units from Supabase to localStorage`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Sync] Synced ${units.length} units from Supabase to localStorage`);
+  }
 }
 
 export function syncDutyTypesToLocalStorage(dutyTypes: DutyType[]): void {
@@ -265,7 +271,9 @@ export function syncDutyTypesToLocalStorage(dutyTypes: DutyType[]): void {
   localStorage.setItem(KEYS.dutyTypes, JSON.stringify(dutyTypes));
   const currentVersion = cacheVersions.get(KEYS.dutyTypes) || 0;
   dataCache.set(KEYS.dutyTypes, { data: dutyTypes, version: currentVersion });
-  console.log(`[Sync] Synced ${dutyTypes.length} duty types from Supabase to localStorage`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Sync] Synced ${dutyTypes.length} duty types from Supabase to localStorage`);
+  }
 }
 
 export function syncPersonnelToLocalStorage(personnel: Personnel[]): void {
@@ -273,15 +281,23 @@ export function syncPersonnelToLocalStorage(personnel: Personnel[]): void {
   localStorage.setItem(KEYS.personnel, JSON.stringify(personnel));
   const currentVersion = cacheVersions.get(KEYS.personnel) || 0;
   dataCache.set(KEYS.personnel, { data: personnel, version: currentVersion });
-  console.log(`[Sync] Synced ${personnel.length} personnel from Supabase to localStorage`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Sync] Synced ${personnel.length} personnel from Supabase to localStorage`);
+  }
 }
 
 export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEYS.dutySlots, JSON.stringify(dutySlots));
-  const currentVersion = cacheVersions.get(KEYS.dutySlots) || 0;
-  dataCache.set(KEYS.dutySlots, { data: dutySlots, version: currentVersion });
-  console.log(`[Sync] Synced ${dutySlots.length} duty slots from Supabase to localStorage`);
+  try {
+    localStorage.setItem(KEYS.dutySlots, JSON.stringify(dutySlots));
+    const currentVersion = cacheVersions.get(KEYS.dutySlots) || 0;
+    dataCache.set(KEYS.dutySlots, { data: dutySlots, version: currentVersion });
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[Sync] Synced ${dutySlots.length} duty slots from Supabase to localStorage`);
+    }
+  } catch (error) {
+    console.error("[Sync] Failed to sync duty slots to localStorage:", error);
+  }
 }
 
 // ============ Migration: Sync localStorage TO Supabase ============
@@ -1330,20 +1346,24 @@ export function createDutySlot(slot: DutySlot): DutySlot {
     return slot;
   }
 
-  console.log("[Supabase Sync] createDutySlot: Syncing slot to Supabase", {
-    slotId: slot.id,
-    orgId,
-    dutyTypeId: slot.duty_type_id,
-    personnelId: slot.personnel_id,
-    date: formatDateToString(new Date(slot.date_assigned))
-  });
+  const dateStr = formatDateToString(new Date(slot.date_assigned));
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("[Supabase Sync] createDutySlot: Syncing slot to Supabase", {
+      slotId: slot.id,
+      orgId,
+      dutyTypeId: slot.duty_type_id,
+      personnelId: slot.personnel_id,
+      date: dateStr
+    });
+  }
 
   syncToSupabase(
     () => supabaseCreateDutySlot(
       orgId,
       slot.duty_type_id,
       slot.personnel_id,
-      formatDateToString(new Date(slot.date_assigned)),
+      dateStr,
       slot.assigned_by || undefined,
       slot.id
     ),

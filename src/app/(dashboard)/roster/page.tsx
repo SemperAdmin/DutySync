@@ -444,7 +444,8 @@ export default function RosterPage() {
         alert("Roster unlocked. You can now make changes.");
         fetchData();
       } else {
-        alert("Failed to unlock roster.");
+        alert("Failed to unlock roster. The approval record may not exist.");
+        fetchData();
       }
     } catch (err) {
       console.error("Error unlocking roster:", err);
