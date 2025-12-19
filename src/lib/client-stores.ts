@@ -16,6 +16,7 @@ import type {
 import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
 import { isHoliday, isWeekend, formatDateToString } from "@/lib/date-utils";
+import { getCurrentRuc } from "@/lib/auto-save";
 
 // Import Supabase sync functions (aliased to avoid name collision)
 import {
@@ -1354,13 +1355,14 @@ export function createDutySlot(slot: DutySlot): DutySlot {
     return slot;
   }
 
-  // Get RUC code from the unit hierarchy
+  // Get RUC code - try unit hierarchy first, fall back to current session RUC
   const unit = getUnitSectionById(dutyType.unit_section_id);
-  const rucCode = unit?.ruc || getRucCodeFromUnitHierarchy(dutyType.unit_section_id);
+  const rucCode = unit?.ruc || getRucCodeFromUnitHierarchy(dutyType.unit_section_id) || getCurrentRuc();
   if (!rucCode) {
     console.warn("[Supabase Sync] createDutySlot: RUC code not found", {
       unitId: dutyType.unit_section_id,
-      dutyTypeId: slot.duty_type_id
+      dutyTypeId: slot.duty_type_id,
+      hint: "No RUC in unit hierarchy and no current session RUC"
     });
     return slot;
   }
