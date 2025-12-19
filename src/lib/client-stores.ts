@@ -1842,6 +1842,7 @@ export function isRosterApproved(unitId: string, year: number, month: number): A
 // Sync status tracking for roster approval
 export interface ApprovalSyncStatus {
   slotsUpdated: number;
+  slotsNotFound: number; // Slots that don't exist in Supabase yet
   slotErrors: string[];
   scoresUpdated: number;
   scoreErrors: string[];
@@ -1956,6 +1957,7 @@ export async function approveRoster(
   // Initialize sync status tracking
   const syncStatus: ApprovalSyncStatus = {
     slotsUpdated: 0,
+    slotsNotFound: 0,
     slotErrors: [],
     scoresUpdated: 0,
     scoreErrors: [],
@@ -1984,12 +1986,13 @@ export async function approveRoster(
       try {
         const result = await supabaseUpdateDutySlotsStatusWithMapping(rucCode, slotsToUpdate, "approved");
         syncStatus.slotsUpdated = result.updated;
+        syncStatus.slotsNotFound = result.notFound;
         syncStatus.slotErrors = result.errors;
         if (result.errors.length > 0 || result.updated < slotsToUpdate.length) {
           syncStatus.allSynced = false;
-          console.warn(`[approveRoster] Slot sync incomplete: ${result.updated}/${slotsToUpdate.length} updated`);
+          console.warn(`[approveRoster] Slot sync incomplete: ${result.updated}/${slotsToUpdate.length} updated, ${result.notFound} not found`);
         }
-        logSyncOperation("SYNC", "approveSlotStatuses", result.errors.length === 0, `${result.updated}/${slotsToUpdate.length} slots`);
+        logSyncOperation("SYNC", "approveSlotStatuses", result.errors.length === 0 && result.notFound === 0, `${result.updated}/${slotsToUpdate.length} slots${result.notFound > 0 ? `, ${result.notFound} not found` : ''}`);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         syncStatus.slotErrors.push(`Sync failed: ${errorMsg}`);

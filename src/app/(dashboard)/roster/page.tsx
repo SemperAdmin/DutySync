@@ -419,13 +419,16 @@ export default function RosterPage() {
 
       // Add sync status if Supabase is configured
       if (result.syncStatus) {
-        const { slotsUpdated, slotErrors, scoresUpdated, scoreErrors, allSynced } = result.syncStatus;
+        const { slotsUpdated, slotsNotFound, slotErrors, scoresUpdated, scoreErrors, allSynced } = result.syncStatus;
 
         if (allSynced) {
           message += `\n\nDatabase sync: All changes synced successfully.`;
         } else {
           message += `\n\nDatabase sync status:`;
           message += `\n• Slots: ${slotsUpdated} synced`;
+          if (slotsNotFound > 0) {
+            message += ` (${slotsNotFound} not in database yet)`;
+          }
           message += `\n• Scores: ${scoresUpdated} synced`;
 
           if (slotErrors.length > 0 || scoreErrors.length > 0) {
