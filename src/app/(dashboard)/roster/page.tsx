@@ -640,8 +640,12 @@ export default function RosterPage() {
     switch (status) {
       case "completed":
         return "bg-green-500/20 text-green-400";
-      case "cancelled":
+      case "swapped":
+        return "bg-blue-500/20 text-blue-400";
+      case "missed":
         return "bg-red-500/20 text-red-400 line-through";
+      case "approved":
+        return "bg-emerald-500/20 text-emerald-400";
       default:
         // Show red/warning background for duplicates in the same month
         if (isDuplicate) {

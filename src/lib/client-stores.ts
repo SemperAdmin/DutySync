@@ -62,6 +62,9 @@ import {
   logSyncOperation,
 } from "@/lib/sync-status";
 
+// Import sync service for data change notifications
+import { notifyDataChanged } from "@/lib/sync-service";
+
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 // UUID validation helper - checks if a string is a valid UUID format
@@ -1931,6 +1934,10 @@ export function approveRoster(
   saveToStorage(KEYS.approvedRosters, approvals);
   triggerAutoSave('approvedRosters');
 
+  // Notify listeners that personnel and duty slots have changed
+  // This triggers dashboard refresh for any listening components
+  notifyDataChanged(["personnel", "dutySlots"]);
+
   return { approval, scoresApplied, eventsCreated };
 }
 
@@ -2017,6 +2024,9 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
         );
       }
     }
+
+    // Notify listeners that duty slots have changed
+    notifyDataChanged(["dutySlots"]);
   }
 
   return true;

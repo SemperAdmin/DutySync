@@ -108,22 +108,7 @@ function convertDutyType(dt: SupabaseDbDutyType): DutyType {
 }
 
 function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
-  // Map Supabase status to local status type
-  let status: "scheduled" | "completed" | "cancelled";
-  switch (slot.status) {
-    case "scheduled":
-      status = "scheduled";
-      break;
-    case "completed":
-    case "swapped":
-      status = "completed";
-      break;
-    case "missed":
-    default:
-      status = "cancelled";
-      break;
-  }
-
+  // Status types are now aligned - no conversion needed
   return {
     id: slot.id,
     duty_type_id: slot.duty_type_id,
@@ -131,7 +116,7 @@ function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
     date_assigned: new Date(slot.date_assigned),
     assigned_by: slot.assigned_by || "",
     points: slot.points ?? 0,
-    status,
+    status: slot.status,
     created_at: new Date(slot.created_at),
     updated_at: new Date(slot.updated_at),
   };
