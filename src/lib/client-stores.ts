@@ -273,6 +273,14 @@ export function syncPersonnelToLocalStorage(personnel: Personnel[]): void {
   console.log(`[Sync] Synced ${personnel.length} personnel from Supabase to localStorage`);
 }
 
+export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEYS.dutySlots, JSON.stringify(dutySlots));
+  const currentVersion = cacheVersions.get(KEYS.dutySlots) || 0;
+  dataCache.set(KEYS.dutySlots, { data: dutySlots, version: currentVersion });
+  console.log(`[Sync] Synced ${dutySlots.length} duty slots from Supabase to localStorage`);
+}
+
 // ============ In-Memory Cache Layer ============
 // Caches parsed localStorage data to avoid repeated JSON.parse calls
 
