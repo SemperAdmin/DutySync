@@ -1234,7 +1234,8 @@ export function createDutySlot(slot: DutySlot): DutySlot {
           slot.duty_type_id,
           slot.personnel_id,
           formatDateToString(new Date(slot.date_assigned)),
-          slot.assigned_by || undefined
+          slot.assigned_by || undefined,
+          slot.id
         ),
         "createDutySlot"
       );
