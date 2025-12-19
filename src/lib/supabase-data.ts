@@ -1727,7 +1727,7 @@ export async function deleteDutySlotWithMapping(
   if (!isSupabaseConfigured()) return false;
   const supabase = getSupabase();
 
-  // Look up organization by RUC code
+  // Look up organization by RUC code first (needed for duty type lookup)
   const orgResult = await supabase
     .from("organizations")
     .select("id")
@@ -1740,13 +1740,21 @@ export async function deleteDutySlotWithMapping(
     return false;
   }
 
-  // Look up duty type by name within the organization
-  const dutyTypeResult = await supabase
-    .from("duty_types")
-    .select("id")
-    .eq("organization_id", org.id)
-    .eq("name", dutyTypeName)
-    .maybeSingle();
+  // Look up duty type and personnel in parallel (they don't depend on each other)
+  const [dutyTypeResult, personnelResult] = await Promise.all([
+    supabase
+      .from("duty_types")
+      .select("id")
+      .eq("organization_id", org.id)
+      .eq("name", dutyTypeName)
+      .maybeSingle(),
+    supabase
+      .from("personnel")
+      .select("id")
+      .eq("service_id", personnelServiceId)
+      .maybeSingle(),
+  ]);
+
   const dutyType = dutyTypeResult.data as { id: string } | null;
 
   if (dutyTypeResult.error || !dutyType) {
@@ -1754,12 +1762,6 @@ export async function deleteDutySlotWithMapping(
     return false;
   }
 
-  // Look up personnel by service_id
-  const personnelResult = await supabase
-    .from("personnel")
-    .select("id")
-    .eq("service_id", personnelServiceId)
-    .maybeSingle();
   const personnel = personnelResult.data as { id: string } | null;
 
   if (personnelResult.error || !personnel) {
@@ -2075,16 +2077,20 @@ export async function createDutySlotWithMapping(
     assigned_by: assignedBy || null,
   };
 
-  console.log("[Supabase] Inserting duty slot:", insertData);
+  console.log("[Supabase] Upserting duty slot:", insertData);
 
+  // Use upsert to handle conflicts on (duty_type_id, personnel_id, date_assigned)
   const { data, error } = await supabase
     .from("duty_slots")
-    .insert(asInsert(insertData))
+    .upsert(asInsert(insertData), {
+      onConflict: "duty_type_id,personnel_id,date_assigned",
+      ignoreDuplicates: false, // Update existing records
+    })
     .select()
     .single();
 
   if (error) {
-    console.error("Error creating duty slot with mapping:", {
+    console.error("Error upserting duty slot with mapping:", {
       message: error.message,
       code: error.code,
       details: error.details,
