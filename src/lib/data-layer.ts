@@ -13,6 +13,7 @@ import {
   syncUnitsToLocalStorage,
   syncDutyTypesToLocalStorage,
   syncPersonnelToLocalStorage,
+  syncDutySlotsToLocalStorage,
 } from "./client-stores";
 import type {
   UnitSection,
@@ -457,6 +458,10 @@ let dutySlotsCache: DutySlot[] = [];
 export async function loadDutySlots(organizationId?: string, startDate?: string, endDate?: string): Promise<DutySlot[]> {
   const slots = await supabase.getDutySlots(organizationId, startDate, endDate);
   dutySlotsCache = slots.map(convertDutySlot);
+
+  // Sync to localStorage so client-stores uses valid Supabase data
+  syncDutySlotsToLocalStorage(dutySlotsCache);
+
   return dutySlotsCache;
 }
 

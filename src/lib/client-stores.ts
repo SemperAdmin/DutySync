@@ -81,13 +81,15 @@ let cachedOrganizationId: string | null = null;
 // Set the default organization ID (call this after loading data from Supabase)
 export function setDefaultOrganizationId(orgId: string | null): void {
   cachedOrganizationId = orgId;
-  if (orgId) {
-    // Also store in localStorage for persistence across sessions
-    try {
+  try {
+    if (orgId) {
+      // Also store in localStorage for persistence across sessions
       localStorage.setItem("dutysync_default_org_id", orgId);
-    } catch {
-      // Ignore storage errors
+    } else {
+      localStorage.removeItem("dutysync_default_org_id");
     }
+  } catch {
+    // Ignore storage errors
   }
 }
 
@@ -128,9 +130,7 @@ function getOrganizationIdFromUnit(unitId: string): string | null {
   const defaultOrgId = getDefaultOrganizationId();
   if (!defaultOrgId) {
     console.warn(
-      "[Supabase Sync] No organization_id found for unit. " +
-      "Sync operations will be skipped. " +
-      "Load data from Supabase first or set a default organization."
+      `[Supabase Sync] No organization_id found for unit. Sync operations will be skipped. Load data from Supabase first or set a default organization.`
     );
   }
   return defaultOrgId;
@@ -271,6 +271,14 @@ export function syncPersonnelToLocalStorage(personnel: Personnel[]): void {
   const currentVersion = cacheVersions.get(KEYS.personnel) || 0;
   dataCache.set(KEYS.personnel, { data: personnel, version: currentVersion });
   console.log(`[Sync] Synced ${personnel.length} personnel from Supabase to localStorage`);
+}
+
+export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEYS.dutySlots, JSON.stringify(dutySlots));
+  const currentVersion = cacheVersions.get(KEYS.dutySlots) || 0;
+  dataCache.set(KEYS.dutySlots, { data: dutySlots, version: currentVersion });
+  console.log(`[Sync] Synced ${dutySlots.length} duty slots from Supabase to localStorage`);
 }
 
 // ============ In-Memory Cache Layer ============
@@ -1226,7 +1234,8 @@ export function createDutySlot(slot: DutySlot): DutySlot {
           slot.duty_type_id,
           slot.personnel_id,
           formatDateToString(new Date(slot.date_assigned)),
-          slot.assigned_by || undefined
+          slot.assigned_by || undefined,
+          slot.id
         ),
         "createDutySlot"
       );

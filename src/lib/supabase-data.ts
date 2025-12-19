@@ -1188,10 +1188,7 @@ export async function createDutyValue(
 
   if (error) {
     console.error("Error upserting duty value:", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
+      ...error,
       dutyTypeId,
       id: options.id,
     });
@@ -1491,13 +1488,11 @@ export async function createDutyType(
 
   if (error) {
     console.error("Error upserting duty type:", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
+      ...error,
       organizationId,
       unitId,
       name,
+      id: options?.id,
     });
     return null;
   }
@@ -1617,26 +1612,35 @@ export async function createDutySlot(
   dutyTypeId: string,
   personnelId: string,
   dateAssigned: string,
-  assignedBy?: string
+  assignedBy?: string,
+  id?: string
 ): Promise<DutySlot | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
+  // Use upsert to handle both create and update cases (matching duty type pattern)
   const { data, error } = await supabase
     .from("duty_slots")
-    .insert({
+    .upsert({
+      id: id,
       organization_id: organizationId,
       duty_type_id: dutyTypeId,
       personnel_id: personnelId,
       date_assigned: dateAssigned,
       status: "scheduled",
       assigned_by: assignedBy || null,
-    } as never)
+    } as never, { onConflict: 'id' })
     .select()
     .single();
 
   if (error) {
-    console.error("Error creating duty slot:", error);
+    console.error("Error upserting duty slot:", {
+      ...error,
+      organizationId,
+      dutyTypeId,
+      personnelId,
+      id,
+    });
     return null;
   }
   return data as DutySlot;
