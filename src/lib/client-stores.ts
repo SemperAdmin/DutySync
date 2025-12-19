@@ -310,53 +310,112 @@ const KEYS = {
   dutyScoreEvents: "dutysync_duty_score_events",
 };
 
+// Track localStorage errors for diagnostics
+let lastStorageError: { key: string; error: string; timestamp: Date } | null = null;
+
+export function getLastStorageError(): { key: string; error: string; timestamp: Date } | null {
+  return lastStorageError;
+}
+
+// Track skipped syncs due to missing RUC code
+interface SkippedSync {
+  operation: string;
+  reason: string;
+  timestamp: Date;
+  itemCount?: number;
+}
+
+let skippedSyncs: SkippedSync[] = [];
+const MAX_SKIPPED_SYNCS = 50;
+
+function recordSkippedSync(operation: string, reason: string, itemCount?: number): void {
+  skippedSyncs.push({
+    operation,
+    reason,
+    timestamp: new Date(),
+    itemCount,
+  });
+  // Keep only the last N entries
+  if (skippedSyncs.length > MAX_SKIPPED_SYNCS) {
+    skippedSyncs = skippedSyncs.slice(-MAX_SKIPPED_SYNCS);
+  }
+}
+
+export function getSkippedSyncs(): SkippedSync[] {
+  return [...skippedSyncs];
+}
+
+export function clearSkippedSyncs(): void {
+  skippedSyncs = [];
+}
+
+// Validate RUC code is available before sync operations
+function validateRucForSync(operation: string, itemCount?: number): string | null {
+  const rucCode = getCurrentRuc();
+  if (!rucCode) {
+    console.warn(`[${operation}] No RUC code available, skipping Supabase sync`);
+    recordSkippedSync(operation, "No RUC code available", itemCount);
+    return null;
+  }
+  return rucCode;
+}
+
 // ============ Sync Supabase Data to localStorage ============
 // These functions allow data-layer.ts to sync Supabase data to localStorage
 // so that client-stores functions use the correct Supabase IDs
 
-export function syncUnitsToLocalStorage(units: UnitSection[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEYS.units, JSON.stringify(units));
-  // Update cache
-  const currentVersion = cacheVersions.get(KEYS.units) || 0;
-  dataCache.set(KEYS.units, { data: units, version: currentVersion });
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Sync] Synced ${units.length} units from Supabase to localStorage`);
-  }
-}
+// Helper function for localStorage sync with error handling
+function syncToLocalStorageWithErrorHandling<T>(
+  key: string,
+  data: T[],
+  dataType: string
+): boolean {
+  if (typeof window === "undefined") return false;
 
-export function syncDutyTypesToLocalStorage(dutyTypes: DutyType[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEYS.dutyTypes, JSON.stringify(dutyTypes));
-  const currentVersion = cacheVersions.get(KEYS.dutyTypes) || 0;
-  dataCache.set(KEYS.dutyTypes, { data: dutyTypes, version: currentVersion });
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Sync] Synced ${dutyTypes.length} duty types from Supabase to localStorage`);
-  }
-}
-
-export function syncPersonnelToLocalStorage(personnel: Personnel[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEYS.personnel, JSON.stringify(personnel));
-  const currentVersion = cacheVersions.get(KEYS.personnel) || 0;
-  dataCache.set(KEYS.personnel, { data: personnel, version: currentVersion });
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Sync] Synced ${personnel.length} personnel from Supabase to localStorage`);
-  }
-}
-
-export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): void {
-  if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(KEYS.dutySlots, JSON.stringify(dutySlots));
-    const currentVersion = cacheVersions.get(KEYS.dutySlots) || 0;
-    dataCache.set(KEYS.dutySlots, { data: dutySlots, version: currentVersion });
+    const jsonData = JSON.stringify(data);
+    localStorage.setItem(key, jsonData);
+    const currentVersion = cacheVersions.get(key) || 0;
+    dataCache.set(key, { data, version: currentVersion });
+
     if (process.env.NODE_ENV === "development") {
-      console.log(`[Sync] Synced ${dutySlots.length} duty slots from Supabase to localStorage`);
+      console.log(`[Sync] Synced ${data.length} ${dataType} from Supabase to localStorage`);
     }
+    return true;
   } catch (error) {
-    console.error("[Sync] Failed to sync duty slots to localStorage:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    lastStorageError = { key, error: errorMessage, timestamp: new Date() };
+
+    if (errorMessage.includes("QuotaExceeded") || errorMessage.includes("quota")) {
+      console.error(
+        `[Sync] localStorage quota exceeded while syncing ${dataType}. ` +
+        `Data has ${data.length} items.`
+      );
+    } else {
+      console.error(`[Sync] Failed to sync ${dataType} to localStorage:`, errorMessage);
+    }
+
+    // Still update the in-memory cache so the app can continue
+    const currentVersion = cacheVersions.get(key) || 0;
+    dataCache.set(key, { data, version: currentVersion });
+    return false;
   }
+}
+
+export function syncUnitsToLocalStorage(units: UnitSection[]): boolean {
+  return syncToLocalStorageWithErrorHandling(KEYS.units, units, "units");
+}
+
+export function syncDutyTypesToLocalStorage(dutyTypes: DutyType[]): boolean {
+  return syncToLocalStorageWithErrorHandling(KEYS.dutyTypes, dutyTypes, "duty types");
+}
+
+export function syncPersonnelToLocalStorage(personnel: Personnel[]): boolean {
+  return syncToLocalStorageWithErrorHandling(KEYS.personnel, personnel, "personnel");
+}
+
+export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): boolean {
+  return syncToLocalStorageWithErrorHandling(KEYS.dutySlots, dutySlots, "duty slots");
 }
 
 // ============ Migration: Sync localStorage TO Supabase ============
@@ -972,14 +1031,37 @@ function getFromStorage<T>(key: string): T[] {
   }
 }
 
-// Helper to save to localStorage and update cache
-function saveToStorage<T>(key: string, data: T[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(data));
+// Helper to save to localStorage and update cache with error handling
+function saveToStorage<T>(key: string, data: T[]): boolean {
+  if (typeof window === "undefined") return false;
 
-  // Update cache with new data
-  const currentVersion = cacheVersions.get(key) || 0;
-  dataCache.set(key, { data, version: currentVersion });
+  try {
+    const jsonData = JSON.stringify(data);
+    localStorage.setItem(key, jsonData);
+
+    // Update cache with new data
+    const currentVersion = cacheVersions.get(key) || 0;
+    dataCache.set(key, { data, version: currentVersion });
+    return true;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    lastStorageError = { key, error: errorMessage, timestamp: new Date() };
+
+    // Check if it's a quota exceeded error
+    if (errorMessage.includes("QuotaExceeded") || errorMessage.includes("quota")) {
+      console.error(
+        `[Storage] localStorage quota exceeded while saving ${key}. ` +
+        `Data has ${data.length} items. Consider clearing old data.`
+      );
+    } else {
+      console.error(`[Storage] Failed to save ${key} to localStorage:`, errorMessage);
+    }
+
+    // Still update the in-memory cache so the app can continue
+    const currentVersion = cacheVersions.get(key) || 0;
+    dataCache.set(key, { data, version: currentVersion });
+    return false;
+  }
 }
 
 // Deduplicate array by ID
@@ -1863,7 +1945,7 @@ export function approveRoster(
   triggerAutoSave('dutySlots');
 
   // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
-  const rucCode = getCurrentRuc();
+  const rucCode = validateRucForSync("approveRoster-slots", monthSlots.length);
   if (rucCode) {
     const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
     const slotsToUpdate = monthSlots
@@ -2001,7 +2083,7 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
     triggerAutoSave('dutySlots');
 
     // Sync slot status updates to Supabase using mapping (local IDs may differ from Supabase IDs)
-    const rucCode = getCurrentRuc();
+    const rucCode = validateRucForSync("unapproveRoster", slotsToRevert.length);
     if (rucCode) {
       const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
       const mappedSlots = slotsToRevert
@@ -2073,10 +2155,9 @@ export function createDutyScoreEvents(newEvents: DutyScoreEvent[]): number {
   saveToStorage(KEYS.dutyScoreEvents, events);
   triggerAutoSave('dutyScoreEvents');
 
-  // Get RUC code for Supabase sync
-  const rucCode = getCurrentRuc();
+  // Get RUC code for Supabase sync with validation
+  const rucCode = validateRucForSync("createDutyScoreEvents", newEvents.length);
   if (!rucCode) {
-    console.warn("[createDutyScoreEvents] No RUC code available, skipping Supabase sync");
     return newEvents.length;
   }
 
