@@ -184,6 +184,7 @@ export interface SwapApproval {
   approval_order: number; // Sequence in the approval chain (1, 2, 3...)
   approver_type: 'work_section_manager' | 'section_manager' | 'company_manager';
   scope_unit_id: string | null; // The unit scope for manager approvals
+  is_approver: boolean; // true = can approve, false = can only recommend
   status: 'pending' | 'approved' | 'rejected';
   approved_by: string | null;
   approved_at: Date | null;

@@ -27,6 +27,7 @@ import {
   isRosterApproved,
   type EnrichedSlot,
   getSwapApprovalsByRequestId,
+  getUnitHierarchyPath,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/supabase-auth";
 import {
@@ -685,6 +686,12 @@ export default function DutySwapsPage() {
                       <div className="font-medium text-foreground">
                         {personADetails?.personnel?.rank} {personADetails?.personnel?.last_name}, {personADetails?.personnel?.first_name}
                       </div>
+                      {/* Unit Hierarchy Path */}
+                      {personADetails?.personnel?.unit_section_id && (
+                        <div className="text-xs text-blue-300/70 mt-0.5">
+                          {getUnitHierarchyPath(personADetails.personnel.unit_section_id)}
+                        </div>
+                      )}
                       <div className="text-foreground-muted mt-1">
                         <span className="text-red-300">Giving:</span> {personADetails?.givingDutyType?.duty_name} - {personADetails?.givingSlot && formatDate(personADetails.givingSlot.date_assigned)}
                       </div>
@@ -694,31 +701,43 @@ export default function DutySwapsPage() {
                     </div>
                     {/* Person A Approval Chain */}
                     <div className="mt-3 pt-3 border-t border-blue-500/20">
-                      <div className="text-xs text-foreground-muted mb-1">Approvals:</div>
+                      <div className="text-xs text-foreground-muted mb-1">Routing:</div>
                       <div className="space-y-1">
-                        {pair.personA.approvals.map((approval) => (
-                          <div key={approval.id} className="flex items-center gap-2 text-xs">
-                            {approval.status === 'approved' ? (
-                              <span className="text-green-400">✓</span>
-                            ) : approval.status === 'rejected' ? (
-                              <span className="text-red-400">✗</span>
-                            ) : (
-                              <span className="text-yellow-400">○</span>
-                            )}
-                            <span className="text-foreground-muted">
-                              {approval.approver_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </span>
-                            {approval.status === 'pending' && canApproveApprovalStep(approval) && (
-                              <button
-                                onClick={() => handleApproveStep(approval.id)}
-                                disabled={processingId !== null || needsPartnerAccept}
-                                className="ml-auto px-2 py-0.5 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
-                              >
-                                Approve
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                        {pair.personA.approvals.map((approval) => {
+                          const isApprover = (approval as SwapApproval & { is_approver?: boolean }).is_approver !== false;
+                          const label = isApprover ? 'Approver' : 'Recommender';
+                          return (
+                            <div key={approval.id} className="flex items-center gap-2 text-xs">
+                              {/* Status icon - different for approvers vs recommenders */}
+                              {approval.status === 'approved' ? (
+                                <span className="text-green-400">{isApprover ? '✓' : '👍'}</span>
+                              ) : approval.status === 'rejected' ? (
+                                <span className="text-red-400">{isApprover ? '✗' : '👎'}</span>
+                              ) : (
+                                <span className="text-yellow-400">○</span>
+                              )}
+                              <span className="text-foreground-muted">
+                                {approval.approver_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              </span>
+                              <span className={`text-xs ${isApprover ? 'text-green-400' : 'text-blue-400'}`}>
+                                ({label})
+                              </span>
+                              {approval.status === 'pending' && canApproveApprovalStep(approval) && (
+                                <button
+                                  onClick={() => handleApproveStep(approval.id)}
+                                  disabled={processingId !== null || needsPartnerAccept}
+                                  className={`ml-auto px-2 py-0.5 text-xs rounded disabled:opacity-50 ${
+                                    isApprover
+                                      ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
+                                      : 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30'
+                                  }`}
+                                >
+                                  {isApprover ? 'Approve' : 'Recommend'}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -737,6 +756,12 @@ export default function DutySwapsPage() {
                       <div className="font-medium text-foreground">
                         {personBDetails?.personnel?.rank} {personBDetails?.personnel?.last_name}, {personBDetails?.personnel?.first_name}
                       </div>
+                      {/* Unit Hierarchy Path */}
+                      {personBDetails?.personnel?.unit_section_id && (
+                        <div className="text-xs text-purple-300/70 mt-0.5">
+                          {getUnitHierarchyPath(personBDetails.personnel.unit_section_id)}
+                        </div>
+                      )}
                       <div className="text-foreground-muted mt-1">
                         <span className="text-red-300">Giving:</span> {personBDetails?.givingDutyType?.duty_name} - {personBDetails?.givingSlot && formatDate(personBDetails.givingSlot.date_assigned)}
                       </div>
@@ -746,31 +771,43 @@ export default function DutySwapsPage() {
                     </div>
                     {/* Person B Approval Chain */}
                     <div className="mt-3 pt-3 border-t border-purple-500/20">
-                      <div className="text-xs text-foreground-muted mb-1">Approvals:</div>
+                      <div className="text-xs text-foreground-muted mb-1">Routing:</div>
                       <div className="space-y-1">
-                        {pair.personB.approvals.map((approval) => (
-                          <div key={approval.id} className="flex items-center gap-2 text-xs">
-                            {approval.status === 'approved' ? (
-                              <span className="text-green-400">✓</span>
-                            ) : approval.status === 'rejected' ? (
-                              <span className="text-red-400">✗</span>
-                            ) : (
-                              <span className="text-yellow-400">○</span>
-                            )}
-                            <span className="text-foreground-muted">
-                              {approval.approver_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </span>
-                            {approval.status === 'pending' && canApproveApprovalStep(approval) && (
-                              <button
-                                onClick={() => handleApproveStep(approval.id)}
-                                disabled={processingId !== null || needsPartnerAccept}
-                                className="ml-auto px-2 py-0.5 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 disabled:opacity-50"
-                              >
-                                Approve
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                        {pair.personB.approvals.map((approval) => {
+                          const isApprover = (approval as SwapApproval & { is_approver?: boolean }).is_approver !== false;
+                          const label = isApprover ? 'Approver' : 'Recommender';
+                          return (
+                            <div key={approval.id} className="flex items-center gap-2 text-xs">
+                              {/* Status icon - different for approvers vs recommenders */}
+                              {approval.status === 'approved' ? (
+                                <span className="text-green-400">{isApprover ? '✓' : '👍'}</span>
+                              ) : approval.status === 'rejected' ? (
+                                <span className="text-red-400">{isApprover ? '✗' : '👎'}</span>
+                              ) : (
+                                <span className="text-yellow-400">○</span>
+                              )}
+                              <span className="text-foreground-muted">
+                                {approval.approver_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              </span>
+                              <span className={`text-xs ${isApprover ? 'text-green-400' : 'text-blue-400'}`}>
+                                ({label})
+                              </span>
+                              {approval.status === 'pending' && canApproveApprovalStep(approval) && (
+                                <button
+                                  onClick={() => handleApproveStep(approval.id)}
+                                  disabled={processingId !== null || needsPartnerAccept}
+                                  className={`ml-auto px-2 py-0.5 text-xs rounded disabled:opacity-50 ${
+                                    isApprover
+                                      ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
+                                      : 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30'
+                                  }`}
+                                >
+                                  {isApprover ? 'Approve' : 'Recommend'}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
