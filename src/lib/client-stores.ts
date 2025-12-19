@@ -1172,6 +1172,94 @@ export function getPersonnelByUnitWithDescendants(unitId: string): Personnel[] {
     }));
 }
 
+/**
+ * Get the hierarchy path for a unit as a string
+ * Example: "02301 > H Company > S1DV"
+ */
+export function getUnitHierarchyPath(unitId: string): string {
+  const path: string[] = [];
+  let currentUnit = getUnitSectionById(unitId);
+
+  while (currentUnit) {
+    // Use unit_code if available, otherwise use unit_name
+    const label = currentUnit.unit_code || currentUnit.unit_name;
+    path.unshift(label);
+    currentUnit = currentUnit.parent_id ? getUnitSectionById(currentUnit.parent_id) : undefined;
+  }
+
+  return path.join(' > ');
+}
+
+/**
+ * Get the ancestor chain for a unit (from unit up to root)
+ * Returns array of unit IDs starting from the given unit
+ */
+export function getUnitAncestorChain(unitId: string): string[] {
+  const chain: string[] = [];
+  let currentUnit = getUnitSectionById(unitId);
+
+  while (currentUnit) {
+    chain.push(currentUnit.id);
+    currentUnit = currentUnit.parent_id ? getUnitSectionById(currentUnit.parent_id) : undefined;
+  }
+
+  return chain;
+}
+
+/**
+ * Find the Lowest Common Ancestor (LCA) unit for two personnel
+ * This is the first unit in the hierarchy that both personnel fall under
+ * Returns: { lcaUnitId: string, approverLevel: 'work_section' | 'section' | 'company' }
+ */
+export function findLowestCommonAncestor(
+  personnelAId: string,
+  personnelBId: string
+): { lcaUnitId: string | null; approverLevel: 'work_section_manager' | 'section_manager' | 'company_manager' } {
+  const personA = getPersonnelById(personnelAId);
+  const personB = getPersonnelById(personnelBId);
+
+  if (!personA || !personB) {
+    return { lcaUnitId: null, approverLevel: 'company_manager' };
+  }
+
+  // Same work section - work section manager is the LCA approver
+  if (personA.unit_section_id === personB.unit_section_id) {
+    return { lcaUnitId: personA.unit_section_id, approverLevel: 'work_section_manager' };
+  }
+
+  const unitA = getUnitSectionById(personA.unit_section_id);
+  const unitB = getUnitSectionById(personB.unit_section_id);
+
+  if (!unitA || !unitB) {
+    return { lcaUnitId: null, approverLevel: 'company_manager' };
+  }
+
+  // Same section (same parent) - section manager is the LCA approver
+  if (unitA.parent_id && unitA.parent_id === unitB.parent_id) {
+    return { lcaUnitId: unitA.parent_id, approverLevel: 'section_manager' };
+  }
+
+  // Get ancestor chains for both
+  const chainA = new Set(getUnitAncestorChain(personA.unit_section_id));
+  const chainB = getUnitAncestorChain(personB.unit_section_id);
+
+  // Find first common ancestor (walking up from B)
+  for (const unitId of chainB) {
+    if (chainA.has(unitId)) {
+      const unit = getUnitSectionById(unitId);
+      // Determine the approver level based on hierarchy level
+      if (unit?.hierarchy_level === 'section') {
+        return { lcaUnitId: unitId, approverLevel: 'section_manager' };
+      } else if (unit?.hierarchy_level === 'company') {
+        return { lcaUnitId: unitId, approverLevel: 'company_manager' };
+      }
+    }
+  }
+
+  // Default to company manager
+  return { lcaUnitId: null, approverLevel: 'company_manager' };
+}
+
 export function deleteUnitSection(id: string): boolean {
   const allUnits = getFromStorage<UnitSection>(KEYS.units);
 
@@ -2970,13 +3058,21 @@ export function getMissingQualifications(personnelId: string, dutyTypeId: string
 /**
  * Build the approval chain for a single person's side of the swap
  * Returns approvals needed based on their chain of command
+ * lcaApproverLevel determines which level is the actual approver (LCA manager)
+ * Levels below LCA can only recommend, not approve
  */
 export function buildApprovalChainForPerson(
   personnelId: string,
-  requestId: string
+  requestId: string,
+  lcaApproverLevel: 'work_section_manager' | 'section_manager' | 'company_manager' = 'company_manager'
 ): SwapApproval[] {
   const approvals: SwapApproval[] = [];
   const person = getPersonnelById(personnelId);
+
+  // Helper to determine if this level is the approver (LCA) or just a recommender
+  const isApproverLevel = (level: 'work_section_manager' | 'section_manager' | 'company_manager') => {
+    return level === lcaApproverLevel;
+  };
 
   if (!person) {
     // Default to company level if can't determine
@@ -2986,6 +3082,7 @@ export function buildApprovalChainForPerson(
       approval_order: 1,
       approver_type: 'company_manager',
       scope_unit_id: null,
+      is_approver: true, // Default to approver when we can't determine
       status: 'pending',
       approved_by: null,
       approved_at: null,
@@ -2997,13 +3094,14 @@ export function buildApprovalChainForPerson(
 
   const unit = getUnitSectionById(person.unit_section_id);
 
-  // Work Section Manager approval
+  // Work Section Manager - approval or recommendation based on LCA
   approvals.push({
     id: crypto.randomUUID(),
     duty_change_request_id: requestId,
     approval_order: 1,
     approver_type: 'work_section_manager',
     scope_unit_id: person.unit_section_id,
+    is_approver: isApproverLevel('work_section_manager'),
     status: 'pending',
     approved_by: null,
     approved_at: null,
@@ -3011,37 +3109,42 @@ export function buildApprovalChainForPerson(
     created_at: new Date(),
   });
 
-  // Section Manager approval (if unit has a parent)
-  if (unit?.parent_id) {
-    const section = getUnitSectionById(unit.parent_id);
-    if (section) {
-      approvals.push({
-        id: crypto.randomUUID(),
-        duty_change_request_id: requestId,
-        approval_order: 2,
-        approver_type: 'section_manager',
-        scope_unit_id: section.id,
-        status: 'pending',
-        approved_by: null,
-        approved_at: null,
-        rejection_reason: null,
-        created_at: new Date(),
-      });
-
-      // Company Manager approval (if section has a parent - for cross-section swaps)
-      if (section.parent_id) {
+  // Only add higher levels if LCA is at that level or higher
+  if (lcaApproverLevel !== 'work_section_manager') {
+    // Section Manager (if unit has a parent)
+    if (unit?.parent_id) {
+      const section = getUnitSectionById(unit.parent_id);
+      if (section) {
         approvals.push({
           id: crypto.randomUUID(),
           duty_change_request_id: requestId,
-          approval_order: 3,
-          approver_type: 'company_manager',
-          scope_unit_id: section.parent_id,
+          approval_order: 2,
+          approver_type: 'section_manager',
+          scope_unit_id: section.id,
+          is_approver: isApproverLevel('section_manager'),
           status: 'pending',
           approved_by: null,
           approved_at: null,
           rejection_reason: null,
           created_at: new Date(),
         });
+
+        // Company Manager (if section has a parent and LCA is at company level)
+        if (lcaApproverLevel === 'company_manager' && section.parent_id) {
+          approvals.push({
+            id: crypto.randomUUID(),
+            duty_change_request_id: requestId,
+            approval_order: 3,
+            approver_type: 'company_manager',
+            scope_unit_id: section.parent_id,
+            is_approver: true, // Company manager is always the approver at this level
+            status: 'pending',
+            approved_by: null,
+            approved_at: null,
+            rejection_reason: null,
+            created_at: new Date(),
+          });
+        }
       }
     }
   }
@@ -3147,9 +3250,13 @@ export function createDutySwap(params: {
   saveToStorage(KEYS.dutyChangeRequests, list);
   triggerAutoSave('dutyChangeRequests');
 
+  // Find the LCA to determine who can approve vs recommend
+  const { approverLevel } = findLowestCommonAncestor(params.personAId, params.personBId);
+
   // Build and save approval chains for each person
-  const approvalsA = buildApprovalChainForPerson(params.personAId, requestA.id);
-  const approvalsB = buildApprovalChainForPerson(params.personBId, requestB.id);
+  // Pass LCA level so we know which step is the actual approver
+  const approvalsA = buildApprovalChainForPerson(params.personAId, requestA.id, approverLevel);
+  const approvalsB = buildApprovalChainForPerson(params.personBId, requestB.id, approverLevel);
   saveSwapApprovals([...approvalsA, ...approvalsB]);
 
   // Sync to Supabase

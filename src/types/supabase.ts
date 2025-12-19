@@ -491,6 +491,7 @@ export interface Database {
           approval_order: number;
           approver_type: SwapApproverType;
           scope_unit_id: string | null;
+          is_approver: boolean;
           status: RequestStatus;
           approved_by: string | null;
           approved_at: string | null;
@@ -503,6 +504,7 @@ export interface Database {
           approval_order: number;
           approver_type: SwapApproverType;
           scope_unit_id?: string | null;
+          is_approver?: boolean;
           status?: RequestStatus;
           approved_by?: string | null;
           approved_at?: string | null;
@@ -515,6 +517,7 @@ export interface Database {
           approval_order?: number;
           approver_type?: SwapApproverType;
           scope_unit_id?: string | null;
+          is_approver?: boolean;
           status?: RequestStatus;
           approved_by?: string | null;
           approved_at?: string | null;
