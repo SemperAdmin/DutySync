@@ -25,8 +25,7 @@ import {
   getAllDescendantUnitIds,
   getUnitById,
   getRucDisplayName,
-  getOrganizationByIdOrRuc,
-  getTopLevelUnitForOrganization,
+  resolveUnitAdminScope,
   type RucEntry,
 } from "@/lib/data-layer";
 
@@ -78,7 +77,7 @@ export default function AdminDashboard() {
   }, [user?.roles]);
 
   // Load the RUC display name asynchronously
-  // scope_unit_id can be either an organization UUID or a RUC code
+  // scope_unit_id can be an organization UUID, unit UUID, or RUC code
   useEffect(() => {
     async function loadRucDisplay() {
       if (!unitAdminScopeId) {
@@ -86,15 +85,8 @@ export default function AdminDashboard() {
         return;
       }
 
-      const org = await getOrganizationByIdOrRuc(unitAdminScopeId);
-      if (org) {
-        // Found the organization - display RUC code with name
-        const display = org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code;
-        setUnitAdminRucDisplay(display);
-      } else {
-        // Fallback: try to use getRucDisplayName in case it's a RUC code
-        setUnitAdminRucDisplay(getRucDisplayName(unitAdminScopeId));
-      }
+      const { rucDisplay } = await resolveUnitAdminScope(unitAdminScopeId);
+      setUnitAdminRucDisplay(rucDisplay);
     }
     loadRucDisplay();
   }, [unitAdminScopeId]);
@@ -134,21 +126,12 @@ export default function AdminDashboard() {
         units: units.length,
       });
     } else if (viewMode === "unit-admin" && isUnitAdmin && unitAdminScopeId) {
-      // Unit Admin view - filter to their RUC scope
-      // Note: unitAdminScopeId can be either an organization UUID or a RUC code
+      // Unit Admin view - filter to their scope
+      // scope_unit_id can be an organization UUID, unit UUID, or RUC code
 
-      // Look up the organization by ID or RUC code
-      const org = await getOrganizationByIdOrRuc(unitAdminScopeId);
-      if (!org) {
-        console.warn(`[Unit Admin Dashboard] No organization found for RUC: ${unitAdminScopeId}`);
-        setStats({ users: 0, personnel: 0, units: 0 });
-        return;
-      }
-
-      // Get the top-level unit for this organization
-      const topUnit = await getTopLevelUnitForOrganization(org.id);
-      if (!topUnit) {
-        console.warn(`[Unit Admin Dashboard] No top-level unit found for organization: ${org.id}`);
+      const { scopeUnit } = await resolveUnitAdminScope(unitAdminScopeId);
+      if (!scopeUnit) {
+        console.warn(`[Unit Admin Dashboard] No scope unit found for: ${unitAdminScopeId}`);
         setStats({ users: 0, personnel: 0, units: 0 });
         return;
       }
@@ -156,12 +139,12 @@ export default function AdminDashboard() {
       const allUsers = getAllUsers();
       const allUnits = getUnitSections();
 
-      // Get all descendant unit IDs within scope (starting from top-level unit)
-      const descendantIds = await getAllDescendantUnitIds(topUnit.id);
-      const scopeUnitIds = new Set([topUnit.id, ...descendantIds]);
+      // Get all descendant unit IDs within scope (starting from scope unit)
+      const descendantIds = await getAllDescendantUnitIds(scopeUnit.id);
+      const scopeUnitIds = new Set([scopeUnit.id, ...descendantIds]);
 
       // Filter personnel by units in scope
-      const personnel = await getPersonnelByUnitWithDescendants(topUnit.id);
+      const personnel = await getPersonnelByUnitWithDescendants(scopeUnit.id);
 
       // Filter units by scope
       const units = allUnits.filter(u => scopeUnitIds.has(u.id));
@@ -170,7 +153,7 @@ export default function AdminDashboard() {
       const users = allUsers.filter(u => {
         return u.roles?.some(r => {
           if (!r.scope_unit_id) return false;
-          // Match by RUC code or by unit ID within scope
+          // Match by scope ID or by unit ID within scope
           return r.scope_unit_id === unitAdminScopeId || scopeUnitIds.has(r.scope_unit_id);
         });
       });
