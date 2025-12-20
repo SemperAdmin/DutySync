@@ -126,42 +126,46 @@ export default function AdminDashboard() {
         units: units.length,
       });
     } else if (viewMode === "unit-admin" && isUnitAdmin && unitAdminScopeId) {
-      // Unit Admin view - filter to their scope
+      // Unit Admin view - filter to their organization scope
       // scope_unit_id can be an organization UUID, unit UUID, or RUC code
 
-      const { scopeUnit } = await resolveUnitAdminScope(unitAdminScopeId);
-      if (!scopeUnit) {
-        console.warn(`[Unit Admin Dashboard] No scope unit found for: ${unitAdminScopeId}`);
+      const { organization } = await resolveUnitAdminScope(unitAdminScopeId);
+      if (!organization) {
+        console.warn(`[Unit Admin Dashboard] No organization found for: ${unitAdminScopeId}`);
         setStats({ users: 0, personnel: 0, units: 0 });
         return;
       }
 
       const allUsers = getAllUsers();
       const allUnits = getUnitSections();
+      const allPersonnel = getAllPersonnel();
 
-      // Get all descendant unit IDs within scope (starting from scope unit)
-      const descendantIds = await getAllDescendantUnitIds(scopeUnit.id);
-      const scopeUnitIds = new Set([scopeUnit.id, ...descendantIds]);
+      // Get all units for this organization (by matching organization_id or ruc)
+      // Units loaded for an org all have the same RUC in their ruc field
+      const orgUnits = allUnits.filter(u =>
+        (u as UnitSection & { organization_id?: string }).organization_id === organization.id ||
+        u.ruc === organization.ruc_code
+      );
+      const orgUnitIds = new Set(orgUnits.map(u => u.id));
 
-      // Filter personnel by units in scope
-      const personnel = await getPersonnelByUnitWithDescendants(scopeUnit.id);
+      // Get all personnel in those units
+      const orgPersonnel = allPersonnel.filter(p => orgUnitIds.has(p.unit_section_id));
 
-      // Filter units by scope
-      const units = allUnits.filter(u => scopeUnitIds.has(u.id));
-
-      // Filter users who have roles scoped to this RUC or its units
+      // Filter users who have roles scoped to this organization or its units
       const users = allUsers.filter(u => {
         return u.roles?.some(r => {
           if (!r.scope_unit_id) return false;
-          // Match by scope ID or by unit ID within scope
-          return r.scope_unit_id === unitAdminScopeId || scopeUnitIds.has(r.scope_unit_id);
+          // Match by scope ID or by unit ID within org
+          return r.scope_unit_id === unitAdminScopeId ||
+                 r.scope_unit_id === organization.id ||
+                 orgUnitIds.has(r.scope_unit_id);
         });
       });
 
       setStats({
         users: users.length,
-        personnel: personnel.length,
-        units: units.length,
+        personnel: orgPersonnel.length,
+        units: orgUnits.length,
       });
     }
   }, [viewMode, isAppAdmin, isUnitAdmin, unitAdminScopeId]);

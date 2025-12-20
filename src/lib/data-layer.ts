@@ -239,9 +239,9 @@ export async function getOrganizationByIdOrRuc(idOrRuc: string): Promise<Organiz
 }
 
 // Helper to resolve the scope unit for a Unit Admin
-// Returns { organization, scopeUnit } where scopeUnit is the unit to use for scoping
-// If scope_unit_id is a unit ID, use that unit directly
-// If scope_unit_id is an org ID or RUC, use the top-level unit
+// Returns { organization, scopeUnit } where scopeUnit is the TOP-LEVEL unit for the organization
+// Unit Admin should see the entire organization, regardless of which unit their role is scoped to
+// The scope_unit_id is used to identify which organization the admin belongs to
 export async function resolveUnitAdminScope(scopeId: string): Promise<{
   organization: Organization | null;
   scopeUnit: UnitSection | null;
@@ -252,15 +252,18 @@ export async function resolveUnitAdminScope(scopeId: string): Promise<{
   if (isUuid) {
     // First check if it's a unit ID
     const unit = await supabase.getUnitById(scopeId);
-    if (unit) {
-      // It's a unit ID - use this unit as the scope
-      const org = unit.organization_id ? await supabase.getOrganizationById(unit.organization_id) : null;
-      const rucDisplay = org ? (org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code) : "N/A";
-      return {
-        organization: org,
-        scopeUnit: convertUnit(unit, org?.ruc_code),
-        rucDisplay,
-      };
+    if (unit && unit.organization_id) {
+      // Found a unit - get its organization and the TOP-LEVEL unit for that org
+      const org = await supabase.getOrganizationById(unit.organization_id);
+      if (org) {
+        const topUnit = await supabase.getTopLevelUnitForOrganization(org.id);
+        const rucDisplay = org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code;
+        return {
+          organization: org,
+          scopeUnit: topUnit ? convertUnit(topUnit, org.ruc_code) : null,
+          rucDisplay,
+        };
+      }
     }
 
     // Try as organization ID
