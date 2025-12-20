@@ -679,7 +679,14 @@ export default function DutySwapsPage() {
                       {pair.personA.partner_accepted ? (
                         <span className="text-xs text-green-400">✓ Accepted</span>
                       ) : (
-                        <span className="text-xs text-yellow-400">⏳ Pending Accept</span>
+                        <button
+                          onClick={() => handleAcceptSwap(pair.personA.request.id)}
+                          disabled={processingId !== null}
+                          className="text-xs text-yellow-400 hover:text-yellow-300 hover:underline disabled:opacity-50 cursor-pointer"
+                          title={effectiveIsAppAdmin ? "Click to accept on behalf of this person" : "Waiting for acceptance"}
+                        >
+                          ⏳ Pending Accept {effectiveIsAppAdmin && '(click)'}
+                        </button>
                       )}
                     </div>
                     <div className="text-sm">
@@ -749,7 +756,14 @@ export default function DutySwapsPage() {
                       {pair.personB.partner_accepted ? (
                         <span className="text-xs text-green-400">✓ Accepted</span>
                       ) : (
-                        <span className="text-xs text-yellow-400">⏳ Pending Accept</span>
+                        <button
+                          onClick={() => handleAcceptSwap(pair.personB.request.id)}
+                          disabled={processingId !== null}
+                          className="text-xs text-yellow-400 hover:text-yellow-300 hover:underline disabled:opacity-50 cursor-pointer"
+                          title={effectiveIsAppAdmin ? "Click to accept on behalf of this person" : "Waiting for acceptance"}
+                        >
+                          ⏳ Pending Accept {effectiveIsAppAdmin && '(click)'}
+                        </button>
                       )}
                     </div>
                     <div className="text-sm">
