@@ -448,6 +448,9 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
           assigned_by: assignedBy,
           points: pointsForDay,
           status: "scheduled",
+          swapped_at: null,
+          swapped_from_personnel_id: null,
+          swap_pair_id: null,
           created_at: now,
           updated_at: now,
         };
@@ -597,6 +600,9 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
           assigned_by: assignedBy,
           points: pointsForDay,
           status: "scheduled",
+          swapped_at: null,
+          swapped_from_personnel_id: null,
+          swap_pair_id: null,
           created_at: new Date(),
           updated_at: new Date(),
         };

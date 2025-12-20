@@ -3433,16 +3433,27 @@ function _executeDutySwap(swapPairId: string): string | undefined {
     return 'One or both duty slots no longer exist';
   }
 
-  // Swap the personnel assignments
+  const now = new Date();
+
+  // Swap the personnel assignments with swap tracking info
+  // SlotA: originally assigned to personA, now assigned to personB (reqA.swap_partner_id)
   updateDutySlot(slotA.id, {
     personnel_id: reqA.swap_partner_id,
     status: 'swapped',
-    updated_at: new Date()
+    swapped_at: now,
+    swapped_from_personnel_id: slotA.personnel_id, // Original personnel
+    swap_pair_id: swapPairId,
+    updated_at: now
   });
+
+  // SlotB: originally assigned to personB, now assigned to personA (reqB.swap_partner_id)
   updateDutySlot(slotB.id, {
     personnel_id: reqB.swap_partner_id,
     status: 'swapped',
-    updated_at: new Date()
+    swapped_at: now,
+    swapped_from_personnel_id: slotB.personnel_id, // Original personnel
+    swap_pair_id: swapPairId,
+    updated_at: now
   });
 
   return undefined;
