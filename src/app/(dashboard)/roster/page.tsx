@@ -1659,7 +1659,7 @@ export default function RosterPage() {
                                   {filledSlots.map((slot, idx) => (
                                     <div key={slot.id || idx} className={`px-2 py-0.5 rounded text-xs ${getStatusColor(slot.status, isPersonnelDuplicate(slot.personnel_id))}`}>
                                       {slot.personnel ? (
-                                        <span>{slot.personnel.rank} {slot.personnel.first_name} {slot.personnel.last_name}</span>
+                                        <span>{slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}</span>
                                       ) : (
                                         <span className="text-foreground-muted italic">Unassigned</span>
                                       )}
@@ -1706,7 +1706,7 @@ export default function RosterPage() {
                                     {slot.personnel ? (
                                       <span className="flex items-center gap-1">
                                         {slot.status === 'swapped' && <span className="text-blue-400">↔</span>}
-                                        {slot.personnel.rank} {slot.personnel.first_name} {slot.personnel.last_name}
+                                        {slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}
                                       </span>
                                     ) : (
                                       <span className="text-foreground-muted italic">Unassigned</span>
@@ -1827,7 +1827,7 @@ export default function RosterPage() {
                 <label className="text-sm text-foreground-muted">Assigned To</label>
                 <p className="text-foreground font-medium">
                   {selectedSlot.personnel
-                    ? `${selectedSlot.personnel.rank} ${selectedSlot.personnel.first_name} ${selectedSlot.personnel.last_name}`
+                    ? `${selectedSlot.personnel.rank} ${selectedSlot.personnel.last_name}, ${selectedSlot.personnel.first_name}`
                     : "Unassigned"}
                 </p>
               </div>
@@ -1874,7 +1874,7 @@ export default function RosterPage() {
                         {(() => {
                           const originalPerson = getPersonnelById(selectedSlot.swapped_from_personnel_id);
                           return originalPerson
-                            ? `${originalPerson.rank} ${originalPerson.first_name} ${originalPerson.last_name}`
+                            ? `${originalPerson.rank} ${originalPerson.last_name}, ${originalPerson.first_name}`
                             : 'Unknown';
                         })()}
                       </p>
@@ -2115,7 +2115,7 @@ export default function RosterPage() {
                         <div key={slot.id} className="flex items-center justify-between p-2 bg-primary/10 rounded-lg">
                           <div className="flex-1">
                             <span className="text-foreground font-medium">
-                              {slot.personnel?.rank} {slot.personnel?.first_name} {slot.personnel?.last_name}
+                              {slot.personnel?.rank} {slot.personnel?.last_name}, {slot.personnel?.first_name}
                             </span>
                             {slot.assigned_by_info && (
                               <p className="text-xs text-foreground-muted mt-0.5">

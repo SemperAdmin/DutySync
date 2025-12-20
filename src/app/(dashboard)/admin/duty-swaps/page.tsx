@@ -70,6 +70,7 @@ export default function DutySwapsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
+  const [viewMode, setViewMode] = useState<"self" | "scope">("scope"); // Default to scope for managers/admins
 
   // Rejection modal
   const [rejectModal, setRejectModal] = useState<{
@@ -196,11 +197,25 @@ export default function DutySwapsPage() {
   // Listen for sync updates and refresh automatically
   useSyncRefresh(["personnel", "dutyTypes", "dutySlots"], fetchData);
 
-  // Filter swap pairs based on user's scope
+  // Filter swap pairs based on viewMode and user's scope
   const filteredSwapPairs = useMemo(() => {
+    // In "self" mode, only show the current user's requests
+    if (viewMode === "self") {
+      return swapPairs.filter(pair => {
+        if (!currentUserPersonnel) return false;
+        // User is one of the personnel involved
+        return (
+          pair.personA.personnel_id === currentUserPersonnel.id ||
+          pair.personB.personnel_id === currentUserPersonnel.id ||
+          pair.requester_id === user?.id
+        );
+      });
+    }
+
+    // In "scope" mode
     if (effectiveIsAppAdmin) return swapPairs;
 
-    // Show swap pairs the user is involved in
+    // Show swap pairs the user is involved in or can approve
     const mySwapPairs = swapPairs.filter(pair => {
       // User is the requester
       if (pair.requester_id === user?.id) return true;
@@ -221,7 +236,7 @@ export default function DutySwapsPage() {
     });
 
     return mySwapPairs;
-  }, [swapPairs, effectiveIsAppAdmin, user?.id, currentUserPersonnel]);
+  }, [swapPairs, viewMode, effectiveIsAppAdmin, user?.id, currentUserPersonnel]);
 
   // Check if user can approve a specific approval step
   function canApproveApprovalStep(approval: SwapApproval): boolean {
@@ -577,11 +592,15 @@ export default function DutySwapsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Duty Swap Requests</h1>
           <p className="text-foreground-muted mt-1">
-            View and manage duty swap requests between personnel
+            {effectiveIsAppAdmin
+              ? "Manage duty swap requests between personnel"
+              : hasElevatedAccess
+              ? "View and manage requests within your scope"
+              : "View your duty swap requests"}
           </p>
         </div>
         <Button variant="primary" onClick={openSwapModal}>
@@ -592,24 +611,80 @@ export default function DutySwapsPage() {
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-center">
+      {/* View Mode Toggle - only show if user has elevated access */}
+      {hasElevatedAccess && (
         <div className="flex items-center gap-2">
-          <label className="text-sm text-foreground-muted">Status:</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-1.5 bg-surface border border-border rounded-lg text-foreground text-sm"
-          >
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="all">All</option>
-          </select>
+          <span className="text-sm text-foreground-muted">View:</span>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            <button
+              onClick={() => setViewMode("self")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === "self"
+                  ? "bg-primary text-white"
+                  : "bg-surface text-foreground-muted hover:bg-surface-elevated"
+              }`}
+            >
+              My Requests
+            </button>
+            <button
+              onClick={() => setViewMode("scope")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === "scope"
+                  ? "bg-primary text-white"
+                  : "bg-surface text-foreground-muted hover:bg-surface-elevated"
+              }`}
+            >
+              {effectiveIsAppAdmin ? "All Requests" : "My Scope"}
+            </button>
+          </div>
         </div>
+      )}
 
-        <div className="ml-auto text-sm text-foreground-muted">
-          {filteredSwapPairs.length} swap{filteredSwapPairs.length !== 1 ? "s" : ""}
+      {/* Status Filters */}
+      {(viewMode === "scope" || !hasElevatedAccess) && (
+        <div className="flex gap-4 items-center flex-wrap">
+          <label className="text-sm text-foreground-muted">Filter by status:</label>
+          <div className="flex gap-2 flex-wrap">
+            {["pending", "approved", "rejected", ""].map((status) => (
+              <button
+                key={status || "all"}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  statusFilter === status
+                    ? "bg-primary text-white"
+                    : "bg-surface border border-border text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                {status ? status.charAt(0).toUpperCase() + status.slice(1) : "All"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-yellow-400">
+            {filteredSwapPairs.filter((r) => r.status === "pending").length}
+          </div>
+          <div className="text-sm text-foreground-muted">Pending</div>
+        </div>
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-green-400">
+            {filteredSwapPairs.filter((r) => r.status === "approved").length}
+          </div>
+          <div className="text-sm text-foreground-muted">Approved</div>
+        </div>
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-red-400">
+            {filteredSwapPairs.filter((r) => r.status === "rejected").length}
+          </div>
+          <div className="text-sm text-foreground-muted">Rejected</div>
+        </div>
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="text-2xl font-bold text-foreground">{filteredSwapPairs.length}</div>
+          <div className="text-sm text-foreground-muted">Total Shown</div>
         </div>
       </div>
 
