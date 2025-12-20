@@ -1601,29 +1601,29 @@ export function getDutySlotsByDateAndType(dateStr: DateString, dutyTypeId: strin
 
 /**
  * Calculate duty score for a personnel from duty_slots.
- * Counts slots with status 'scheduled' or 'approved'.
+ * Counts slots with status 'scheduled', 'approved', or 'completed'.
  * This gives an accurate score based on the current organization's data.
  */
 export function calculateDutyScoreFromSlots(personnelId: string): number {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
-  // Count scheduled and approved duties toward the score
+  // Count scheduled, approved, and completed duties toward the score
   const relevantSlots = slots.filter(
     slot => slot.personnel_id === personnelId &&
-            (slot.status === 'scheduled' || slot.status === 'approved')
+            (slot.status === 'scheduled' || slot.status === 'approved' || slot.status === 'completed')
   );
   return relevantSlots.reduce((sum, slot) => sum + (slot.points || 0), 0);
 }
 
 /**
  * Get duty slots for a personnel that count toward their score.
- * Returns slots with status 'scheduled' or 'approved'.
+ * Returns slots with status 'scheduled', 'approved', or 'completed'.
  */
 export function getDutySlotsForScore(personnelId: string): DutySlot[] {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   // Sort descending by date string (most recent first)
   return slots.filter(
     slot => slot.personnel_id === personnelId &&
-            (slot.status === 'scheduled' || slot.status === 'approved')
+            (slot.status === 'scheduled' || slot.status === 'approved' || slot.status === 'completed')
   ).sort((a, b) => b.date_assigned.localeCompare(a.date_assigned));
 }
 
