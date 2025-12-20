@@ -25,7 +25,7 @@ import {
   getAllDescendantUnitIds,
   getUnitById,
   getRucDisplayName,
-  getOrganizationByRuc,
+  getOrganizationByIdOrRuc,
   getTopLevelUnitForOrganization,
   type RucEntry,
 } from "@/lib/data-layer";
@@ -68,19 +68,35 @@ export default function AdminDashboard() {
   const isUnitAdmin = user?.roles?.some((role) => role.role_name === "Unit Admin");
   const [viewMode, setViewMode] = useState<string>("user");
   const [stats, setStats] = useState({ users: 0, personnel: 0, units: 0 });
+  const [unitAdminRucDisplay, setUnitAdminRucDisplay] = useState<string>("N/A");
 
-  // Get Unit Admin scope (RUC) - the unit ID where they have Unit Admin role
+  // Get Unit Admin scope - the scope_unit_id where they have Unit Admin role
+  // This can be either an organization UUID or a RUC code
   const unitAdminScopeId = useMemo(() => {
     const unitAdminRole = user?.roles?.find((role) => role.role_name === "Unit Admin");
     return unitAdminRole?.scope_unit_id || null;
   }, [user?.roles]);
 
-  // Get the RUC display name (e.g., "02301 - HQBN MCBH")
-  // Note: For Unit Admin, scope_unit_id IS the RUC code itself (not a unit UUID)
-  const unitAdminRucDisplay = useMemo(() => {
-    if (!unitAdminScopeId) return "N/A";
-    // scope_unit_id for Unit Admin stores the RUC code directly
-    return getRucDisplayName(unitAdminScopeId);
+  // Load the RUC display name asynchronously
+  // scope_unit_id can be either an organization UUID or a RUC code
+  useEffect(() => {
+    async function loadRucDisplay() {
+      if (!unitAdminScopeId) {
+        setUnitAdminRucDisplay("N/A");
+        return;
+      }
+
+      const org = await getOrganizationByIdOrRuc(unitAdminScopeId);
+      if (org) {
+        // Found the organization - display RUC code with name
+        const display = org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code;
+        setUnitAdminRucDisplay(display);
+      } else {
+        // Fallback: try to use getRucDisplayName in case it's a RUC code
+        setUnitAdminRucDisplay(getRucDisplayName(unitAdminScopeId));
+      }
+    }
+    loadRucDisplay();
   }, [unitAdminScopeId]);
 
   // Sync with view mode from localStorage (set by DashboardLayout)
@@ -119,10 +135,10 @@ export default function AdminDashboard() {
       });
     } else if (viewMode === "unit-admin" && isUnitAdmin && unitAdminScopeId) {
       // Unit Admin view - filter to their RUC scope
-      // Note: unitAdminScopeId is the RUC code (e.g., "02301"), not a unit UUID
+      // Note: unitAdminScopeId can be either an organization UUID or a RUC code
 
-      // Look up the organization by RUC code
-      const org = await getOrganizationByRuc(unitAdminScopeId);
+      // Look up the organization by ID or RUC code
+      const org = await getOrganizationByIdOrRuc(unitAdminScopeId);
       if (!org) {
         console.warn(`[Unit Admin Dashboard] No organization found for RUC: ${unitAdminScopeId}`);
         setStats({ users: 0, personnel: 0, units: 0 });
