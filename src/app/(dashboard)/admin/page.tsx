@@ -25,6 +25,8 @@ import {
   getAllDescendantUnitIds,
   getUnitById,
   getRucDisplayName,
+  getOrganizationByRuc,
+  getTopLevelUnitForOrganization,
   type RucEntry,
 } from "@/lib/data-layer";
 
@@ -73,12 +75,12 @@ export default function AdminDashboard() {
     return unitAdminRole?.scope_unit_id || null;
   }, [user?.roles]);
 
-  // Get the RUC display name (e.g., "02301 - HQBN MCBH") from the unit
+  // Get the RUC display name (e.g., "02301 - HQBN MCBH")
+  // Note: For Unit Admin, scope_unit_id IS the RUC code itself (not a unit UUID)
   const unitAdminRucDisplay = useMemo(() => {
     if (!unitAdminScopeId) return "N/A";
-    const unit = getUnitById(unitAdminScopeId);
-    if (!unit?.ruc) return "N/A";
-    return getRucDisplayName(unit.ruc);
+    // scope_unit_id for Unit Admin stores the RUC code directly
+    return getRucDisplayName(unitAdminScopeId);
   }, [unitAdminScopeId]);
 
   // Sync with view mode from localStorage (set by DashboardLayout)
@@ -117,15 +119,33 @@ export default function AdminDashboard() {
       });
     } else if (viewMode === "unit-admin" && isUnitAdmin && unitAdminScopeId) {
       // Unit Admin view - filter to their RUC scope
+      // Note: unitAdminScopeId is the RUC code (e.g., "02301"), not a unit UUID
+
+      // Look up the organization by RUC code
+      const org = await getOrganizationByRuc(unitAdminScopeId);
+      if (!org) {
+        console.warn(`[Unit Admin Dashboard] No organization found for RUC: ${unitAdminScopeId}`);
+        setStats({ users: 0, personnel: 0, units: 0 });
+        return;
+      }
+
+      // Get the top-level unit for this organization
+      const topUnit = await getTopLevelUnitForOrganization(org.id);
+      if (!topUnit) {
+        console.warn(`[Unit Admin Dashboard] No top-level unit found for organization: ${org.id}`);
+        setStats({ users: 0, personnel: 0, units: 0 });
+        return;
+      }
+
       const allUsers = getAllUsers();
       const allUnits = getUnitSections();
 
-      // Get all descendant unit IDs within scope
-      const descendantIds = await getAllDescendantUnitIds(unitAdminScopeId);
-      const scopeUnitIds = new Set(descendantIds);
+      // Get all descendant unit IDs within scope (starting from top-level unit)
+      const descendantIds = await getAllDescendantUnitIds(topUnit.id);
+      const scopeUnitIds = new Set([topUnit.id, ...descendantIds]);
 
       // Filter personnel by units in scope
-      const personnel = await getPersonnelByUnitWithDescendants(unitAdminScopeId);
+      const personnel = await getPersonnelByUnitWithDescendants(topUnit.id);
 
       // Filter units by scope
       const units = allUnits.filter(u => scopeUnitIds.has(u.id));
@@ -134,6 +154,7 @@ export default function AdminDashboard() {
       const users = allUsers.filter(u => {
         return u.roles?.some(r => {
           if (!r.scope_unit_id) return false;
+          // Match by RUC code or by unit ID within scope
           return r.scope_unit_id === unitAdminScopeId || scopeUnitIds.has(r.scope_unit_id);
         });
       });
