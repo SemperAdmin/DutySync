@@ -22,6 +22,7 @@ import {
 } from "@/lib/client-stores";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
+import { parseLocalDate } from "@/lib/date-utils";
 
 // Manager role names - should match DashboardLayout
 const MANAGER_ROLES: RoleName[] = [
@@ -178,10 +179,8 @@ export default function ManagerDashboard() {
     scopedNonAvailability.forEach(na => {
       if (na.status !== "approved") return;
 
-      const start = new Date(na.start_date);
-      const end = new Date(na.end_date);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(0, 0, 0, 0);
+      const start = parseLocalDate(na.start_date);
+      const end = parseLocalDate(na.end_date);
 
       if (today >= start && today <= end) {
         const category = categorizeNA(na.reason);
@@ -265,9 +264,8 @@ export default function ManagerDashboard() {
     // Group duty slots by date for efficient lookup
     const slotsByDate = new Map<string, DutySlot[]>();
     scopedDutySlots.forEach(slot => {
-      const slotDate = new Date(slot.date_assigned);
-      slotDate.setHours(0, 0, 0, 0);
-      const dateKey = slotDate.toISOString().split('T')[0];
+      // Use the date_assigned string directly as the key (YYYY-MM-DD format)
+      const dateKey = slot.date_assigned;
       const existing = slotsByDate.get(dateKey) || [];
       existing.push(slot);
       slotsByDate.set(dateKey, existing);
@@ -281,7 +279,8 @@ export default function ManagerDashboard() {
 
       const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
       const dayNum = date.getDate();
-      const dateKey = date.toISOString().split('T')[0];
+      // Generate dateKey in local timezone (YYYY-MM-DD)
+      const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
       const daySlots = slotsByDate.get(dateKey) || [];
       const dayDuties = daySlots
@@ -524,9 +523,9 @@ export default function ManagerDashboard() {
                           </p>
                           <p className="text-sm text-foreground-muted">
                             {request.reason} &bull;{" "}
-                            {new Date(request.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {parseLocalDate(request.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                             {" - "}
-                            {new Date(request.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {parseLocalDate(request.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -577,7 +576,7 @@ export default function ManagerDashboard() {
                           <p className="text-sm text-foreground-muted">
                             Duty Swap &bull;{" "}
                             {pair.personASlotDate
-                              ? new Date(pair.personASlotDate).toLocaleDateString("en-US", {
+                              ? parseLocalDate(pair.personASlotDate).toLocaleDateString("en-US", {
                                   weekday: "short",
                                   month: "short",
                                   day: "numeric",
@@ -586,7 +585,7 @@ export default function ManagerDashboard() {
                             {pair.personBSlotDate && (
                               <>
                                 {" ↔ "}
-                                {new Date(pair.personBSlotDate).toLocaleDateString("en-US", {
+                                {parseLocalDate(pair.personBSlotDate).toLocaleDateString("en-US", {
                                   weekday: "short",
                                   month: "short",
                                   day: "numeric",

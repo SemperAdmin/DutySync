@@ -20,7 +20,7 @@ import {
 } from "@/lib/data-layer";
 import { calculateDutyScoreFromSlots, getSwapPairsByPersonnel, getAllDutySlots } from "@/lib/client-stores";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
-import { getTodayString, addDaysToDateString } from "@/lib/date-utils";
+import { getTodayString, addDaysToDateString, parseLocalDate } from "@/lib/date-utils";
 
 interface DutyHistoryEntry {
   id: string;
@@ -177,10 +177,10 @@ export default function UserDashboard() {
   // Get next duty
   const nextDuty = upcomingDuties.length > 0 ? upcomingDuties[0] : null;
 
-  // Calculate days until next duty
+  // Calculate days until next duty (use parseLocalDate to avoid timezone issues)
   const daysUntilNextDuty = nextDuty
     ? Math.ceil(
-        (new Date(nextDuty.date_assigned).getTime() - new Date().getTime()) /
+        (parseLocalDate(nextDuty.date_assigned).getTime() - new Date().setHours(0, 0, 0, 0)) /
           (1000 * 60 * 60 * 24)
       )
     : null;
@@ -233,18 +233,19 @@ export default function UserDashboard() {
 
   // Get current and upcoming non-availability with efficient Date handling
   const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Local midnight
 
   // Get current non-availability status
   const currentNA = nonAvailability.find((na) => {
-    const start = new Date(na.start_date);
-    const end = new Date(na.end_date);
-    return now >= start && now <= end && na.status === "approved";
+    const start = parseLocalDate(na.start_date);
+    const end = parseLocalDate(na.end_date);
+    return today >= start && today <= end && na.status === "approved";
   });
 
   // Get upcoming approved non-availability
   const upcomingNA = nonAvailability.filter((na) => {
-    const start = new Date(na.start_date);
-    return start > now && na.status === "approved";
+    const start = parseLocalDate(na.start_date);
+    return start > today && na.status === "approved";
   });
 
   // Get pending non-availability requests
@@ -258,11 +259,11 @@ export default function UserDashboard() {
 
   // Build duty history
   const dutyHistory: DutyHistoryEntry[] = pastDuties
-    .sort((a, b) => new Date(b.date_assigned).getTime() - new Date(a.date_assigned).getTime())
+    .sort((a, b) => parseLocalDate(b.date_assigned).getTime() - parseLocalDate(a.date_assigned).getTime())
     .slice(0, 10)
     .map((slot) => ({
       id: slot.id,
-      date: new Date(slot.date_assigned),
+      date: parseLocalDate(slot.date_assigned),
       dutyType: getDutyTypeName(slot.duty_type_id),
       duration: "24hr",
       points: slot.points ?? 0,
@@ -377,7 +378,7 @@ export default function UserDashboard() {
                     {getDutyTypeName(nextDuty.duty_type_id)}
                   </p>
                   <p className="text-foreground-muted mt-1">
-                    {new Date(nextDuty.date_assigned).toLocaleDateString("en-US", {
+                    {parseLocalDate(nextDuty.date_assigned).toLocaleDateString("en-US", {
                       weekday: "long",
                       month: "short",
                       day: "numeric",
@@ -479,7 +480,7 @@ export default function UserDashboard() {
                     <div>
                       <p className="font-medium text-warning">{currentNA.reason}</p>
                       <p className="text-sm text-foreground-muted">
-                        Until {new Date(currentNA.end_date).toLocaleDateString()}
+                        Until {parseLocalDate(currentNA.end_date).toLocaleDateString()}
                       </p>
                     </div>
                   </>
@@ -505,12 +506,12 @@ export default function UserDashboard() {
                       >
                         <span className="text-foreground">{na.reason}</span>
                         <span className="text-foreground-muted">
-                          {new Date(na.start_date).toLocaleDateString("en-US", {
+                          {parseLocalDate(na.start_date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
                           {" - "}
-                          {new Date(na.end_date).toLocaleDateString("en-US", {
+                          {parseLocalDate(na.end_date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
@@ -604,12 +605,12 @@ export default function UserDashboard() {
                         <div>
                           <p className="font-medium text-foreground">{na.reason}</p>
                           <p className="text-sm text-foreground-muted">
-                            {new Date(na.start_date).toLocaleDateString("en-US", {
+                            {parseLocalDate(na.start_date).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                             })}
                             {" - "}
-                            {new Date(na.end_date).toLocaleDateString("en-US", {
+                            {parseLocalDate(na.end_date).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                             })}
@@ -651,7 +652,7 @@ export default function UserDashboard() {
                             </p>
                             <p className="text-sm text-foreground-muted">
                               {personASlot?.date_assigned
-                                ? new Date(personASlot.date_assigned).toLocaleDateString("en-US", {
+                                ? parseLocalDate(personASlot.date_assigned).toLocaleDateString("en-US", {
                                     weekday: "short",
                                     month: "short",
                                     day: "numeric",
@@ -660,7 +661,7 @@ export default function UserDashboard() {
                               {personBSlot?.date_assigned && (
                                 <>
                                   {" ↔ "}
-                                  {new Date(personBSlot.date_assigned).toLocaleDateString("en-US", {
+                                  {parseLocalDate(personBSlot.date_assigned).toLocaleDateString("en-US", {
                                     weekday: "short",
                                     month: "short",
                                     day: "numeric",
