@@ -98,7 +98,7 @@ export default function SchedulerPage() {
         return {
           ...slot,
           duty_type: dutyType ? { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id } : null,
-          personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank } : null,
+          personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank, unit_section_id: personnel.unit_section_id } : null,
           assigned_by_info: {
             type: "scheduler" as const,
             display: "Automated by Scheduler",
