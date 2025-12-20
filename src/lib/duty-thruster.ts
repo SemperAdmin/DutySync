@@ -17,6 +17,7 @@ import type { DutySlot, DutyType, Personnel, DutyValue, DateString } from "@/typ
 import {
   getDutyTypesByUnitWithDescendants,
   getPersonnelByUnitWithDescendants,
+  getPersonnelById,
   getDutyRequirements,
   getDutyValueByDutyType,
   getActiveNonAvailability,
@@ -638,6 +639,70 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
         addAssignmentToContext(ctx, selected.personnel.id, dateStr);
         addSlotToContext(ctx, previewSlot);
       }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Apply previewed schedule - creates the actual duty slots from a preview result
+ * This ensures what you see in preview is exactly what gets applied
+ */
+export function applyPreviewedSlots(
+  previewSlots: DutySlot[],
+  clearExisting: boolean = false,
+  startDate?: DateString,
+  endDate?: DateString,
+  unitId?: string
+): ScheduleResult {
+  const result: ScheduleResult = {
+    success: true,
+    slotsCreated: 0,
+    slotsSkipped: 0,
+    errors: [],
+    warnings: [],
+    slots: [],
+  };
+
+  // Optionally clear existing slots in the date range
+  if (clearExisting && startDate && endDate) {
+    clearDutySlotsInRange(startDate, endDate, unitId);
+  }
+
+  // Track score updates for each personnel
+  const scoreUpdates: Map<string, number> = new Map();
+
+  // Create each slot from the preview
+  for (const previewSlot of previewSlots) {
+    // Generate a real ID (preview IDs start with "preview-")
+    const now = new Date();
+    const newSlot: DutySlot = {
+      ...previewSlot,
+      id: crypto.randomUUID(), // Replace preview ID with real ID
+      created_at: now,
+      updated_at: now,
+    };
+
+    createDutySlot(newSlot);
+    result.slots.push(newSlot);
+    result.slotsCreated++;
+
+    // Update personnel's duty score
+    if (newSlot.personnel_id && newSlot.points) {
+      const currentScore = scoreUpdates.get(newSlot.personnel_id) ?? 0;
+      const newScore = currentScore + newSlot.points;
+      scoreUpdates.set(newSlot.personnel_id, newScore);
+    }
+  }
+
+  // Apply all score updates at once
+  for (const [personnelId, scoreIncrease] of scoreUpdates) {
+    const personnel = getPersonnelById(personnelId);
+    if (personnel) {
+      updatePersonnel(personnelId, {
+        current_duty_score: personnel.current_duty_score + scoreIncrease,
+      });
     }
   }
 
