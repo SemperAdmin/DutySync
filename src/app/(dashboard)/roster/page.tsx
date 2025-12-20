@@ -1104,10 +1104,16 @@ export default function RosterPage() {
 
       const dutyAssignments = exportDutyTypes.map(dt => {
         if (libertyDay) return libertyDay.type.toUpperCase();
-        const slot = getSlotForDateAndType(dateStr, dt.id);
-        if (!slot) return "";
-        if (!slot.personnel) return "Unassigned";
-        return `${slot.personnel.rank} ${slot.personnel.last_name}`;
+        // Get ALL slots for this duty type on this date (handles multi-slot duties)
+        const allSlots = getSlotsForDateAndType(dateStr, dt.id);
+        if (allSlots.length === 0) return "";
+        // Get all assigned personnel, filter out unassigned slots
+        const assignedPersonnel = allSlots
+          .filter(slot => slot.personnel)
+          .map(slot => `${slot.personnel!.rank} ${slot.personnel!.last_name}`);
+        if (assignedPersonnel.length === 0) return "Unassigned";
+        // Join multiple personnel with semicolon for CSV compatibility
+        return assignedPersonnel.join("; ");
       });
 
       return [dateStr, dayName, dayStatus, ...dutyAssignments];
@@ -1197,11 +1203,17 @@ export default function RosterPage() {
                     <td class="date-col">${formattedDate}</td>
                     <td>${dayName}${libertyDay ? ` (${libertyDay.type.toUpperCase()})` : ""}</td>
                     ${exportDutyTypes.map(dt => {
-                      const slot = getSlotForDateAndType(dateStr, dt.id);
+                      // Get ALL slots for this duty type on this date (handles multi-slot duties)
+                      const allSlots = getSlotsForDateAndType(dateStr, dt.id);
                       const cellStyle = libertyDay ? 'color: #4CAF50;' : '';
-                      if (!slot) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : '-'}</td>`;
-                      if (!slot.personnel) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : 'Unassigned'}</td>`;
-                      return `<td style="${cellStyle}">${slot.personnel.rank} ${slot.personnel.last_name}</td>`;
+                      if (allSlots.length === 0) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : '-'}</td>`;
+                      // Get all assigned personnel
+                      const assignedPersonnel = allSlots
+                        .filter(slot => slot.personnel)
+                        .map(slot => `${slot.personnel!.rank} ${slot.personnel!.last_name}`);
+                      if (assignedPersonnel.length === 0) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : 'Unassigned'}</td>`;
+                      // Join multiple personnel with line break for print view
+                      return `<td style="${cellStyle}">${assignedPersonnel.join('<br>')}</td>`;
                     }).join("")}
                   </tr>
                 `;
