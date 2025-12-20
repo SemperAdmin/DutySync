@@ -284,15 +284,10 @@ export function getDutySlotById(id: string): DutySlot | undefined {
   return dutySlotStore.get(id);
 }
 
-export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
+export function getDutySlotsByDateRange(startDate: string, endDate: string): DutySlot[] {
+  // Simple string comparison - timezone safe with DateString (YYYY-MM-DD format)
   return Array.from(dutySlotStore.values()).filter((slot) => {
-    // Use parseLocalDate to avoid timezone issues where "2025-12-31" parsed as UTC
-    // shifts to Dec 30 in US timezones, causing the last day of month to be filtered out
-    const dateValue = slot.date_assigned;
-    const slotDate = dateValue instanceof Date
-      ? dateValue
-      : parseLocalDate(String(dateValue).split('T')[0]);
-    return slotDate >= startDate && slotDate <= endDate;
+    return slot.date_assigned >= startDate && slot.date_assigned <= endDate;
   });
 }
 
@@ -336,7 +331,7 @@ export function deleteDutySlot(id: string): boolean {
   return dutySlotStore.delete(id);
 }
 
-export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: string): number {
+export function clearDutySlotsInRange(startDate: string, endDate: string, unitId?: string): number {
   let count = 0;
   const slots = getDutySlotsByDateRange(startDate, endDate);
 

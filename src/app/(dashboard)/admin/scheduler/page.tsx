@@ -81,8 +81,8 @@ export default function SchedulerPage() {
     try {
       const request = {
         unitId: selectedUnit,
-        startDate: parseLocalDate(startDate),
-        endDate: parseLocalDate(endDate),
+        startDate, // Already a DateString from input
+        endDate,   // Already a DateString from input
         assignedBy: "admin",
         clearExisting,
       };

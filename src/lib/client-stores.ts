@@ -19,7 +19,16 @@ import type {
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
-import { isHoliday, isWeekend, formatDateToString, parseLocalDate } from "@/lib/date-utils";
+import {
+  isHolidayStr,
+  isWeekendStr,
+  formatDateToString,
+  parseLocalDate,
+  isDateInRange,
+  getTodayString,
+  addDaysToDateString,
+} from "@/lib/date-utils";
+import type { DateString } from "@/types";
 import { getCurrentRuc } from "@/lib/auto-save";
 
 // Import Supabase sync functions (aliased to avoid name collision)
@@ -495,7 +504,7 @@ export async function migrateLocalStorageToSupabase(): Promise<{
         orgId,
         slot.duty_type_id,
         slot.personnel_id,
-        formatDateToString(new Date(slot.date_assigned)),
+        slot.date_assigned, // Already a DateString
         slot.assigned_by || undefined,
         slot.id
       );
@@ -1548,8 +1557,9 @@ export function clearDutyRequirements(dutyTypeId: string): void {
 
 // Duty Slots
 export function getAllDutySlots(): DutySlot[] {
+  // String comparison works correctly for YYYY-MM-DD format
   return getFromStorage<DutySlot>(KEYS.dutySlots).sort(
-    (a, b) => new Date(a.date_assigned).getTime() - new Date(b.date_assigned).getTime()
+    (a, b) => a.date_assigned.localeCompare(b.date_assigned)
   );
 }
 
@@ -1557,32 +1567,25 @@ export function getDutySlotById(id: string): DutySlot | undefined {
   return getFromStorage<DutySlot>(KEYS.dutySlots).find((s) => s.id === id);
 }
 
-export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
+export function getDutySlotsByDateRange(startDate: DateString, endDate: DateString): DutySlot[] {
+  // Since date_assigned is now a DateString, we can use simple string comparison
+  // YYYY-MM-DD format sorts correctly as strings
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    // Use parseLocalDate to avoid timezone issues where "2025-12-31" parsed as UTC
-    // shifts to Dec 30 in US timezones, causing the last day of month to be filtered out
-    // Note: date_assigned can be a string from localStorage/Supabase despite the Date type
-    const dateValue = slot.date_assigned as unknown;
-    const slotDate = dateValue instanceof Date
-      ? dateValue
-      : parseLocalDate(String(dateValue).split('T')[0]);  // Handle "2025-12-31" or "2025-12-31T00:00:00"
-    return slotDate >= startDate && slotDate <= endDate;
+    return slot.date_assigned >= startDate && slot.date_assigned <= endDate;
   });
 }
 
-export function getDutySlotsByDate(date: Date): DutySlot[] {
-  const dateStr = formatDateToString(date);
+export function getDutySlotsByDate(dateStr: DateString): DutySlot[] {
+  // Direct string comparison - timezone safe
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    const slotDateStr = formatDateToString(new Date(slot.date_assigned));
-    return slotDateStr === dateStr;
+    return slot.date_assigned === dateStr;
   });
 }
 
-export function getDutySlotsByDateAndType(date: Date, dutyTypeId: string): DutySlot[] {
-  const dateStr = formatDateToString(date);
+export function getDutySlotsByDateAndType(dateStr: DateString, dutyTypeId: string): DutySlot[] {
+  // Direct string comparison - timezone safe
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    const slotDateStr = formatDateToString(new Date(slot.date_assigned));
-    return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
+    return slot.date_assigned === dateStr && slot.duty_type_id === dutyTypeId;
   });
 }
 
@@ -1606,10 +1609,11 @@ export function calculateDutyScoreFromSlots(personnelId: string): number {
  */
 export function getDutySlotsForScore(personnelId: string): DutySlot[] {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  // Sort descending by date string (most recent first)
   return slots.filter(
     slot => slot.personnel_id === personnelId &&
             (slot.status === 'approved' || slot.status === 'swapped')
-  ).sort((a, b) => new Date(b.date_assigned).getTime() - new Date(a.date_assigned).getTime());
+  ).sort((a, b) => b.date_assigned.localeCompare(a.date_assigned));
 }
 
 export function createDutySlot(slot: DutySlot): DutySlot {
@@ -1645,7 +1649,8 @@ export function createDutySlot(slot: DutySlot): DutySlot {
     return slot;
   }
 
-  const dateStr = formatDateToString(new Date(slot.date_assigned));
+  // date_assigned is already a DateString
+  const dateStr = slot.date_assigned;
 
   if (process.env.NODE_ENV === "development") {
     console.log("[Supabase Sync] createDutySlot: Syncing slot to Supabase with mapping", {
@@ -1726,7 +1731,7 @@ export function updateDutySlot(id: string, updates: Partial<DutySlot>): DutySlot
   if (updates.personnel_id !== undefined) supabaseUpdates.personnel_id = updates.personnel_id;
   if (updates.status !== undefined) supabaseUpdates.status = updates.status;
   if (updates.date_assigned !== undefined) {
-    supabaseUpdates.date_assigned = formatDateToString(new Date(updates.date_assigned));
+    supabaseUpdates.date_assigned = updates.date_assigned; // Already a DateString
   }
   if (Object.keys(supabaseUpdates).length > 0) {
     syncToSupabase(() => supabaseUpdateDutySlot(id, supabaseUpdates), "updateDutySlot");
@@ -1752,13 +1757,13 @@ export function deleteDutySlot(id: string): boolean {
   const rucCode = dutyType ? getRucCodeFromUnitHierarchy(dutyType.unit_section_id) || getCurrentRuc() : null;
 
   if (dutyType && personnel && rucCode) {
-    const dateStr = formatDateToString(new Date(slotToDelete.date_assigned));
+    // date_assigned is already a DateString
     syncToSupabase(
       () => supabaseDeleteDutySlotWithMapping(
         rucCode,
         dutyType.duty_name,
         personnel.service_id,
-        dateStr
+        slotToDelete.date_assigned
       ),
       "deleteDutySlot"
     );
@@ -1770,16 +1775,12 @@ export function deleteDutySlot(id: string): boolean {
   return true;
 }
 
-export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: string): number {
+export function clearDutySlotsInRange(startDate: DateString, endDate: DateString, unitId?: string): number {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   let count = 0;
   const filtered = slots.filter((slot) => {
-    // Use parseLocalDate to avoid timezone issues with last day of month
-    const dateValue = slot.date_assigned as unknown;
-    const slotDate = dateValue instanceof Date
-      ? dateValue
-      : parseLocalDate(String(dateValue).split('T')[0]);
-    const inRange = slotDate >= startDate && slotDate <= endDate;
+    // Simple string comparison - timezone safe with DateString
+    const inRange = slot.date_assigned >= startDate && slot.date_assigned <= endDate;
     if (!inRange) return true;
     if (unitId) {
       const dutyType = getDutyTypeById(slot.duty_type_id);
@@ -1799,8 +1800,8 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
         syncToSupabase(
           () => supabaseDeleteDutySlotsInRange(
             orgId,
-            formatDateToString(startDate),
-            formatDateToString(endDate),
+            startDate,
+            endDate,
             unitId
           ),
           "clearDutySlotsInRange"
@@ -1811,18 +1812,14 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
   return count;
 }
 
-export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, endDate: Date): number {
+export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: DateString, endDate: DateString): number {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   let count = 0;
   const filtered = slots.filter((slot) => {
     // Keep slots that don't match this duty type
     if (slot.duty_type_id !== dutyTypeId) return true;
-    // Keep slots outside the date range - use parseLocalDate to avoid timezone issues
-    const dateValue = slot.date_assigned as unknown;
-    const slotDate = dateValue instanceof Date
-      ? dateValue
-      : parseLocalDate(String(dateValue).split('T')[0]);
-    const inRange = slotDate >= startDate && slotDate <= endDate;
+    // Simple string comparison - timezone safe with DateString
+    const inRange = slot.date_assigned >= startDate && slot.date_assigned <= endDate;
     if (!inRange) return true;
     // This slot matches - remove it
     count++;
@@ -1842,8 +1839,8 @@ export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, en
           () => supabaseDeleteDutySlotsByDutyTypeWithMapping(
             rucCode,
             dutyType.duty_name,
-            formatDateToString(startDate),
-            formatDateToString(endDate)
+            startDate,
+            endDate
           ),
           "clearDutySlotsByDutyType"
         );
@@ -1948,7 +1945,7 @@ export async function migrateDutySlotsToSupabase(rucCode?: string): Promise<{
       rucCode: targetRuc,
       dutyTypeName: dutyType.duty_name,
       personnelServiceId: person.service_id,
-      dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+      dateAssigned: slot.date_assigned, // Already a DateString
       assignedBy: slot.assigned_by || undefined,
       points: slot.points,
     });
@@ -2127,14 +2124,11 @@ export async function approveRoster(
     const weekendMultiplier = dutyValue?.weekend_multiplier ?? DEFAULT_WEEKEND_MULTIPLIER;
     const holidayMultiplier = dutyValue?.holiday_multiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
 
-    // Check if this is a weekend or holiday
-    const slotDate = new Date(slot.date_assigned);
-
-    // Calculate points (holiday takes precedence over weekend)
+    // Calculate points using string-based date utilities (holiday takes precedence over weekend)
     let points = baseWeight;
-    if (isHoliday(slotDate)) {
+    if (isHolidayStr(slot.date_assigned)) {
       points = baseWeight * holidayMultiplier;
-    } else if (isWeekend(slotDate)) {
+    } else if (isWeekendStr(slot.date_assigned)) {
       points = baseWeight * weekendMultiplier;
     }
 
@@ -2146,7 +2140,7 @@ export async function approveRoster(
       unit_section_id: dutyType.unit_section_id,
       duty_type_name: dutyType.duty_name,
       points,
-      date_earned: slotDate,
+      date_earned: slot.date_assigned, // Already a DateString
       roster_month: rosterMonth,
       approved_by: approvedBy,
       created_at: new Date(),
@@ -2201,7 +2195,7 @@ export async function approveRoster(
         return {
           dutyTypeName: dutyType?.duty_name || "",
           personnelServiceId: person?.service_id || "",
-          dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+          dateAssigned: slot.date_assigned, // Already a DateString
         };
       })
       .filter(s => s.dutyTypeName && s.personnelServiceId);
@@ -2368,7 +2362,7 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
     id: string;
     duty_type_id: string;
     personnel_id: string;
-    date_assigned: Date | string;
+    date_assigned: DateString;
   }
   const slotsToRevert: SlotToRevert[] = [];
   for (let i = 0; i < allSlots.length; i++) {
@@ -2411,7 +2405,7 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
           return {
             dutyTypeName: dutyType?.duty_name || "",
             personnelServiceId: person?.service_id || "",
-            dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+            dateAssigned: slot.date_assigned, // Already a DateString
           };
         })
         .filter(s => s.dutyTypeName && s.personnelServiceId);
@@ -2436,8 +2430,9 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
 
 // Get all duty score events
 export function getAllDutyScoreEvents(): DutyScoreEvent[] {
+  // Sort descending by date string (most recent first)
   return getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents).sort(
-    (a, b) => new Date(b.date_earned).getTime() - new Date(a.date_earned).getTime()
+    (a, b) => b.date_earned.localeCompare(a.date_earned)
   );
 }
 
@@ -2661,8 +2656,9 @@ export function getPersonnelScoreBreakdown(
 
 // Non-Availability
 export function getAllNonAvailability(): NonAvailability[] {
+  // String comparison works correctly for YYYY-MM-DD format
   return getFromStorage<NonAvailability>(KEYS.nonAvailability).sort(
-    (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    (a, b) => a.start_date.localeCompare(b.start_date)
   );
 }
 
@@ -2676,14 +2672,12 @@ export function getNonAvailabilityById(id: string): NonAvailability | undefined 
   return getFromStorage<NonAvailability>(KEYS.nonAvailability).find((na) => na.id === id);
 }
 
-export function getActiveNonAvailability(personnelId: string, date: Date): NonAvailability | undefined {
-  const dateTime = date.getTime();
+export function getActiveNonAvailability(personnelId: string, dateStr: DateString): NonAvailability | undefined {
+  // Simple string comparison - timezone safe with DateString
   return getFromStorage<NonAvailability>(KEYS.nonAvailability).find((na) => {
     if (na.personnel_id !== personnelId) return false;
     if (na.status !== "approved") return false;
-    const start = new Date(na.start_date).getTime();
-    const end = new Date(na.end_date).getTime();
-    return dateTime >= start && dateTime <= end;
+    return dateStr >= na.start_date && dateStr <= na.end_date;
   });
 }
 
@@ -2702,8 +2696,8 @@ export function createNonAvailability(na: NonAvailability): NonAvailability {
         () => supabaseCreateNonAvailability(
           orgId,
           na.personnel_id,
-          formatDateToString(new Date(na.start_date)),
-          formatDateToString(new Date(na.end_date)),
+          na.start_date, // Already a DateString
+          na.end_date,   // Already a DateString
           {
             id: na.id,
             reason: na.reason,
@@ -2730,8 +2724,8 @@ export function updateNonAvailability(id: string, updates: Partial<NonAvailabili
 
   // Sync to Supabase in background
   const supabaseUpdates: Record<string, unknown> = {};
-  if (updates.start_date) supabaseUpdates.start_date = formatDateToString(new Date(updates.start_date));
-  if (updates.end_date) supabaseUpdates.end_date = formatDateToString(new Date(updates.end_date));
+  if (updates.start_date) supabaseUpdates.start_date = updates.start_date; // Already a DateString
+  if (updates.end_date) supabaseUpdates.end_date = updates.end_date; // Already a DateString
   if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
   if (updates.status !== undefined) supabaseUpdates.status = updates.status;
   if (updates.approved_by !== undefined) supabaseUpdates.approved_by = updates.approved_by;
@@ -3820,8 +3814,9 @@ export function removeQualification(personnelId: string, qualName: string): bool
 
 // Blocked Duties
 export function getAllBlockedDuties(): BlockedDuty[] {
+  // String comparison works correctly for YYYY-MM-DD format
   return getFromStorage<BlockedDuty>(KEYS.blockedDuties).sort(
-    (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    (a, b) => a.start_date.localeCompare(b.start_date)
   );
 }
 
@@ -3842,26 +3837,21 @@ export function getBlockedDutyById(id: string): BlockedDuty | undefined {
 }
 
 // Check if a duty is blocked on a specific date
-export function isDutyBlockedOnDate(dutyTypeId: string, date: Date): BlockedDuty | undefined {
-  const dateTime = date.getTime();
+export function isDutyBlockedOnDate(dutyTypeId: string, dateStr: DateString): BlockedDuty | undefined {
+  // Simple string comparison - timezone safe with DateString
   return getFromStorage<BlockedDuty>(KEYS.blockedDuties).find((bd) => {
     if (bd.duty_type_id !== dutyTypeId) return false;
-    const start = new Date(bd.start_date).getTime();
-    const end = new Date(bd.end_date).getTime();
-    return dateTime >= start && dateTime <= end;
+    return dateStr >= bd.start_date && dateStr <= bd.end_date;
   });
 }
 
 // Get all active blocks for a duty type (blocks that overlap with today or future)
 export function getActiveBlocksForDutyType(dutyTypeId: string): BlockedDuty[] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayTime = today.getTime();
+  const todayStr = getTodayString();
 
   return getFromStorage<BlockedDuty>(KEYS.blockedDuties).filter((bd) => {
     if (bd.duty_type_id !== dutyTypeId) return false;
-    const end = new Date(bd.end_date).getTime();
-    return end >= todayTime; // Block end is today or in the future
+    return bd.end_date >= todayStr; // Block end is today or in the future
   });
 }
 
@@ -3993,7 +3983,7 @@ export function reportDataIntegrity(): { missingPersonnel: number; missingDutyTy
   };
 }
 
-export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: string): EnrichedSlot[] {
+export function getEnrichedSlots(startDate?: DateString, endDate?: DateString, unitId?: string): EnrichedSlot[] {
   let slots: DutySlot[];
 
   if (startDate && endDate) {
@@ -4266,12 +4256,14 @@ function cleanTsvValue(value: string): string {
 }
 
 // Parse date from format like "2025/08/08" or "2025/12/10"
-function parseManpowerDate(dateStr: string): Date | null {
+// Returns DateString (YYYY-MM-DD) format
+function parseManpowerDate(dateStr: string): DateString | null {
   const cleaned = cleanTsvValue(dateStr);
   if (!cleaned || cleaned === "" || cleaned === '""') return null;
   const match = cleaned.match(/(\d{4})\/(\d{2})\/(\d{2})/);
   if (match) {
-    return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+    // Return as DateString (YYYY-MM-DD) format
+    return `${match[1]}-${match[2]}-${match[3]}`;
   }
   return null;
 }

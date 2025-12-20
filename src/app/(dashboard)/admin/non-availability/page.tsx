@@ -294,15 +294,12 @@ export default function NonAvailabilityAdminPage() {
       // Only users with approval permission who check the "approve immediately" box
       const shouldApprove = canApprove && formData.approveImmediately;
 
-      // Parse dates as local dates (add T12:00 to avoid timezone shifts)
-      const startDate = new Date(`${formData.start_date}T12:00:00`);
-      const endDate = new Date(`${formData.end_date}T12:00:00`);
-
+      // Use DateString directly from form input (YYYY-MM-DD format)
       const newRequest: NonAvailability = {
         id: crypto.randomUUID(),
         personnel_id: personnelId,
-        start_date: startDate,
-        end_date: endDate,
+        start_date: formData.start_date, // Already a DateString from input
+        end_date: formData.end_date,     // Already a DateString from input
         reason: formData.reason,
         // Default to pending, only approve if user has permission AND checked the box
         status: shouldApprove ? "approved" : "pending",

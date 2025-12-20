@@ -288,8 +288,9 @@ export default function DutyTypesPage() {
     setError("");
 
     try {
-      const startDate = new Date(blockFormData.startDate);
-      const endDate = new Date(blockFormData.endDate);
+      // Use DateString directly from form input (YYYY-MM-DD format)
+      const startDate = blockFormData.startDate;
+      const endDate = blockFormData.endDate;
 
       if (endDate < startDate) {
         setError("End date must be after start date");
@@ -306,8 +307,8 @@ export default function DutyTypesPage() {
           id: crypto.randomUUID(),
           duty_type_id: dutyId,
           unit_section_id: dutyType.unit_section_id,
-          start_date: startDate,
-          end_date: endDate,
+          start_date: startDate, // Already a DateString from input
+          end_date: endDate,     // Already a DateString from input
           reason: blockFormData.reason || null,
           blocked_by: user?.id || "",
           created_at: new Date(),
