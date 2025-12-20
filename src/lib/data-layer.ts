@@ -17,6 +17,7 @@ import {
   syncDutySlotsToLocalStorage,
   clearDataIntegrityIssues,
   autoCompletePastDuties,
+  getDutySlotRetentionCutoff,
 } from "./client-stores";
 import type {
   UnitSection,
@@ -585,10 +586,14 @@ export function getDutyTypesByUnitId(unitId: string): DutyType[] {
 let dutySlotsCache: DutySlot[] = [];
 
 export async function loadDutySlots(organizationId?: string, startDate?: string, endDate?: string): Promise<DutySlot[]> {
-  const slots = await supabase.getDutySlots(organizationId, startDate, endDate);
+  // Apply 12-month retention policy by default if no startDate specified
+  const effectiveStartDate = startDate ?? getDutySlotRetentionCutoff();
+
+  const slots = await supabase.getDutySlots(organizationId, effectiveStartDate, endDate);
   dutySlotsCache = slots.map(convertDutySlot);
 
   // Sync to localStorage so client-stores uses valid Supabase data
+  // (syncDutySlotsToLocalStorage also applies retention policy)
   syncDutySlotsToLocalStorage(dutySlotsCache);
 
   // Auto-complete any past duties that are still scheduled/approved

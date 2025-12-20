@@ -335,6 +335,40 @@ const KEYS = {
   dutyScoreEvents: "dutysync_duty_score_events",
 };
 
+// Duty slot retention period (in months)
+const DUTY_SLOT_RETENTION_MONTHS = 12;
+
+/**
+ * Get the cutoff date for duty slot retention (12 months ago)
+ */
+export function getDutySlotRetentionCutoff(): string {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - DUTY_SLOT_RETENTION_MONTHS);
+  return cutoff.toISOString().split('T')[0]; // Return as YYYY-MM-DD string
+}
+
+/**
+ * Clean up duty slots older than the retention period (12 months)
+ * Returns the number of slots removed
+ */
+export function cleanupOldDutySlots(): number {
+  const cutoffDate = getDutySlotRetentionCutoff();
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  const originalCount = slots.length;
+
+  // Keep slots that are within the retention period
+  const recentSlots = slots.filter(slot => slot.date_assigned >= cutoffDate);
+
+  const removedCount = originalCount - recentSlots.length;
+
+  if (removedCount > 0) {
+    saveToStorage(KEYS.dutySlots, recentSlots);
+    console.log(`[Data Retention] Cleaned up ${removedCount} duty slots older than ${DUTY_SLOT_RETENTION_MONTHS} months (before ${cutoffDate})`);
+  }
+
+  return removedCount;
+}
+
 // Track localStorage errors for diagnostics
 let lastStorageError: { key: string; error: string; timestamp: Date } | null = null;
 
@@ -440,7 +474,15 @@ export function syncPersonnelToLocalStorage(personnel: Personnel[]): boolean {
 }
 
 export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): boolean {
-  return syncToLocalStorageWithErrorHandling(KEYS.dutySlots, dutySlots, "duty slots");
+  // Apply 12-month retention policy before syncing
+  const cutoffDate = getDutySlotRetentionCutoff();
+  const recentSlots = dutySlots.filter(slot => slot.date_assigned >= cutoffDate);
+
+  if (recentSlots.length < dutySlots.length) {
+    console.log(`[Data Retention] Filtered out ${dutySlots.length - recentSlots.length} duty slots older than 12 months during sync`);
+  }
+
+  return syncToLocalStorageWithErrorHandling(KEYS.dutySlots, recentSlots, "duty slots");
 }
 
 // ============ Migration: Sync localStorage TO Supabase ============
@@ -1120,6 +1162,9 @@ export function deduplicateLocalStorageData(): void {
   deduplicateAndSave<DutySlot>(KEYS.dutySlots, "duty slots");
   deduplicateAndSave<DutyType>(KEYS.dutyTypes, "duty types");
   deduplicateAndSave<NonAvailability>(KEYS.nonAvailability, "non-availability");
+
+  // Apply 12-month retention policy for duty slots
+  cleanupOldDutySlots();
 }
 
 // Unit Sections
@@ -1601,29 +1646,29 @@ export function getDutySlotsByDateAndType(dateStr: DateString, dutyTypeId: strin
 
 /**
  * Calculate duty score for a personnel from duty_slots.
- * Counts slots with status 'scheduled' or 'approved'.
+ * Counts slots with status 'scheduled', 'approved', or 'completed'.
  * This gives an accurate score based on the current organization's data.
  */
 export function calculateDutyScoreFromSlots(personnelId: string): number {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
-  // Count scheduled and approved duties toward the score
+  // Count scheduled, approved, and completed duties toward the score
   const relevantSlots = slots.filter(
     slot => slot.personnel_id === personnelId &&
-            (slot.status === 'scheduled' || slot.status === 'approved')
+            (slot.status === 'scheduled' || slot.status === 'approved' || slot.status === 'completed')
   );
   return relevantSlots.reduce((sum, slot) => sum + (slot.points || 0), 0);
 }
 
 /**
  * Get duty slots for a personnel that count toward their score.
- * Returns slots with status 'scheduled' or 'approved'.
+ * Returns slots with status 'scheduled', 'approved', or 'completed'.
  */
 export function getDutySlotsForScore(personnelId: string): DutySlot[] {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   // Sort descending by date string (most recent first)
   return slots.filter(
     slot => slot.personnel_id === personnelId &&
-            (slot.status === 'scheduled' || slot.status === 'approved')
+            (slot.status === 'scheduled' || slot.status === 'approved' || slot.status === 'completed')
   ).sort((a, b) => b.date_assigned.localeCompare(a.date_assigned));
 }
 
