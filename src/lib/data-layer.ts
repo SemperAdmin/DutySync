@@ -119,6 +119,13 @@ function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
     console.warn(`Invalid status "${slot.status}" for duty slot ${slot.id}. Defaulting to "${status}".`);
   }
 
+  // Handle optional swap fields that may come from Supabase
+  const extendedSlot = slot as typeof slot & {
+    swapped_at?: string | null;
+    swapped_from_personnel_id?: string | null;
+    swap_pair_id?: string | null;
+  };
+
   return {
     id: slot.id,
     duty_type_id: slot.duty_type_id,
@@ -127,6 +134,9 @@ function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
     assigned_by: slot.assigned_by || "",
     points: slot.points ?? 0,
     status,
+    swapped_at: extendedSlot.swapped_at ? new Date(extendedSlot.swapped_at) : null,
+    swapped_from_personnel_id: extendedSlot.swapped_from_personnel_id || null,
+    swap_pair_id: extendedSlot.swap_pair_id || null,
     created_at: new Date(slot.created_at),
     updated_at: new Date(slot.updated_at),
   };

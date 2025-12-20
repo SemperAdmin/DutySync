@@ -941,6 +941,9 @@ export default function RosterPage() {
         assigned_by: user.id,
         points: calculatedPoints,
         status: "scheduled" as const,
+        swapped_at: null,
+        swapped_from_personnel_id: null,
+        swap_pair_id: null,
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -1697,9 +1700,11 @@ export default function RosterPage() {
                                       }
                                     }}
                                     className={`px-2 py-0.5 rounded text-xs transition-colors hover:brightness-110 ${getStatusColor(slot.status, isPersonnelDuplicate(slot.personnel_id))}`}
+                                    title={slot.status === 'swapped' && slot.swapped_at ? `Swapped on ${new Date(slot.swapped_at).toLocaleString()}` : undefined}
                                   >
                                     {slot.personnel ? (
-                                      <span>
+                                      <span className="flex items-center gap-1">
+                                        {slot.status === 'swapped' && <span className="text-blue-400">↔</span>}
                                         {slot.personnel.rank} {slot.personnel.first_name} {slot.personnel.last_name}
                                       </span>
                                     ) : (
@@ -1739,6 +1744,10 @@ export default function RosterPage() {
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded bg-green-500/20" />
           <span className="text-foreground-muted">Completed</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded bg-blue-500/20" />
+          <span className="text-foreground-muted">↔ Swapped</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded bg-red-500/20" />
@@ -1839,7 +1848,7 @@ export default function RosterPage() {
                     <span
                       className={`inline-block px-2 py-0.5 rounded text-sm ${getStatusColor(selectedSlot.status)}`}
                     >
-                      {selectedSlot.status.charAt(0).toUpperCase() + selectedSlot.status.slice(1)}
+                      {selectedSlot.status === 'swapped' ? '↔ Swapped' : selectedSlot.status.charAt(0).toUpperCase() + selectedSlot.status.slice(1)}
                     </span>
                   </p>
                 </div>
@@ -1850,6 +1859,39 @@ export default function RosterPage() {
                   </p>
                 </div>
               </div>
+              {/* Swap Information */}
+              {selectedSlot.status === 'swapped' && selectedSlot.swapped_at && (
+                <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-blue-400">↔</span>
+                    <span className="text-sm font-medium text-blue-400">Swap Details</span>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    {selectedSlot.swapped_from_personnel_id && (
+                      <p className="text-foreground-muted">
+                        <span className="text-foreground">Originally assigned to:</span>{' '}
+                        {(() => {
+                          const originalPerson = getAllPersonnel().find(p => p.id === selectedSlot.swapped_from_personnel_id);
+                          return originalPerson
+                            ? `${originalPerson.rank} ${originalPerson.first_name} ${originalPerson.last_name}`
+                            : 'Unknown';
+                        })()}
+                      </p>
+                    )}
+                    <p className="text-foreground-muted">
+                      <span className="text-foreground">Swapped on:</span>{' '}
+                      {new Date(selectedSlot.swapped_at).toLocaleString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="p-4 border-t border-border flex justify-end gap-2">
               {/* Show Request Swap button if roster is approved and user can request */}

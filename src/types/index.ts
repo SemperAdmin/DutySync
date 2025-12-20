@@ -119,6 +119,10 @@ export interface DutySlot {
   assigned_by: UUID; // User who assigned
   points: number; // Calculated duty score (base_weight * multipliers)
   status: 'scheduled' | 'approved' | 'completed' | 'missed' | 'swapped';
+  // Swap tracking fields
+  swapped_at: Date | null; // When the swap was executed
+  swapped_from_personnel_id: UUID | null; // Original personnel before swap
+  swap_pair_id: UUID | null; // Link to the swap request pair
   created_at: Date;
   updated_at: Date;
 }
