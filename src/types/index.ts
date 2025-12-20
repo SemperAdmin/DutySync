@@ -135,7 +135,9 @@ export interface NonAvailability {
   end_date: Date;
   reason: string;
   status: 'pending' | 'recommended' | 'approved' | 'rejected';
+  submitted_by: UUID | null; // User who submitted the request
   recommended_by: UUID | null; // Manager who recommended (for chain of command)
+  recommended_at: Date | null; // When recommendation was made
   approved_by: UUID | null;
   created_at: Date;
 }

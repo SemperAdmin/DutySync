@@ -2708,6 +2708,7 @@ export function createNonAvailability(na: NonAvailability): NonAvailability {
             id: na.id,
             reason: na.reason,
             status: na.status,
+            submittedBy: na.submitted_by || undefined,
             approvedBy: na.approved_by || undefined,
           }
         ),
@@ -2734,6 +2735,10 @@ export function updateNonAvailability(id: string, updates: Partial<NonAvailabili
   if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
   if (updates.status !== undefined) supabaseUpdates.status = updates.status;
   if (updates.approved_by !== undefined) supabaseUpdates.approved_by = updates.approved_by;
+  if (updates.recommended_by !== undefined) supabaseUpdates.recommended_by = updates.recommended_by;
+  if (updates.recommended_at !== undefined) supabaseUpdates.recommended_at = updates.recommended_at instanceof Date
+    ? updates.recommended_at.toISOString()
+    : updates.recommended_at;
 
   if (Object.keys(supabaseUpdates).length > 0) {
     syncToSupabase(
@@ -4606,8 +4611,10 @@ export function importManpowerData(
             end_date: endDate,
             reason: `${record.category}: ${record.dutyStatus} - ${record.location}`,
             status: "approved",
+            submitted_by: null, // Auto-imported, no submitter
             recommended_by: null,
-            approved_by: null,
+            recommended_at: null,
+            approved_by: null, // Auto-approved on import
             created_at: new Date(),
           };
           newNonAvailList.push(newNa);
