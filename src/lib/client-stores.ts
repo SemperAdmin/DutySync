@@ -27,6 +27,7 @@ import {
   isDateInRange,
   getTodayString,
   addDaysToDateString,
+  isValidDateString,
 } from "@/lib/date-utils";
 import type { DateString } from "@/types";
 import { getCurrentRuc } from "@/lib/auto-save";
@@ -4262,8 +4263,11 @@ function parseManpowerDate(dateStr: string): DateString | null {
   if (!cleaned || cleaned === "" || cleaned === '""') return null;
   const match = cleaned.match(/(\d{4})\/(\d{2})\/(\d{2})/);
   if (match) {
-    // Return as DateString (YYYY-MM-DD) format
-    return `${match[1]}-${match[2]}-${match[3]}`;
+    // Return as DateString (YYYY-MM-DD) format, validating it's a real date
+    const parsedDateString = `${match[1]}-${match[2]}-${match[3]}`;
+    if (isValidDateString(parsedDateString)) {
+      return parsedDateString;
+    }
   }
   return null;
 }

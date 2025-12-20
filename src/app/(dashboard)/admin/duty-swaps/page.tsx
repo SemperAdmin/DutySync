@@ -39,6 +39,7 @@ import {
   type ViewMode,
 } from "@/lib/constants";
 import { useSyncRefresh } from "@/hooks/useSync";
+import { formatDateToString } from "@/lib/date-utils";
 
 // Manager role names
 const MANAGER_ROLES: RoleName[] = [
@@ -184,7 +185,7 @@ export default function DutySwapsPage() {
       const startOfMonth = `${year}-${month}-01`;
       // Get last day of next month
       const nextMonthEnd = new Date(year, now.getMonth() + 2, 0);
-      const endOfNextMonth = `${nextMonthEnd.getFullYear()}-${String(nextMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(nextMonthEnd.getDate()).padStart(2, '0')}`;
+      const endOfNextMonth = formatDateToString(nextMonthEnd);
       const slotsData = getEnrichedSlots(startOfMonth, endOfNextMonth);
       setAllSlots(slotsData);
     } catch (err) {
