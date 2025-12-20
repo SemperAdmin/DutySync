@@ -20,6 +20,7 @@ import {
 } from "@/lib/data-layer";
 import { calculateDutyScoreFromSlots, getSwapPairsByPersonnel, getAllDutySlots } from "@/lib/client-stores";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
+import { getTodayString, addDaysToDateString } from "@/lib/date-utils";
 
 interface DutyHistoryEntry {
   id: string;
@@ -64,17 +65,15 @@ export default function UserDashboard() {
 
       if (myPersonnel) {
         // Get upcoming duties (next 90 days)
-        const today = new Date();
-        const futureDate = new Date();
-        futureDate.setDate(today.getDate() + 90);
+        const today = getTodayString();
+        const futureDate = addDaysToDateString(today, 90);
         const upcoming = getDutySlotsByDateRange(today, futureDate).filter(
           (slot) => slot.personnel_id === myPersonnel.id && slot.status === "scheduled"
         );
         setUpcomingDuties(upcoming);
 
         // Get past duties (last 90 days)
-        const pastDate = new Date();
-        pastDate.setDate(today.getDate() - 90);
+        const pastDate = addDaysToDateString(today, -90);
         const past = getDutySlotsByDateRange(pastDate, today).filter(
           (slot) => slot.personnel_id === myPersonnel.id && slot.status === "completed"
         );

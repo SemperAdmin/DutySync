@@ -1,7 +1,14 @@
 /**
  * Shared date utilities for holiday and weekend calculations
  * Centralized to ensure consistency across the application
+ *
+ * IMPORTANT: This module uses DateString (YYYY-MM-DD format) for all date-only operations.
+ * DateStrings are timezone-agnostic - "2025-12-31" means December 31st everywhere,
+ * regardless of the user's timezone. This prevents the common issue where dates
+ * shift when parsed as UTC midnight in different timezones.
  */
+
+import type { DateString } from "@/types";
 
 // ============ Federal Holidays ============
 // US Federal Holidays for score calculation
@@ -174,4 +181,159 @@ export function parseLocalDate(dateStr: string): Date {
  */
 export function normalizeToLocalMidnight(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+// ============ String-Based Date Utilities ============
+// These functions work directly with DateString (YYYY-MM-DD) format
+// without converting to Date objects, avoiding all timezone issues.
+
+/**
+ * Get today's date as a DateString (YYYY-MM-DD)
+ * Uses local timezone to determine "today"
+ */
+export function getTodayString(): DateString {
+  return formatDateToString(new Date());
+}
+
+/**
+ * Check if a DateString is a US federal holiday
+ * @param dateStr - Date string in YYYY-MM-DD format
+ */
+export function isHolidayStr(dateStr: DateString): boolean {
+  return FEDERAL_HOLIDAYS.has(dateStr);
+}
+
+/**
+ * Check if a DateString is a weekend (Saturday or Sunday)
+ * @param dateStr - Date string in YYYY-MM-DD format
+ */
+export function isWeekendStr(dateStr: DateString): boolean {
+  // Parse the date string to get the day of week
+  // Using parseLocalDate ensures correct day calculation
+  const date = parseLocalDate(dateStr);
+  const dayOfWeek = date.getDay();
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
+/**
+ * Add days to a DateString and return a new DateString
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @param days - Number of days to add (can be negative)
+ */
+export function addDaysToDateString(dateStr: DateString, days: number): DateString {
+  const date = parseLocalDate(dateStr);
+  date.setDate(date.getDate() + days);
+  return formatDateToString(date);
+}
+
+/**
+ * Compare two DateStrings
+ * @returns negative if a < b, 0 if equal, positive if a > b
+ */
+export function compareDateStrings(a: DateString, b: DateString): number {
+  // String comparison works correctly for YYYY-MM-DD format
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+/**
+ * Check if a DateString is within a range (inclusive)
+ * @param dateStr - Date to check
+ * @param startDate - Start of range
+ * @param endDate - End of range
+ */
+export function isDateInRange(dateStr: DateString, startDate: DateString, endDate: DateString): boolean {
+  return dateStr >= startDate && dateStr <= endDate;
+}
+
+/**
+ * Generate an array of DateStrings between start and end (inclusive)
+ * @param startDate - Start date string
+ * @param endDate - End date string
+ */
+export function generateDateStrings(startDate: DateString, endDate: DateString): DateString[] {
+  const dates: DateString[] = [];
+  let current = startDate;
+
+  while (current <= endDate) {
+    dates.push(current);
+    current = addDaysToDateString(current, 1);
+  }
+
+  return dates;
+}
+
+/**
+ * Generator version of generateDateStrings for memory efficiency with large ranges
+ */
+export function* generateDateStringsIterator(startDate: DateString, endDate: DateString): Generator<DateString> {
+  let current = startDate;
+
+  while (current <= endDate) {
+    yield current;
+    current = addDaysToDateString(current, 1);
+  }
+}
+
+/**
+ * Format a DateString for display using various formats
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @param format - Display format: 'short' (Dec 31), 'medium' (Dec 31, 2024), 'long' (December 31, 2024), 'weekday' (Mon Dec 31)
+ */
+export function formatDateForDisplay(dateStr: DateString, format: 'short' | 'medium' | 'long' | 'weekday' = 'short'): string {
+  const date = parseLocalDate(dateStr);
+
+  switch (format) {
+    case 'short':
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    case 'medium':
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    case 'long':
+      return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    case 'weekday':
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    default:
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+}
+
+/**
+ * Get the day of week (0-6, where 0 is Sunday) from a DateString
+ */
+export function getDayOfWeek(dateStr: DateString): number {
+  return parseLocalDate(dateStr).getDay();
+}
+
+/**
+ * Get the month (1-12) from a DateString
+ */
+export function getMonth(dateStr: DateString): number {
+  return parseInt(dateStr.substring(5, 7), 10);
+}
+
+/**
+ * Get the year from a DateString
+ */
+export function getYear(dateStr: DateString): number {
+  return parseInt(dateStr.substring(0, 4), 10);
+}
+
+/**
+ * Get the day of month (1-31) from a DateString
+ */
+export function getDayOfMonth(dateStr: DateString): number {
+  return parseInt(dateStr.substring(8, 10), 10);
+}
+
+/**
+ * Validate that a string is in YYYY-MM-DD format
+ */
+export function isValidDateString(str: string): str is DateString {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return false;
+  }
+  // Verify it's a valid date
+  const date = parseLocalDate(str);
+  return !isNaN(date.getTime()) && formatDateToString(date) === str;
 }

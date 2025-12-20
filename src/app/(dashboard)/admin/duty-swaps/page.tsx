@@ -177,9 +177,14 @@ export default function DutySwapsPage() {
       setSwapPairs(swapPairsData);
 
       // Fetch slots for current and next month (for swap requests)
+      // Use DateString format (YYYY-MM-DD) for timezone-safe date handling
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const startOfMonth = `${year}-${month}-01`;
+      // Get last day of next month
+      const nextMonthEnd = new Date(year, now.getMonth() + 2, 0);
+      const endOfNextMonth = `${nextMonthEnd.getFullYear()}-${String(nextMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(nextMonthEnd.getDate()).padStart(2, '0')}`;
       const slotsData = getEnrichedSlots(startOfMonth, endOfNextMonth);
       setAllSlots(slotsData);
     } catch (err) {

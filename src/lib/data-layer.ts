@@ -8,7 +8,7 @@
  */
 
 import * as supabase from "./supabase-data";
-import { parseLocalDate } from "./date-utils";
+import type { DateString } from "@/types";
 import {
   setDefaultOrganizationId,
   syncUnitsToLocalStorage,
@@ -126,11 +126,17 @@ function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
     swap_pair_id?: string | null;
   };
 
+  // Keep date_assigned as a string (DateString format: YYYY-MM-DD)
+  // This avoids timezone issues where dates shift when parsed as UTC
+  const dateAssigned: DateString = typeof slot.date_assigned === 'string'
+    ? slot.date_assigned.split('T')[0] // Handle ISO timestamp format from DB
+    : slot.date_assigned;
+
   return {
     id: slot.id,
     duty_type_id: slot.duty_type_id,
     personnel_id: slot.personnel_id,
-    date_assigned: new Date(slot.date_assigned),
+    date_assigned: dateAssigned,
     assigned_by: slot.assigned_by || "",
     points: slot.points ?? 0,
     status,
@@ -143,11 +149,20 @@ function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
 }
 
 function convertNonAvailability(na: SupabaseNonAvailability): NonAvailability {
+  // Keep start_date and end_date as strings (DateString format: YYYY-MM-DD)
+  // This avoids timezone issues where dates shift when parsed as UTC
+  const startDate: DateString = typeof na.start_date === 'string'
+    ? na.start_date.split('T')[0]
+    : na.start_date;
+  const endDate: DateString = typeof na.end_date === 'string'
+    ? na.end_date.split('T')[0]
+    : na.end_date;
+
   return {
     id: na.id,
     personnel_id: na.personnel_id,
-    start_date: new Date(na.start_date),
-    end_date: new Date(na.end_date),
+    start_date: startDate,
+    end_date: endDate,
     reason: na.reason || "",
     status: na.status,
     submitted_by: na.submitted_by,
@@ -581,15 +596,11 @@ export function getAllDutySlots(): DutySlot[] {
   return dutySlotsCache;
 }
 
-export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
+export function getDutySlotsByDateRange(startDate: DateString, endDate: DateString): DutySlot[] {
+  // Since date_assigned is now a DateString, we can use simple string comparison
+  // This is timezone-safe because YYYY-MM-DD format sorts correctly
   return dutySlotsCache.filter(slot => {
-    // Use parseLocalDate to avoid timezone issues where "2025-12-31" parsed as UTC
-    // shifts to Dec 30 in US timezones, causing the last day of month to be filtered out
-    const dateValue = slot.date_assigned;
-    const slotDate = dateValue instanceof Date
-      ? dateValue
-      : parseLocalDate(String(dateValue).split('T')[0]);
-    return slotDate >= startDate && slotDate <= endDate;
+    return slot.date_assigned >= startDate && slot.date_assigned <= endDate;
   });
 }
 

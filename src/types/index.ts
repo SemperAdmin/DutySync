@@ -3,6 +3,10 @@
 
 export type UUID = string;
 
+// Date string type for timezone-agnostic dates (YYYY-MM-DD format)
+// These dates are static and don't shift with timezone conversions
+export type DateString = string;
+
 // Hierarchy levels for unit_sections
 // Unit > Company > Section > Work Section
 export type HierarchyLevel = 'unit' | 'company' | 'section' | 'work_section' | 'ruc' | 'battalion';
@@ -115,12 +119,12 @@ export interface DutySlot {
   id: UUID;
   duty_type_id: UUID;
   personnel_id: UUID;
-  date_assigned: Date;
+  date_assigned: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
   assigned_by: UUID; // User who assigned
   points: number; // Calculated duty score (base_weight * multipliers)
   status: 'scheduled' | 'approved' | 'completed' | 'missed' | 'swapped';
   // Swap tracking fields
-  swapped_at: Date | null; // When the swap was executed
+  swapped_at: Date | null; // When the swap was executed (timestamp)
   swapped_from_personnel_id: UUID | null; // Original personnel before swap
   swap_pair_id: UUID | null; // Link to the swap request pair
   created_at: Date;
@@ -131,13 +135,13 @@ export interface DutySlot {
 export interface NonAvailability {
   id: UUID;
   personnel_id: UUID;
-  start_date: Date;
-  end_date: Date;
+  start_date: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
+  end_date: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
   reason: string;
   status: 'pending' | 'recommended' | 'approved' | 'rejected';
   submitted_by: UUID | null; // User who submitted the request
   recommended_by: UUID | null; // Manager who recommended (for chain of command)
-  recommended_at: Date | null; // When recommendation was made
+  recommended_at: Date | null; // When recommendation was made (timestamp)
   approved_by: UUID | null;
   created_at: Date;
 }
@@ -160,7 +164,7 @@ export interface DutyScoreEvent {
   unit_section_id: UUID;
   duty_type_name: string;     // Denormalized for history
   points: number;
-  date_earned: Date;
+  date_earned: DateString;    // Static date string (YYYY-MM-DD) - timezone agnostic
   roster_month: string;       // Format: YYYY-MM (which approval period)
   approved_by: UUID | null;
   created_at: Date;
@@ -171,8 +175,8 @@ export interface BlockedDuty {
   id: UUID;
   duty_type_id: UUID;
   unit_section_id: UUID; // The unit scope for this block
-  start_date: Date;
-  end_date: Date;
+  start_date: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
+  end_date: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
   reason: string | null;
   blocked_by: UUID; // User ID who created the block
   created_at: Date;
