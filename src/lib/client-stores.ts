@@ -1338,11 +1338,20 @@ export function updatePersonnel(id: string, updates: Partial<Personnel>): Person
   saveToStorage(KEYS.personnel, personnel);
   triggerAutoSave('unitMembers');
 
-  // Sync to Supabase in background (only if score-related updates)
+  // Sync to Supabase in background for specific field updates
+  // Use a plain object type for Supabase updates to avoid Date vs string type conflicts
+  const supabaseUpdates: Record<string, unknown> = {};
   if (updates.current_duty_score !== undefined) {
+    supabaseUpdates.current_duty_score = updates.current_duty_score;
+  }
+  if (updates.phone_number !== undefined) {
+    supabaseUpdates.phone_number = updates.phone_number;
+  }
+
+  if (Object.keys(supabaseUpdates).length > 0) {
     syncToSupabase(
-      () => supabaseUpdatePersonnel(id, { current_duty_score: updates.current_duty_score }),
-      "updatePersonnelScore"
+      () => supabaseUpdatePersonnel(id, supabaseUpdates as Parameters<typeof supabaseUpdatePersonnel>[1]),
+      "updatePersonnel"
     );
   }
 
@@ -1592,28 +1601,29 @@ export function getDutySlotsByDateAndType(dateStr: DateString, dutyTypeId: strin
 
 /**
  * Calculate duty score for a personnel from duty_slots.
- * Only counts slots with status 'approved' or 'swapped'.
+ * Counts slots with status 'scheduled' or 'approved'.
  * This gives an accurate score based on the current organization's data.
  */
 export function calculateDutyScoreFromSlots(personnelId: string): number {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  // Count scheduled and approved duties toward the score
   const relevantSlots = slots.filter(
     slot => slot.personnel_id === personnelId &&
-            (slot.status === 'approved' || slot.status === 'swapped')
+            (slot.status === 'scheduled' || slot.status === 'approved')
   );
   return relevantSlots.reduce((sum, slot) => sum + (slot.points || 0), 0);
 }
 
 /**
  * Get duty slots for a personnel that count toward their score.
- * Only returns slots with status 'approved' or 'swapped'.
+ * Returns slots with status 'scheduled' or 'approved'.
  */
 export function getDutySlotsForScore(personnelId: string): DutySlot[] {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   // Sort descending by date string (most recent first)
   return slots.filter(
     slot => slot.personnel_id === personnelId &&
-            (slot.status === 'approved' || slot.status === 'swapped')
+            (slot.status === 'scheduled' || slot.status === 'approved')
   ).sort((a, b) => b.date_assigned.localeCompare(a.date_assigned));
 }
 

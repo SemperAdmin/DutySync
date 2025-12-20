@@ -65,10 +65,12 @@ export default function UserDashboard() {
 
       if (myPersonnel) {
         // Get upcoming duties (next 90 days)
+        // Include both "scheduled" and "approved" statuses for upcoming duties
         const today = getTodayString();
         const futureDate = addDaysToDateString(today, 90);
         const upcoming = getDutySlotsByDateRange(today, futureDate).filter(
-          (slot) => slot.personnel_id === myPersonnel.id && slot.status === "scheduled"
+          (slot) => slot.personnel_id === myPersonnel.id &&
+            (slot.status === "scheduled" || slot.status === "approved")
         );
         setUpcomingDuties(upcoming);
 
