@@ -673,6 +673,13 @@ export default function RosterPage() {
     return date.toLocaleDateString("en-US", { weekday: format });
   }
 
+  // Get the unit name for a personnel (returns the lowest level unit name)
+  function getPersonnelUnitName(unitSectionId: string | undefined): string {
+    if (!unitSectionId) return "";
+    const unit = unitMap.get(unitSectionId);
+    return unit?.unit_name || "";
+  }
+
   function getStatusColor(status: string, isDuplicate: boolean = false): string {
     switch (status) {
       case "completed":
@@ -965,7 +972,7 @@ export default function RosterPage() {
       const newEnrichedSlot: EnrichedSlot = {
         ...newSlot,
         duty_type: { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id },
-        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank } : null,
+        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank, unit_section_id: assignedPerson.unit_section_id } : null,
         assigned_by_info,
       };
 
@@ -1278,6 +1285,89 @@ export default function RosterPage() {
       remainingDuties,
     };
   }, [monthDays, filteredDutyTypes, blockedDuties, startDate, endDate, slots]);
+
+  // Calculate personnel breakdown by unit hierarchy (Company, Section, WorkSection)
+  const personnelBreakdown = useMemo(() => {
+    const companyMap = new Map<string, { name: string; count: number }>();
+    const sectionMap = new Map<string, { name: string; count: number }>();
+    const workSectionMap = new Map<string, { name: string; count: number }>();
+
+    // Get unique personnel IDs assigned in this month
+    const assignedPersonnelIds = new Set(
+      slots
+        .filter(s => s.personnel_id)
+        .map(s => s.personnel_id!)
+    );
+
+    // For each assigned personnel, find their unit hierarchy
+    assignedPersonnelIds.forEach(personnelId => {
+      const slot = slots.find(s => s.personnel_id === personnelId);
+      if (!slot?.personnel) return;
+
+      const personnelUnit = unitMap.get(slot.personnel.unit_section_id);
+      if (!personnelUnit) return;
+
+      // Walk up the hierarchy to categorize
+      let currentUnit: UnitSection | undefined = personnelUnit;
+      let workSection: UnitSection | undefined;
+      let section: UnitSection | undefined;
+      let company: UnitSection | undefined;
+
+      while (currentUnit) {
+        switch (currentUnit.hierarchy_level) {
+          case 'work_section':
+            workSection = currentUnit;
+            break;
+          case 'section':
+            section = currentUnit;
+            break;
+          case 'company':
+            company = currentUnit;
+            break;
+        }
+        currentUnit = currentUnit.parent_id ? unitMap.get(currentUnit.parent_id) : undefined;
+      }
+
+      // Increment counts
+      if (company) {
+        const key = company.id;
+        const existing = companyMap.get(key);
+        companyMap.set(key, {
+          name: company.unit_name,
+          count: (existing?.count || 0) + 1,
+        });
+      }
+
+      if (section) {
+        const key = section.id;
+        const existing = sectionMap.get(key);
+        sectionMap.set(key, {
+          name: section.unit_name,
+          count: (existing?.count || 0) + 1,
+        });
+      }
+
+      if (workSection) {
+        const key = workSection.id;
+        const existing = workSectionMap.get(key);
+        workSectionMap.set(key, {
+          name: workSection.unit_name,
+          count: (existing?.count || 0) + 1,
+        });
+      }
+    });
+
+    // Convert to sorted arrays
+    const sortByCount = (a: { name: string; count: number }, b: { name: string; count: number }) =>
+      b.count - a.count;
+
+    return {
+      companies: Array.from(companyMap.values()).sort(sortByCount),
+      sections: Array.from(sectionMap.values()).sort(sortByCount),
+      workSections: Array.from(workSectionMap.values()).sort(sortByCount),
+      totalAssigned: assignedPersonnelIds.size,
+    };
+  }, [slots, unitMap]);
 
   return (
     <div className="space-y-6">
@@ -1675,7 +1765,10 @@ export default function RosterPage() {
                                   {filledSlots.map((slot, idx) => (
                                     <div key={slot.id || idx} className={`px-2 py-0.5 rounded text-xs ${getStatusColor(slot.status, isPersonnelDuplicate(slot.personnel_id))}`}>
                                       {slot.personnel ? (
-                                        <span>{slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}</span>
+                                        <span className="flex flex-col">
+                                          <span className="text-foreground-muted text-[10px]">{getPersonnelUnitName(slot.personnel.unit_section_id)}</span>
+                                          <span>{slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}</span>
+                                        </span>
                                       ) : (
                                         <span className="text-foreground-muted italic">Unassigned</span>
                                       )}
@@ -1720,9 +1813,12 @@ export default function RosterPage() {
                                     title={slot.status === 'swapped' && slot.swapped_at ? `Swapped on ${new Date(slot.swapped_at).toLocaleString()}` : undefined}
                                   >
                                     {slot.personnel ? (
-                                      <span className="flex items-center gap-1">
-                                        {slot.status === 'swapped' && <span className="text-blue-400">↔</span>}
-                                        {slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}
+                                      <span className="flex flex-col text-left">
+                                        <span className="text-foreground-muted text-[10px]">{getPersonnelUnitName(slot.personnel.unit_section_id)}</span>
+                                        <span className="flex items-center gap-1">
+                                          {slot.status === 'swapped' && <span className="text-blue-400">↔</span>}
+                                          {slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}
+                                        </span>
                                       </span>
                                     ) : (
                                       <span className="text-foreground-muted italic">Unassigned</span>
@@ -1814,6 +1910,75 @@ export default function RosterPage() {
         <div className="bg-surface rounded-lg border border-border p-4">
           <div className="text-2xl font-bold text-orange-400">{dutyStats.blockedCellsCount}</div>
           <div className="text-sm text-foreground-muted">Blocked Cells</div>
+        </div>
+      </div>
+
+      {/* Personnel Breakdown by Unit */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Company Breakdown */}
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">By Company</h3>
+            <span className="text-xs text-foreground-muted">
+              {personnelBreakdown.companies.length} companies
+            </span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {personnelBreakdown.companies.length > 0 ? (
+              personnelBreakdown.companies.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between py-1 px-2 rounded bg-surface-elevated">
+                  <span className="text-sm text-foreground truncate">{item.name}</span>
+                  <span className="text-sm font-medium text-primary ml-2">{item.count}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-foreground-muted text-center py-2">No data</p>
+            )}
+          </div>
+        </div>
+
+        {/* Section Breakdown */}
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">By Section</h3>
+            <span className="text-xs text-foreground-muted">
+              {personnelBreakdown.sections.length} sections
+            </span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {personnelBreakdown.sections.length > 0 ? (
+              personnelBreakdown.sections.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between py-1 px-2 rounded bg-surface-elevated">
+                  <span className="text-sm text-foreground truncate">{item.name}</span>
+                  <span className="text-sm font-medium text-primary ml-2">{item.count}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-foreground-muted text-center py-2">No data</p>
+            )}
+          </div>
+        </div>
+
+        {/* Work Section Breakdown */}
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">By Work Section</h3>
+            <span className="text-xs text-foreground-muted">
+              {personnelBreakdown.workSections.length} work sections
+            </span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {personnelBreakdown.workSections.length > 0 ? (
+              personnelBreakdown.workSections.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between py-1 px-2 rounded bg-surface-elevated">
+                  <span className="text-sm text-foreground truncate">{item.name}</span>
+                  <span className="text-sm font-medium text-primary ml-2">{item.count}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-foreground-muted text-center py-2">No data</p>
+            )}
+          </div>
         </div>
       </div>
 

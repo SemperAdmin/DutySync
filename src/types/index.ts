@@ -44,6 +44,7 @@ export interface Personnel {
   first_name: string;
   last_name: string;
   rank: string;
+  phone_number: string | null; // Contact phone number
   current_duty_score: number;
   created_at: Date;
   updated_at: Date;

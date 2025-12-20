@@ -1049,6 +1049,7 @@ function AddPersonnelModal({
     first_name: "",
     last_name: "",
     rank: "",
+    phone_number: "",
     unit_section_id: "",
   });
 
@@ -1069,6 +1070,7 @@ function AddPersonnelModal({
         first_name: formData.first_name,
         last_name: formData.last_name,
         rank: formData.rank,
+        phone_number: formData.phone_number || null,
         unit_section_id: formData.unit_section_id,
         current_duty_score: 0,
         created_at: new Date(),
@@ -1143,6 +1145,16 @@ function AddPersonnelModal({
                 setFormData({ ...formData, rank: e.target.value.toUpperCase() })
               }
               required
+              disabled={isSubmitting}
+            />
+
+            <Input
+              label="Phone Number"
+              placeholder="e.g., (555) 123-4567"
+              value={formData.phone_number}
+              onChange={(e) =>
+                setFormData({ ...formData, phone_number: e.target.value })
+              }
               disabled={isSubmitting}
             />
 

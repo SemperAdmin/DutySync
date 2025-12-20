@@ -183,6 +183,52 @@ export default function UserDashboard() {
       )
     : null;
 
+  // Create a personnel map for O(1) lookups
+  const personnelMap = useMemo(() => new Map(allPersonnel.map(p => [p.id, p])), [allPersonnel]);
+
+  // Find previous and next duty personnel (for the same duty type on adjacent days)
+  const adjacentDutyInfo = useMemo(() => {
+    if (!nextDuty) return { previous: null, following: null };
+
+    const dutyDate = nextDuty.date_assigned;
+    const dutyTypeId = nextDuty.duty_type_id;
+
+    // Calculate previous and following dates
+    const prevDate = addDaysToDateString(dutyDate as string, -1);
+    const followDate = addDaysToDateString(dutyDate as string, 1);
+
+    // Find slots for same duty type on adjacent days
+    const prevSlot = allDutySlots.find(
+      (s) => s.date_assigned === prevDate && s.duty_type_id === dutyTypeId && s.personnel_id
+    );
+    const followSlot = allDutySlots.find(
+      (s) => s.date_assigned === followDate && s.duty_type_id === dutyTypeId && s.personnel_id
+    );
+
+    // Get personnel info
+    const prevPerson = prevSlot?.personnel_id ? personnelMap.get(prevSlot.personnel_id) : null;
+    const followPerson = followSlot?.personnel_id ? personnelMap.get(followSlot.personnel_id) : null;
+
+    // Get unit info for each person
+    const prevUnit = prevPerson ? unitMap.get(prevPerson.unit_section_id) : null;
+    const followUnit = followPerson ? unitMap.get(followPerson.unit_section_id) : null;
+
+    return {
+      previous: prevPerson ? {
+        rank: prevPerson.rank,
+        name: `${prevPerson.last_name}, ${prevPerson.first_name}`,
+        phone: prevPerson.phone_number,
+        unit: prevUnit?.unit_name || "Unknown",
+      } : null,
+      following: followPerson ? {
+        rank: followPerson.rank,
+        name: `${followPerson.last_name}, ${followPerson.first_name}`,
+        phone: followPerson.phone_number,
+        unit: followUnit?.unit_name || "Unknown",
+      } : null,
+    };
+  }, [nextDuty, allDutySlots, personnelMap, unitMap]);
+
   // Get current and upcoming non-availability with efficient Date handling
   const now = new Date();
 
@@ -207,9 +253,6 @@ export default function UserDashboard() {
 
   // Create a slot map for O(1) lookups
   const slotMap = useMemo(() => new Map(allDutySlots.map(s => [s.id, s])), [allDutySlots]);
-
-  // Create a personnel map for O(1) lookups
-  const personnelMap = useMemo(() => new Map(allPersonnel.map(p => [p.id, p])), [allPersonnel]);
 
   // Build duty history
   const dutyHistory: DutyHistoryEntry[] = pastDuties
@@ -341,6 +384,54 @@ export default function UserDashboard() {
                   </p>
                   <p className="text-sm text-foreground-muted">0600 - 0600 (24hr)</p>
                 </div>
+
+                {/* Adjacent Duty Personnel */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Previous Day */}
+                  <div className="p-3 rounded-lg bg-surface-elevated">
+                    <p className="text-xs text-foreground-muted uppercase tracking-wide mb-1">Duty Before</p>
+                    {adjacentDutyInfo.previous ? (
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium text-foreground">
+                          {adjacentDutyInfo.previous.rank} {adjacentDutyInfo.previous.name}
+                        </p>
+                        <p className="text-xs text-foreground-muted">{adjacentDutyInfo.previous.unit}</p>
+                        {adjacentDutyInfo.previous.phone && (
+                          <p className="text-xs text-primary">
+                            <a href={`tel:${adjacentDutyInfo.previous.phone}`}>
+                              {adjacentDutyInfo.previous.phone}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground-muted">Not assigned</p>
+                    )}
+                  </div>
+
+                  {/* Following Day */}
+                  <div className="p-3 rounded-lg bg-surface-elevated">
+                    <p className="text-xs text-foreground-muted uppercase tracking-wide mb-1">Duty After</p>
+                    {adjacentDutyInfo.following ? (
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium text-foreground">
+                          {adjacentDutyInfo.following.rank} {adjacentDutyInfo.following.name}
+                        </p>
+                        <p className="text-xs text-foreground-muted">{adjacentDutyInfo.following.unit}</p>
+                        {adjacentDutyInfo.following.phone && (
+                          <p className="text-xs text-primary">
+                            <a href={`tel:${adjacentDutyInfo.following.phone}`}>
+                              {adjacentDutyInfo.following.phone}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground-muted">Not assigned</p>
+                    )}
+                  </div>
+                </div>
+
                 {daysUntilNextDuty !== null && (
                   <div className="text-center">
                     <span className="text-3xl font-bold text-highlight">{daysUntilNextDuty}</span>

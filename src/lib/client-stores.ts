@@ -3910,7 +3910,7 @@ export function getEnrichedDutyTypes(unitId?: string): EnrichedDutyType[] {
 // Get duty slots with their duty type and personnel info
 export interface EnrichedSlot extends DutySlot {
   duty_type: { id: string; duty_name: string; unit_section_id: string } | null;
-  personnel: { id: string; first_name: string; last_name: string; rank: string } | null;
+  personnel: { id: string; first_name: string; last_name: string; rank: string; unit_section_id: string } | null;
   assigned_by_info: {
     type: "scheduler" | "user";
     display: string; // "Automated by Scheduler" or "RANK FIRSTNAME LASTNAME - SECTION"
@@ -4051,7 +4051,7 @@ export function getEnrichedSlots(startDate?: DateString, endDate?: DateString, u
     return {
       ...slot,
       duty_type: dutyType ? { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id } : null,
-      personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank } : null,
+      personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank, unit_section_id: personnel.unit_section_id } : null,
       assigned_by_info,
     };
   });
@@ -4159,6 +4159,7 @@ export function importPersonnel(
           first_name: record.first_name,
           last_name: record.last_name,
           rank: record.rank,
+          phone_number: null,
           unit_section_id: unitId,
           current_duty_score: 0,
           created_at: new Date(),
@@ -4586,6 +4587,7 @@ export function importManpowerData(
         first_name,
         last_name,
         rank: record.rank,
+        phone_number: null,
         unit_section_id: unitId,
         current_duty_score: 0,
         created_at: new Date(),

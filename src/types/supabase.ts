@@ -100,6 +100,7 @@ export interface Database {
           first_name: string;
           last_name: string;
           rank: string;
+          phone_number: string | null;
           current_duty_score: number;
           created_at: string;
           updated_at: string;
@@ -112,6 +113,7 @@ export interface Database {
           first_name: string;
           last_name: string;
           rank: string;
+          phone_number?: string | null;
           current_duty_score?: number;
           created_at?: string;
           updated_at?: string;
@@ -124,6 +126,7 @@ export interface Database {
           first_name?: string;
           last_name?: string;
           rank?: string;
+          phone_number?: string | null;
           current_duty_score?: number;
           created_at?: string;
           updated_at?: string;

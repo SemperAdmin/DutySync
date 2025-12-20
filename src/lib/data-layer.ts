@@ -82,6 +82,7 @@ function convertPersonnel(p: SupabasePersonnel): Personnel {
     first_name: p.first_name,
     last_name: p.last_name,
     rank: p.rank,
+    phone_number: p.phone_number,
     current_duty_score: p.current_duty_score,
     created_at: new Date(p.created_at),
     updated_at: new Date(p.updated_at),
