@@ -38,6 +38,29 @@ import {
 // ============ Performance Optimization: Indexed Data Structures ============
 
 /**
+ * Normalize a date string to DateString (YYYY-MM-DD) format.
+ * Handles both ISO timestamps (2025-12-01T00:00:00.000Z) and DateString (2025-12-01) formats.
+ * This is critical for slot limit validation - dates must match exactly.
+ */
+function normalizeDateToDateString(date: string): DateString {
+  // If it's already a DateString (YYYY-MM-DD), return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date as DateString;
+  }
+  // Handle ISO timestamp format by extracting the date part
+  if (date.includes('T')) {
+    return date.split('T')[0] as DateString;
+  }
+  // Fallback: try to extract YYYY-MM-DD pattern
+  const match = date.match(/(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    return match[1] as DateString;
+  }
+  // Last resort: return as-is (will likely fail comparison but won't crash)
+  return date as DateString;
+}
+
+/**
  * Pre-computed data structures for fast lookups during scheduling
  */
 interface SchedulingContext {
@@ -60,8 +83,8 @@ function buildSchedulingContext(): SchedulingContext {
 
   // Index all slots by date for O(1) lookups
   for (const slot of allSlots) {
-    // date_assigned is already a DateString
-    const dateStr = slot.date_assigned;
+    // Normalize date to DateString format (handles both ISO timestamps and DateString)
+    const dateStr = normalizeDateToDateString(slot.date_assigned);
 
     // Add to slotsByDate
     if (!slotsByDate.has(dateStr)) {
@@ -139,8 +162,8 @@ function getExistingSlotsForDutyType(ctx: SchedulingContext, dutyTypeId: string,
  * Add a slot to the context for tracking (prevents exceeding slot limits)
  */
 function addSlotToContext(ctx: SchedulingContext, slot: DutySlot): void {
-  // date_assigned is already a DateString
-  const dateStr = slot.date_assigned;
+  // Normalize date to DateString format (handles both ISO timestamps and DateString)
+  const dateStr = normalizeDateToDateString(slot.date_assigned);
   if (!ctx.slotsByDate.has(dateStr)) {
     ctx.slotsByDate.set(dateStr, []);
   }

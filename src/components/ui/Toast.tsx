@@ -15,6 +15,11 @@ interface ToastContextType {
   toasts: Toast[];
   addToast: (type: ToastType, message: string, duration?: number) => void;
   removeToast: (id: string) => void;
+  // Convenience methods
+  success: (message: string, duration?: number) => void;
+  error: (message: string, duration?: number) => void;
+  warning: (message: string, duration?: number) => void;
+  info: (message: string, duration?: number) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -45,8 +50,25 @@ export function ToastProvider({ children }: ToastProviderProps) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  // Convenience methods
+  const success = useCallback((message: string, duration?: number) => {
+    addToast("success", message, duration);
+  }, [addToast]);
+
+  const error = useCallback((message: string, duration?: number) => {
+    addToast("error", message, duration);
+  }, [addToast]);
+
+  const warning = useCallback((message: string, duration?: number) => {
+    addToast("warning", message, duration);
+  }, [addToast]);
+
+  const info = useCallback((message: string, duration?: number) => {
+    addToast("info", message, duration);
+  }, [addToast]);
+
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+    <ToastContext.Provider value={{ toasts, addToast, removeToast, success, error, warning, info }}>
       {children}
       <ToastContainer toasts={toasts} onClose={removeToast} />
     </ToastContext.Provider>
