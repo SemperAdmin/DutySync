@@ -10,6 +10,7 @@ import {
   getAllDutyTypes,
   getPersonnelByUnit,
   getAllPersonnel,
+  getPersonnelById,
   getDutyRequirements,
   hasQualification,
   getActiveNonAvailability,
@@ -1871,7 +1872,7 @@ export default function RosterPage() {
                       <p className="text-foreground-muted">
                         <span className="text-foreground">Originally assigned to:</span>{' '}
                         {(() => {
-                          const originalPerson = getAllPersonnel().find(p => p.id === selectedSlot.swapped_from_personnel_id);
+                          const originalPerson = getPersonnelById(selectedSlot.swapped_from_personnel_id);
                           return originalPerson
                             ? `${originalPerson.rank} ${originalPerson.first_name} ${originalPerson.last_name}`
                             : 'Unknown';
