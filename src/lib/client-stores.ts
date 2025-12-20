@@ -1247,16 +1247,22 @@ export function findLowestCommonAncestor(
   for (const unitId of chainB) {
     if (chainA.has(unitId)) {
       const unit = getUnitSectionById(unitId);
+      if (!unit) continue;
+
+      // Return immediately on first common ancestor - this is the LCA
       // Determine the approver level based on hierarchy level
-      if (unit?.hierarchy_level === 'section') {
+      if (unit.hierarchy_level === 'work_section') {
+        return { lcaUnitId: unitId, approverLevel: 'work_section_manager' };
+      } else if (unit.hierarchy_level === 'section') {
         return { lcaUnitId: unitId, approverLevel: 'section_manager' };
-      } else if (unit?.hierarchy_level === 'company') {
+      } else {
+        // company, battalion, unit, or any other higher level
         return { lcaUnitId: unitId, approverLevel: 'company_manager' };
       }
     }
   }
 
-  // Default to company manager
+  // Default to company manager if no common ancestor found
   return { lcaUnitId: null, approverLevel: 'company_manager' };
 }
 
@@ -3417,6 +3423,9 @@ export function acceptSwapRequest(
 /**
  * Execute the duty swap by swapping personnel assignments between slots
  * This is called when both sides have all approvals complete
+ *
+ * IMPORTANT: This operation is atomic - both slots are updated in a single
+ * localStorage write to prevent inconsistent state if interrupted.
  */
 function _executeDutySwap(swapPairId: string): string | undefined {
   const requests = getDutyChangeRequestsBySwapPairId(swapPairId);
@@ -3426,35 +3435,60 @@ function _executeDutySwap(swapPairId: string): string | undefined {
 
   const [reqA, reqB] = requests;
 
-  const slotA = getDutySlotById(reqA.giving_slot_id);
-  const slotB = getDutySlotById(reqB.giving_slot_id);
+  // Load all slots once for atomic update
+  const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
 
-  if (!slotA || !slotB) {
+  const slotAIdx = allSlots.findIndex(s => s.id === reqA.giving_slot_id);
+  const slotBIdx = allSlots.findIndex(s => s.id === reqB.giving_slot_id);
+
+  if (slotAIdx === -1 || slotBIdx === -1) {
     return 'One or both duty slots no longer exist';
   }
 
+  const slotA = allSlots[slotAIdx];
+  const slotB = allSlots[slotBIdx];
   const now = new Date();
 
-  // Swap the personnel assignments with swap tracking info
+  // Store original personnel IDs before swapping
+  const originalPersonnelA = slotA.personnel_id;
+  const originalPersonnelB = slotB.personnel_id;
+
   // SlotA: originally assigned to personA, now assigned to personB (reqA.swap_partner_id)
-  updateDutySlot(slotA.id, {
+  allSlots[slotAIdx] = {
+    ...slotA,
     personnel_id: reqA.swap_partner_id,
     status: 'swapped',
     swapped_at: now,
-    swapped_from_personnel_id: slotA.personnel_id, // Original personnel
+    swapped_from_personnel_id: originalPersonnelA,
     swap_pair_id: swapPairId,
     updated_at: now
-  });
+  };
 
   // SlotB: originally assigned to personB, now assigned to personA (reqB.swap_partner_id)
-  updateDutySlot(slotB.id, {
+  allSlots[slotBIdx] = {
+    ...slotB,
     personnel_id: reqB.swap_partner_id,
     status: 'swapped',
     swapped_at: now,
-    swapped_from_personnel_id: slotB.personnel_id, // Original personnel
+    swapped_from_personnel_id: originalPersonnelB,
     swap_pair_id: swapPairId,
     updated_at: now
-  });
+  };
+
+  // Atomic save - both slots updated in single localStorage write
+  saveToStorage(KEYS.dutySlots, allSlots);
+  triggerAutoSave('dutyRoster');
+
+  // Sync to Supabase (non-blocking)
+  syncToSupabase(() => supabaseUpdateDutySlot(slotA.id, {
+    personnel_id: reqA.swap_partner_id,
+    status: 'swapped',
+  }), "executeDutySwap-slotA");
+
+  syncToSupabase(() => supabaseUpdateDutySlot(slotB.id, {
+    personnel_id: reqB.swap_partner_id,
+    status: 'swapped',
+  }), "executeDutySwap-slotB");
 
   return undefined;
 }

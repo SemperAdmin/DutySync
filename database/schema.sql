@@ -158,6 +158,10 @@ CREATE TABLE duty_slots (
         status IN ('scheduled', 'approved', 'completed', 'missed', 'swapped')
     ),
     notes TEXT,
+    -- Swap tracking fields
+    swapped_at TIMESTAMPTZ,  -- When the swap was executed
+    swapped_from_personnel_id UUID REFERENCES personnel(id),  -- Original personnel before swap
+    swap_pair_id UUID,  -- Reference to the swap_pair_id that caused this swap
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
 
@@ -171,6 +175,8 @@ CREATE INDEX idx_duty_slots_personnel ON duty_slots(personnel_id);
 CREATE INDEX idx_duty_slots_duty_type ON duty_slots(duty_type_id);
 CREATE INDEX idx_duty_slots_status ON duty_slots(status);
 CREATE INDEX idx_duty_slots_date_range ON duty_slots(date_assigned, status);
+CREATE INDEX idx_duty_slots_swap_pair ON duty_slots(swap_pair_id) WHERE swap_pair_id IS NOT NULL;
+CREATE INDEX idx_duty_slots_swapped_from ON duty_slots(swapped_from_personnel_id) WHERE swapped_from_personnel_id IS NOT NULL;
 
 -- Non-Availability (Duty exemptions)
 CREATE TABLE non_availability (
@@ -257,6 +263,99 @@ CREATE INDEX idx_audit_log_table ON audit_log(table_name);
 CREATE INDEX idx_audit_log_date ON audit_log(created_at);
 
 -- ============================================
+-- SECTION 4.5: DUTY CHANGE REQUESTS (SWAPS)
+-- Two-Row Model: Each swap creates two linked rows - one for each person's side
+-- Both rows share the same swap_pair_id and must both be approved for the swap to execute
+-- ============================================
+
+-- Duty Change Requests (swap duties between personnel after roster approval)
+CREATE TABLE duty_change_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    swap_pair_id UUID NOT NULL, -- Links the two rows of a swap together
+
+    -- This person's side of the swap
+    personnel_id UUID NOT NULL REFERENCES personnel(id) ON DELETE RESTRICT,
+    giving_slot_id UUID NOT NULL REFERENCES duty_slots(id) ON DELETE RESTRICT,
+    receiving_slot_id UUID NOT NULL REFERENCES duty_slots(id) ON DELETE RESTRICT,
+
+    -- The swap partner
+    swap_partner_id UUID NOT NULL REFERENCES personnel(id) ON DELETE RESTRICT,
+
+    -- Request details
+    requester_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    reason TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (
+        status IN ('pending', 'approved', 'rejected')
+    ),
+
+    -- Partner acceptance (the other party must accept before manager approvals begin)
+    partner_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+    partner_accepted_at TIMESTAMPTZ,
+    partner_accepted_by UUID REFERENCES users(id),
+
+    -- Rejection info
+    rejection_reason TEXT,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for duty_change_requests
+CREATE INDEX idx_duty_change_requests_swap_pair ON duty_change_requests(swap_pair_id);
+CREATE INDEX idx_duty_change_requests_personnel ON duty_change_requests(personnel_id);
+CREATE INDEX idx_duty_change_requests_partner ON duty_change_requests(swap_partner_id);
+CREATE INDEX idx_duty_change_requests_status ON duty_change_requests(status);
+CREATE INDEX idx_duty_change_requests_giving_slot ON duty_change_requests(giving_slot_id);
+CREATE INDEX idx_duty_change_requests_receiving_slot ON duty_change_requests(receiving_slot_id);
+
+-- Swap Approvals (approval chain for each person's side)
+CREATE TABLE swap_approvals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    duty_change_request_id UUID NOT NULL REFERENCES duty_change_requests(id) ON DELETE CASCADE,
+    approval_order INTEGER NOT NULL, -- Sequence in the approval chain (1, 2, 3...)
+    approver_type VARCHAR(50) NOT NULL CHECK (
+        approver_type IN ('work_section_manager', 'section_manager', 'company_manager')
+    ),
+    scope_unit_id UUID REFERENCES unit_sections(id), -- The unit scope for manager approvals
+    is_approver BOOLEAN NOT NULL DEFAULT FALSE, -- true = can approve, false = can only recommend
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (
+        status IN ('pending', 'approved', 'rejected')
+    ),
+    approved_by UUID REFERENCES users(id),
+    approved_at TIMESTAMPTZ,
+    rejection_reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Unique constraint: one approval step per order per request
+    UNIQUE (duty_change_request_id, approval_order)
+);
+
+-- Indexes for swap_approvals
+CREATE INDEX idx_swap_approvals_request ON swap_approvals(duty_change_request_id);
+CREATE INDEX idx_swap_approvals_status ON swap_approvals(status);
+CREATE INDEX idx_swap_approvals_scope_unit ON swap_approvals(scope_unit_id);
+CREATE INDEX idx_swap_approvals_approver ON swap_approvals(approved_by);
+
+-- Swap Recommendations (from managers not in the direct approval chain)
+CREATE TABLE swap_recommendations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    duty_change_request_id UUID NOT NULL REFERENCES duty_change_requests(id) ON DELETE CASCADE,
+    recommender_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    recommendation VARCHAR(50) NOT NULL CHECK (
+        recommendation IN ('recommend', 'not_recommend')
+    ),
+    comment TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- One recommendation per recommender per request
+    UNIQUE (duty_change_request_id, recommender_id)
+);
+
+-- Indexes for swap_recommendations
+CREATE INDEX idx_swap_recommendations_request ON swap_recommendations(duty_change_request_id);
+CREATE INDEX idx_swap_recommendations_recommender ON swap_recommendations(recommender_id);
+
+-- ============================================
 -- SECTION 5: FUNCTIONS & TRIGGERS
 -- ============================================
 
@@ -292,6 +391,10 @@ CREATE TRIGGER update_duty_values_updated_at
 
 CREATE TRIGGER update_duty_slots_updated_at
     BEFORE UPDATE ON duty_slots
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_duty_change_requests_updated_at
+    BEFORE UPDATE ON duty_change_requests
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to update personnel duty score after assignment
