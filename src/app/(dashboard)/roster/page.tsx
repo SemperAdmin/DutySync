@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
+import { PageSpinner } from "@/components/ui/Spinner";
 import type { UnitSection, DutyType, Personnel, RoleName, BlockedDuty, DateString } from "@/types";
 import {
   getUnitSections,
@@ -80,6 +82,7 @@ interface SelectedCell {
 
 export default function RosterPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [slots, setSlots] = useState<EnrichedSlot[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
@@ -447,11 +450,11 @@ export default function RosterPage() {
         }
       }
 
-      alert(message);
+      toast.success(message);
       fetchData(); // Refresh data
     } catch (err) {
       console.error("Error approving roster:", err);
-      alert(err instanceof Error ? err.message : "Failed to approve roster");
+      toast.error(err instanceof Error ? err.message : "Failed to approve roster");
     } finally {
       setApproving(false);
     }
@@ -477,15 +480,15 @@ export default function RosterPage() {
       );
       if (success) {
         setRosterApproval(null);
-        alert("Roster unlocked. You can now make changes.");
+        toast.success("Roster unlocked. You can now make changes.");
         fetchData();
       } else {
-        alert("Failed to unlock roster. The approval record may not exist.");
+        toast.error("Failed to unlock roster. The approval record may not exist.");
         fetchData();
       }
     } catch (err) {
       console.error("Error unlocking roster:", err);
-      alert(err instanceof Error ? err.message : "Failed to unlock roster");
+      toast.error(err instanceof Error ? err.message : "Failed to unlock roster");
     }
   }
 
@@ -610,7 +613,7 @@ export default function RosterPage() {
   function handleBlockCells() {
     if (blockModal.cells.length === 0 || !user) return;
     if (!blockComment.trim()) {
-      alert("Please provide a reason for blocking.");
+      toast.warning("Please provide a reason for blocking.");
       return;
     }
 
@@ -815,7 +818,7 @@ export default function RosterPage() {
 
     // Check if roster is approved (locked)
     if (rosterApproval) {
-      alert("This roster has been approved and is locked for editing.");
+      toast.warning("This roster has been approved and is locked for editing.");
       return;
     }
 
@@ -841,7 +844,7 @@ export default function RosterPage() {
       // Check if user is already assigned
       const userAlreadyAssigned = filledSlots.some(s => s.personnel_id === currentUserPersonnel?.id);
       if (userAlreadyAssigned) {
-        alert("You are already assigned to this duty on this date.");
+        toast.info("You are already assigned to this duty on this date.");
         return;
       }
     }
@@ -860,7 +863,7 @@ export default function RosterPage() {
 
     // Check if roster is approved (locked)
     if (rosterApproval) {
-      alert("This roster has been approved and is locked for editing.");
+      toast.warning("This roster has been approved and is locked for editing.");
       return;
     }
 
@@ -919,7 +922,7 @@ export default function RosterPage() {
       const actualFilled = actualSlots.filter(s => s.personnel_id).length;
 
       if (actualFilled >= slotsNeeded) {
-        alert(`All ${slotsNeeded} slots are already filled for this duty.`);
+        toast.warning(`All ${slotsNeeded} slots are already filled for this duty.`);
         fetchData();
         setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
         return;
@@ -927,7 +930,7 @@ export default function RosterPage() {
 
       // Check if person is already assigned
       if (actualSlots.some(s => s.personnel_id === personnelId)) {
-        alert("This person is already assigned to this duty on this date.");
+        toast.info("This person is already assigned to this duty on this date.");
         return;
       }
 
@@ -1044,7 +1047,7 @@ export default function RosterPage() {
   // Handle swap request submission
   function handleSubmitSwapRequest() {
     if (!swapModal.originalSlot || !swapModal.targetSlot || !user || !swapModal.reason.trim()) {
-      alert("Please select a duty to swap with and provide a reason.");
+      toast.warning("Please select a duty to swap with and provide a reason.");
       return;
     }
 
@@ -1061,13 +1064,13 @@ export default function RosterPage() {
         reason: swapModal.reason.trim(),
       });
 
-      alert("Swap request submitted successfully! The target person and chain of command will need to approve.");
+      toast.success("Swap request submitted! The target person and chain of command will need to approve.");
 
       // Close the modal
       setSwapModal({ isOpen: false, originalSlot: null, step: 'select', targetSlot: null, reason: '' });
     } catch (err) {
       console.error("Error submitting swap request:", err);
-      alert("Failed to submit swap request. Please try again.");
+      toast.error("Failed to submit swap request. Please try again.");
     } finally {
       setSubmittingSwap(false);
     }
@@ -2519,7 +2522,7 @@ export default function RosterPage() {
                     if (confirmed) {
                       // Use DateString format for start and end of month
                       const cleared = clearDutySlotsByDutyType(dt.id, startDate, endDate);
-                      alert(`Cleared ${cleared} duty slot${cleared !== 1 ? 's' : ''}`);
+                      toast.success(`Cleared ${cleared} duty slot${cleared !== 1 ? 's' : ''}`);
                       setDutyTypeDetailsModal({ isOpen: false, dutyType: null });
                       fetchData();
                     }

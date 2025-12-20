@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
+import Modal, { ConfirmModal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
+import { PageSpinner } from "@/components/ui/Spinner";
 import type { Personnel, RoleName, DutyType, SwapApproval, SwapRecommendation } from "@/types";
 import {
   getAllPersonnel,
@@ -64,6 +67,7 @@ function formatDate(date: Date | string): string {
 
 export default function DutySwapsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [swapPairs, setSwapPairs] = useState<EnrichedSwapPair[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
@@ -72,6 +76,12 @@ export default function DutySwapsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
   const [viewMode, setViewMode] = useState<"self" | "scope">("scope"); // Default to scope for managers/admins
+
+  // Delete confirmation modal
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    swapPairId: string | null;
+  }>({ isOpen: false, swapPairId: null });
 
   // Rejection modal
   const [rejectModal, setRejectModal] = useState<{
@@ -284,10 +294,10 @@ export default function DutySwapsPage() {
       if (result.success) {
         refreshSwapPairs();
         if (result.swapCompleted) {
-          alert("Swap completed! Both duties have been exchanged.");
+          toast.success("Swap completed! Both duties have been exchanged.");
         }
       } else {
-        alert(result.error || "Failed to approve");
+        toast.error(result.error || "Failed to approve");
       }
     } catch (err) {
       console.error("Error approving:", err);
@@ -305,12 +315,12 @@ export default function DutySwapsPage() {
       if (result.success) {
         refreshSwapPairs();
         if (result.swapCompleted) {
-          alert("Swap completed! The duty roster has been updated.");
+          toast.success("Swap completed! The duty roster has been updated.");
         } else {
-          alert("Swap request accepted! Waiting for manager approvals.");
+          toast.success("Swap request accepted! Waiting for manager approvals.");
         }
       } else {
-        alert(result.error || "Failed to accept swap");
+        toast.error(result.error || "Failed to accept swap");
       }
     } catch (err) {
       console.error("Error accepting swap:", err);
@@ -327,7 +337,7 @@ export default function DutySwapsPage() {
   // Confirm rejection
   function confirmReject() {
     if (!rejectModal.requestId || !user || !rejectModal.reason.trim()) {
-      alert("Please provide a reason for rejection");
+      toast.warning("Please provide a reason for rejection");
       return;
     }
 
@@ -336,8 +346,10 @@ export default function DutySwapsPage() {
       rejectSwap(rejectModal.requestId, user.id, rejectModal.reason);
       refreshSwapPairs();
       setRejectModal({ isOpen: false, requestId: null, reason: "" });
+      toast.success("Request rejected");
     } catch (err) {
       console.error("Error rejecting request:", err);
+      toast.error("Failed to reject request");
     } finally {
       setProcessingId(null);
     }
@@ -351,7 +363,7 @@ export default function DutySwapsPage() {
   // Confirm recommendation
   function confirmRecommend() {
     if (!recommendModal.requestId || !user || !recommendModal.comment.trim()) {
-      alert("Please provide a comment for your recommendation");
+      toast.warning("Please provide a comment for your recommendation");
       return;
     }
 
@@ -365,9 +377,10 @@ export default function DutySwapsPage() {
       );
       refreshSwapPairs();
       setRecommendModal({ isOpen: false, requestId: null, recommendation: 'recommend', comment: "" });
+      toast.success("Recommendation submitted");
     } catch (err) {
       console.error("Error adding recommendation:", err);
-      alert("Failed to add recommendation. Please try again.");
+      toast.error("Failed to add recommendation. Please try again.");
     } finally {
       setProcessingId(null);
     }
@@ -375,16 +388,24 @@ export default function DutySwapsPage() {
 
   // Handle delete (only for pending swaps by the requester)
   function handleDeleteSwap(swapPairId: string) {
-    if (!confirm("Are you sure you want to delete this swap request?")) return;
+    setDeleteConfirm({ isOpen: true, swapPairId });
+  }
 
-    setProcessingId(swapPairId);
+  // Confirm delete
+  function confirmDeleteSwap() {
+    if (!deleteConfirm.swapPairId) return;
+
+    setProcessingId(deleteConfirm.swapPairId);
     try {
-      deleteSwap(swapPairId);
+      deleteSwap(deleteConfirm.swapPairId);
       refreshSwapPairs();
+      toast.success("Swap request cancelled");
     } catch (err) {
       console.error("Error deleting swap:", err);
+      toast.error("Failed to cancel swap request");
     } finally {
       setProcessingId(null);
+      setDeleteConfirm({ isOpen: false, swapPairId: null });
     }
   }
 
@@ -482,7 +503,7 @@ export default function DutySwapsPage() {
     } else {
       // Regular user flow: check if they have any assigned duties
       if (myDutySlots.length === 0) {
-        alert("You are not assigned to any duties. Only personnel with assigned duties can request a swap.");
+        toast.warning("You are not assigned to any duties. Only personnel with assigned duties can request a swap.");
         return;
       }
       // Skip to select original duty
@@ -499,7 +520,7 @@ export default function DutySwapsPage() {
   function handleSelectPersonnel(person: Personnel) {
     const personSlots = getPersonnelSlots(person.id);
     if (personSlots.length === 0) {
-      alert("This person has no assigned duties to swap.");
+      toast.warning("This person has no assigned duties to swap.");
       return;
     }
     setSwapModal(prev => ({
@@ -530,7 +551,7 @@ export default function DutySwapsPage() {
   // Handle submitting swap request
   function handleSubmitSwapRequest() {
     if (!swapModal.originalSlot || !swapModal.targetSlot || !user || !swapModal.reason.trim()) {
-      alert("Please complete all steps and provide a reason.");
+      toast.warning("Please complete all steps and provide a reason.");
       return;
     }
 
@@ -549,12 +570,12 @@ export default function DutySwapsPage() {
 
       refreshSwapPairs();
 
-      alert("Swap request submitted successfully! The target person and chain of command will need to approve.");
+      toast.success("Swap request submitted! The target person and chain of command will need to approve.");
 
       closeSwapModal();
     } catch (err) {
       console.error("Error submitting swap request:", err);
-      alert("Failed to submit swap request. Please try again.");
+      toast.error("Failed to submit swap request. Please try again.");
     } finally {
       setSubmittingSwap(false);
     }
@@ -588,11 +609,7 @@ export default function DutySwapsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <PageSpinner label="Loading duty swaps" />;
   }
 
   return (
@@ -610,7 +627,7 @@ export default function DutySwapsPage() {
           </p>
         </div>
         <Button variant="primary" onClick={openSwapModal}>
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
           </svg>
           Request Swap
@@ -1069,8 +1086,9 @@ export default function DutySwapsPage() {
               <button
                 onClick={closeSwapModal}
                 className="text-foreground-muted hover:text-foreground"
+                aria-label="Close modal"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1305,6 +1323,18 @@ export default function DutySwapsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ isOpen: false, swapPairId: null })}
+        onConfirm={confirmDeleteSwap}
+        title="Cancel Swap Request"
+        message="Are you sure you want to cancel this swap request? This action cannot be undone."
+        confirmText="Yes, Cancel Request"
+        cancelText="Keep Request"
+        variant="danger"
+      />
     </div>
   );
 }
