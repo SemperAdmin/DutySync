@@ -34,6 +34,8 @@ interface ToastProviderProps {
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+
+  
   const addToast = useCallback((type: ToastType, message: string, duration = 5000) => {
     const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, type, message, duration }]);

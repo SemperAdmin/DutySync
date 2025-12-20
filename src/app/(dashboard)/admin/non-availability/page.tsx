@@ -233,7 +233,7 @@ export default function NonAvailabilityAdminPage() {
     try {
       updateNonAvailability(requestId, {
         status: newStatus,
-        approved_by: newStatus === "approved" ? (user?.id || "admin") : null,
+        approved_by: newStatus === "approved" ? (user?.id || null) : null,
       });
       fetchData();
     } catch (err) {
@@ -250,6 +250,7 @@ export default function NonAvailabilityAdminPage() {
       updateNonAvailability(requestId, {
         status: "recommended",
         recommended_by: user?.id || null,
+        recommended_at: new Date(),
       });
       fetchData();
     } catch (err) {
@@ -293,16 +294,19 @@ export default function NonAvailabilityAdminPage() {
       // Only users with approval permission who check the "approve immediately" box
       const shouldApprove = canApprove && formData.approveImmediately;
 
+      // Use DateString directly from form input (YYYY-MM-DD format)
       const newRequest: NonAvailability = {
         id: crypto.randomUUID(),
         personnel_id: personnelId,
-        start_date: new Date(formData.start_date),
-        end_date: new Date(formData.end_date),
+        start_date: formData.start_date, // Already a DateString from input
+        end_date: formData.end_date,     // Already a DateString from input
         reason: formData.reason,
         // Default to pending, only approve if user has permission AND checked the box
         status: shouldApprove ? "approved" : "pending",
+        submitted_by: user?.id || null, // Track who submitted the request
         recommended_by: null, // New requests are not recommended yet
-        approved_by: shouldApprove ? (user?.id || "admin") : null,
+        recommended_at: null,
+        approved_by: shouldApprove ? (user?.id || null) : null,
         created_at: new Date(),
       };
 

@@ -8,6 +8,7 @@
  */
 
 import * as supabase from "./supabase-data";
+import type { DateString } from "@/types";
 import {
   setDefaultOrganizationId,
   syncUnitsToLocalStorage,
@@ -15,6 +16,8 @@ import {
   syncPersonnelToLocalStorage,
   syncDutySlotsToLocalStorage,
   clearDataIntegrityIssues,
+  autoCompletePastDuties,
+  getDutySlotRetentionCutoff,
 } from "./client-stores";
 import type {
   UnitSection,
@@ -81,6 +84,7 @@ function convertPersonnel(p: SupabasePersonnel): Personnel {
     first_name: p.first_name,
     last_name: p.last_name,
     rank: p.rank,
+    phone_number: p.phone_number,
     current_duty_score: p.current_duty_score,
     created_at: new Date(p.created_at),
     updated_at: new Date(p.updated_at),
@@ -118,28 +122,55 @@ function convertDutySlot(slot: SupabaseDutySlot): DutySlot {
     console.warn(`Invalid status "${slot.status}" for duty slot ${slot.id}. Defaulting to "${status}".`);
   }
 
+  // Handle optional swap fields that may come from Supabase
+  const extendedSlot = slot as typeof slot & {
+    swapped_at?: string | null;
+    swapped_from_personnel_id?: string | null;
+    swap_pair_id?: string | null;
+  };
+
+  // Keep date_assigned as a string (DateString format: YYYY-MM-DD)
+  // This avoids timezone issues where dates shift when parsed as UTC
+  const dateAssigned: DateString = typeof slot.date_assigned === 'string'
+    ? slot.date_assigned.split('T')[0] // Handle ISO timestamp format from DB
+    : slot.date_assigned;
+
   return {
     id: slot.id,
     duty_type_id: slot.duty_type_id,
     personnel_id: slot.personnel_id,
-    date_assigned: new Date(slot.date_assigned),
+    date_assigned: dateAssigned,
     assigned_by: slot.assigned_by || "",
     points: slot.points ?? 0,
     status,
+    swapped_at: extendedSlot.swapped_at ? new Date(extendedSlot.swapped_at) : null,
+    swapped_from_personnel_id: extendedSlot.swapped_from_personnel_id || null,
+    swap_pair_id: extendedSlot.swap_pair_id || null,
     created_at: new Date(slot.created_at),
     updated_at: new Date(slot.updated_at),
   };
 }
 
 function convertNonAvailability(na: SupabaseNonAvailability): NonAvailability {
+  // Keep start_date and end_date as strings (DateString format: YYYY-MM-DD)
+  // This avoids timezone issues where dates shift when parsed as UTC
+  const startDate: DateString = typeof na.start_date === 'string'
+    ? na.start_date.split('T')[0]
+    : na.start_date;
+  const endDate: DateString = typeof na.end_date === 'string'
+    ? na.end_date.split('T')[0]
+    : na.end_date;
+
   return {
     id: na.id,
     personnel_id: na.personnel_id,
-    start_date: new Date(na.start_date),
-    end_date: new Date(na.end_date),
+    start_date: startDate,
+    end_date: endDate,
     reason: na.reason || "",
     status: na.status,
-    recommended_by: null,
+    submitted_by: na.submitted_by,
+    recommended_by: na.recommended_by,
+    recommended_at: na.recommended_at ? new Date(na.recommended_at) : null,
     approved_by: na.approved_by,
     created_at: new Date(na.created_at),
   };
@@ -195,6 +226,94 @@ export function searchRucs(query: string): RucEntry[] {
 
 export async function getOrganizationByRuc(rucCode: string): Promise<Organization | null> {
   return supabase.getOrganizationByRuc(rucCode);
+}
+
+export async function getOrganizationById(id: string): Promise<Organization | null> {
+  return supabase.getOrganizationById(id);
+}
+
+// Helper to get organization by ID (UUID), unit ID, or RUC code
+// The scope_unit_id can be stored as:
+// 1. An organization UUID
+// 2. A unit_sections UUID (need to look up the unit's organization)
+// 3. A RUC code string
+export async function getOrganizationByIdOrRuc(idOrRuc: string): Promise<Organization | null> {
+  // Check if it looks like a UUID (contains hyphens in UUID format)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrRuc);
+
+  if (isUuid) {
+    // First try as organization ID
+    const org = await supabase.getOrganizationById(idOrRuc);
+    if (org) return org;
+
+    // If not found, try to find a unit with this ID and get its organization
+    const unit = await supabase.getUnitById(idOrRuc);
+    if (unit && unit.organization_id) {
+      return supabase.getOrganizationById(unit.organization_id);
+    }
+
+    return null;
+  } else {
+    return supabase.getOrganizationByRuc(idOrRuc);
+  }
+}
+
+// Helper to resolve the scope unit for a Unit Admin
+// Returns { organization, scopeUnit } where scopeUnit is the TOP-LEVEL unit for the organization
+// Unit Admin should see the entire organization, regardless of which unit their role is scoped to
+// The scope_unit_id is used to identify which organization the admin belongs to
+export async function resolveUnitAdminScope(scopeId: string): Promise<{
+  organization: Organization | null;
+  scopeUnit: UnitSection | null;
+  rucDisplay: string;
+}> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scopeId);
+
+  if (isUuid) {
+    // First check if it's a unit ID
+    const unit = await supabase.getUnitById(scopeId);
+    if (unit && unit.organization_id) {
+      // Found a unit - get its organization and the TOP-LEVEL unit for that org
+      const org = await supabase.getOrganizationById(unit.organization_id);
+      if (org) {
+        const topUnit = await supabase.getTopLevelUnitForOrganization(org.id);
+        const rucDisplay = org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code;
+        return {
+          organization: org,
+          scopeUnit: topUnit ? convertUnit(topUnit, org.ruc_code) : null,
+          rucDisplay,
+        };
+      }
+    }
+
+    // Try as organization ID
+    const org = await supabase.getOrganizationById(scopeId);
+    if (org) {
+      const topUnit = await supabase.getTopLevelUnitForOrganization(org.id);
+      const rucDisplay = org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code;
+      return {
+        organization: org,
+        scopeUnit: topUnit ? convertUnit(topUnit, org.ruc_code) : null,
+        rucDisplay,
+      };
+    }
+
+    return { organization: null, scopeUnit: null, rucDisplay: "N/A" };
+  } else {
+    // Try as RUC code
+    const org = await supabase.getOrganizationByRuc(scopeId);
+    if (org) {
+      const topUnit = await supabase.getTopLevelUnitForOrganization(org.id);
+      const rucDisplay = org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code;
+      return {
+        organization: org,
+        scopeUnit: topUnit ? convertUnit(topUnit, org.ruc_code) : null,
+        rucDisplay,
+      };
+    }
+
+    return { organization: null, scopeUnit: null, rucDisplay: getRucDisplayName(scopeId) };
+  }
 }
 
 // ============================================================================
@@ -467,11 +586,32 @@ export function getDutyTypesByUnitId(unitId: string): DutyType[] {
 let dutySlotsCache: DutySlot[] = [];
 
 export async function loadDutySlots(organizationId?: string, startDate?: string, endDate?: string): Promise<DutySlot[]> {
-  const slots = await supabase.getDutySlots(organizationId, startDate, endDate);
+  // Apply 12-month retention policy by default if no startDate specified
+  const effectiveStartDate = startDate ?? getDutySlotRetentionCutoff();
+
+  const slots = await supabase.getDutySlots(organizationId, effectiveStartDate, endDate);
   dutySlotsCache = slots.map(convertDutySlot);
 
   // Sync to localStorage so client-stores uses valid Supabase data
+  // (syncDutySlotsToLocalStorage also applies retention policy)
   syncDutySlotsToLocalStorage(dutySlotsCache);
+
+  // Auto-complete any past duties that are still scheduled/approved
+  const completedCount = autoCompletePastDuties();
+  if (completedCount > 0) {
+    // Refresh cache from localStorage to include the completed status
+    dutySlotsCache = dutySlotsCache.map(slot => {
+      const today = new Date().toISOString().split('T')[0];
+      if (
+        slot.date_assigned < today &&
+        (slot.status === 'scheduled' || slot.status === 'approved') &&
+        slot.personnel_id
+      ) {
+        return { ...slot, status: 'completed' };
+      }
+      return slot;
+    });
+  }
 
   return dutySlotsCache;
 }
@@ -480,10 +620,11 @@ export function getAllDutySlots(): DutySlot[] {
   return dutySlotsCache;
 }
 
-export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
+export function getDutySlotsByDateRange(startDate: DateString, endDate: DateString): DutySlot[] {
+  // Since date_assigned is now a DateString, we can use simple string comparison
+  // This is timezone-safe because YYYY-MM-DD format sorts correctly
   return dutySlotsCache.filter(slot => {
-    const slotDate = new Date(slot.date_assigned);
-    return slotDate >= startDate && slotDate <= endDate;
+    return slot.date_assigned >= startDate && slot.date_assigned <= endDate;
   });
 }
 
@@ -537,7 +678,7 @@ export function getAllDutyChangeRequests(): DutyChangeRequest[] {
 
 export function getDutyChangeRequestsByPersonnel(personnelId: string): DutyChangeRequest[] {
   return dutyChangeRequestsCache.filter(
-    dcr => dcr.original_personnel_id === personnelId || dcr.target_personnel_id === personnelId
+    dcr => dcr.personnel_id === personnelId || dcr.swap_partner_id === personnelId
   );
 }
 

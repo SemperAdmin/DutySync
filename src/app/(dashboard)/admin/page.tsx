@@ -25,6 +25,7 @@ import {
   getAllDescendantUnitIds,
   getUnitById,
   getRucDisplayName,
+  resolveUnitAdminScope,
   type RucEntry,
 } from "@/lib/data-layer";
 
@@ -66,19 +67,28 @@ export default function AdminDashboard() {
   const isUnitAdmin = user?.roles?.some((role) => role.role_name === "Unit Admin");
   const [viewMode, setViewMode] = useState<string>("user");
   const [stats, setStats] = useState({ users: 0, personnel: 0, units: 0 });
+  const [unitAdminRucDisplay, setUnitAdminRucDisplay] = useState<string>("N/A");
 
-  // Get Unit Admin scope (RUC) - the unit ID where they have Unit Admin role
+  // Get Unit Admin scope - the scope_unit_id where they have Unit Admin role
+  // This can be either an organization UUID or a RUC code
   const unitAdminScopeId = useMemo(() => {
     const unitAdminRole = user?.roles?.find((role) => role.role_name === "Unit Admin");
     return unitAdminRole?.scope_unit_id || null;
   }, [user?.roles]);
 
-  // Get the RUC display name (e.g., "02301 - HQBN MCBH") from the unit
-  const unitAdminRucDisplay = useMemo(() => {
-    if (!unitAdminScopeId) return "N/A";
-    const unit = getUnitById(unitAdminScopeId);
-    if (!unit?.ruc) return "N/A";
-    return getRucDisplayName(unit.ruc);
+  // Load the RUC display name asynchronously
+  // scope_unit_id can be an organization UUID, unit UUID, or RUC code
+  useEffect(() => {
+    async function loadRucDisplay() {
+      if (!unitAdminScopeId) {
+        setUnitAdminRucDisplay("N/A");
+        return;
+      }
+
+      const { rucDisplay } = await resolveUnitAdminScope(unitAdminScopeId);
+      setUnitAdminRucDisplay(rucDisplay);
+    }
+    loadRucDisplay();
   }, [unitAdminScopeId]);
 
   // Sync with view mode from localStorage (set by DashboardLayout)
@@ -116,32 +126,46 @@ export default function AdminDashboard() {
         units: units.length,
       });
     } else if (viewMode === "unit-admin" && isUnitAdmin && unitAdminScopeId) {
-      // Unit Admin view - filter to their RUC scope
+      // Unit Admin view - filter to their organization scope
+      // scope_unit_id can be an organization UUID, unit UUID, or RUC code
+
+      const { organization } = await resolveUnitAdminScope(unitAdminScopeId);
+      if (!organization) {
+        console.warn(`[Unit Admin Dashboard] No organization found for: ${unitAdminScopeId}`);
+        setStats({ users: 0, personnel: 0, units: 0 });
+        return;
+      }
+
       const allUsers = getAllUsers();
       const allUnits = getUnitSections();
+      const allPersonnel = getAllPersonnel();
 
-      // Get all descendant unit IDs within scope
-      const descendantIds = await getAllDescendantUnitIds(unitAdminScopeId);
-      const scopeUnitIds = new Set(descendantIds);
+      // Get all units for this organization (by matching organization_id or ruc)
+      // Units loaded for an org all have the same RUC in their ruc field
+      const orgUnits = allUnits.filter(u =>
+        (u as UnitSection & { organization_id?: string }).organization_id === organization.id ||
+        u.ruc === organization.ruc_code
+      );
+      const orgUnitIds = new Set(orgUnits.map(u => u.id));
 
-      // Filter personnel by units in scope
-      const personnel = await getPersonnelByUnitWithDescendants(unitAdminScopeId);
+      // Get all personnel in those units
+      const orgPersonnel = allPersonnel.filter(p => orgUnitIds.has(p.unit_section_id));
 
-      // Filter units by scope
-      const units = allUnits.filter(u => scopeUnitIds.has(u.id));
-
-      // Filter users who have roles scoped to this RUC or its units
+      // Filter users who have roles scoped to this organization or its units
       const users = allUsers.filter(u => {
         return u.roles?.some(r => {
           if (!r.scope_unit_id) return false;
-          return r.scope_unit_id === unitAdminScopeId || scopeUnitIds.has(r.scope_unit_id);
+          // Match by scope ID or by unit ID within org
+          return r.scope_unit_id === unitAdminScopeId ||
+                 r.scope_unit_id === organization.id ||
+                 orgUnitIds.has(r.scope_unit_id);
         });
       });
 
       setStats({
         users: users.length,
-        personnel: personnel.length,
-        units: units.length,
+        personnel: orgPersonnel.length,
+        units: orgUnits.length,
       });
     }
   }, [viewMode, isAppAdmin, isUnitAdmin, unitAdminScopeId]);

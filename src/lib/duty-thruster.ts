@@ -13,7 +13,7 @@
  * - Uses Map structures for efficient membership checks
  */
 
-import type { DutySlot, DutyType, Personnel, DutyValue } from "@/types";
+import type { DutySlot, DutyType, Personnel, DutyValue, DateString } from "@/types";
 import {
   getDutyTypesByUnitWithDescendants,
   getPersonnelByUnitWithDescendants,
@@ -27,7 +27,13 @@ import {
   clearDutySlotsInRange,
 } from "./client-stores";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
-import { isHoliday, isWeekend, formatDateToString } from "@/lib/date-utils";
+import {
+  isHolidayStr,
+  isWeekendStr,
+  formatDateToString,
+  addDaysToDateString,
+  getTodayString,
+} from "@/lib/date-utils";
 
 // ============ Performance Optimization: Indexed Data Structures ============
 
@@ -36,9 +42,9 @@ import { isHoliday, isWeekend, formatDateToString } from "@/lib/date-utils";
  */
 interface SchedulingContext {
   // All duty slots indexed by date string (YYYY-MM-DD)
-  slotsByDate: Map<string, DutySlot[]>;
+  slotsByDate: Map<DateString, DutySlot[]>;
   // Personnel assignments by date: Map<dateString, Set<personnelId>>
-  assignmentsByDate: Map<string, Set<string>>;
+  assignmentsByDate: Map<DateString, Set<string>>;
   // All slots for recent duty counting
   allSlots: DutySlot[];
 }
@@ -49,12 +55,13 @@ interface SchedulingContext {
  */
 function buildSchedulingContext(): SchedulingContext {
   const allSlots = getAllDutySlots();
-  const slotsByDate = new Map<string, DutySlot[]>();
-  const assignmentsByDate = new Map<string, Set<string>>();
+  const slotsByDate = new Map<DateString, DutySlot[]>();
+  const assignmentsByDate = new Map<DateString, Set<string>>();
 
   // Index all slots by date for O(1) lookups
   for (const slot of allSlots) {
-    const dateStr = formatDateToString(new Date(slot.date_assigned));
+    // date_assigned is already a DateString
+    const dateStr = slot.date_assigned;
 
     // Add to slotsByDate
     if (!slotsByDate.has(dateStr)) {
@@ -77,16 +84,14 @@ function buildSchedulingContext(): SchedulingContext {
 /**
  * Get slots for a specific date from the pre-indexed context (O(1))
  */
-function getSlotsByDateFromContext(ctx: SchedulingContext, date: Date): DutySlot[] {
-  const dateStr = formatDateToString(date);
+function getSlotsByDateFromContext(ctx: SchedulingContext, dateStr: DateString): DutySlot[] {
   return ctx.slotsByDate.get(dateStr) || [];
 }
 
 /**
  * Check if personnel is already assigned on date using indexed context (O(1))
  */
-function isAlreadyAssignedFromContext(ctx: SchedulingContext, personnelId: string, date: Date): boolean {
-  const dateStr = formatDateToString(date);
+function isAlreadyAssignedFromContext(ctx: SchedulingContext, personnelId: string, dateStr: DateString): boolean {
   const assigned = ctx.assignmentsByDate.get(dateStr);
   return assigned ? assigned.has(personnelId) : false;
 }
@@ -95,17 +100,14 @@ function isAlreadyAssignedFromContext(ctx: SchedulingContext, personnelId: strin
  * Get recent duty count using pre-indexed context
  * Avoids fetching slots 7 times per personnel
  */
-function getRecentDutyCountFromContext(ctx: SchedulingContext, personnelId: string, referenceDate: Date): number {
+function getRecentDutyCountFromContext(ctx: SchedulingContext, personnelId: string, referenceDateStr: DateString): number {
   let count = 0;
-  const refDateStr = formatDateToString(referenceDate);
 
   for (let i = 1; i <= 7; i++) {
-    const checkDate = new Date(referenceDate);
-    checkDate.setDate(checkDate.getDate() - i);
-    const dateStr = formatDateToString(checkDate);
+    const dateStr = addDaysToDateString(referenceDateStr, -i);
 
     // Skip if checking a date at or after reference
-    if (dateStr >= refDateStr) continue;
+    if (dateStr >= referenceDateStr) continue;
 
     const assigned = ctx.assignmentsByDate.get(dateStr);
     if (assigned?.has(personnelId)) {
@@ -118,8 +120,7 @@ function getRecentDutyCountFromContext(ctx: SchedulingContext, personnelId: stri
 /**
  * Add an assignment to the context (for tracking during scheduling)
  */
-function addAssignmentToContext(ctx: SchedulingContext, personnelId: string, date: Date): void {
-  const dateStr = formatDateToString(date);
+function addAssignmentToContext(ctx: SchedulingContext, personnelId: string, dateStr: DateString): void {
   if (!ctx.assignmentsByDate.has(dateStr)) {
     ctx.assignmentsByDate.set(dateStr, new Set());
   }
@@ -129,8 +130,7 @@ function addAssignmentToContext(ctx: SchedulingContext, personnelId: string, dat
 /**
  * Get existing slot count for a duty type on a specific date (O(1) lookup)
  */
-function getExistingSlotsForDutyType(ctx: SchedulingContext, dutyTypeId: string, date: Date): number {
-  const dateStr = formatDateToString(date);
+function getExistingSlotsForDutyType(ctx: SchedulingContext, dutyTypeId: string, dateStr: DateString): number {
   const slotsOnDate = ctx.slotsByDate.get(dateStr) || [];
   return slotsOnDate.filter(slot => slot.duty_type_id === dutyTypeId).length;
 }
@@ -139,7 +139,8 @@ function getExistingSlotsForDutyType(ctx: SchedulingContext, dutyTypeId: string,
  * Add a slot to the context for tracking (prevents exceeding slot limits)
  */
 function addSlotToContext(ctx: SchedulingContext, slot: DutySlot): void {
-  const dateStr = formatDateToString(new Date(slot.date_assigned));
+  // date_assigned is already a DateString
+  const dateStr = slot.date_assigned;
   if (!ctx.slotsByDate.has(dateStr)) {
     ctx.slotsByDate.set(dateStr, []);
   }
@@ -148,8 +149,8 @@ function addSlotToContext(ctx: SchedulingContext, slot: DutySlot): void {
 
 export interface ScheduleRequest {
   unitId: string;
-  startDate: Date;
-  endDate: Date;
+  startDate: DateString;
+  endDate: DateString;
   assignedBy: string;
   clearExisting?: boolean;
 }
@@ -173,15 +174,15 @@ interface EligiblePersonnel {
  * Calculate duty points for a given date
  * Exported for reuse in other modules
  */
-export function calculateDutyPoints(date: Date, dutyValue: DutyValue | undefined): number {
+export function calculateDutyPoints(dateStr: DateString, dutyValue: DutyValue | undefined): number {
   const baseWeight = dutyValue?.base_weight ?? 1.0;
   const weekendMultiplier = dutyValue?.weekend_multiplier ?? DEFAULT_WEEKEND_MULTIPLIER;
   const holidayMultiplier = dutyValue?.holiday_multiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
 
-  if (isHoliday(date)) {
+  if (isHolidayStr(dateStr)) {
     return baseWeight * holidayMultiplier;
   }
-  if (isWeekend(date)) {
+  if (isWeekendStr(dateStr)) {
     return baseWeight * weekendMultiplier;
   }
   return baseWeight;
@@ -227,16 +228,16 @@ export function matchesFilter(
 export function isPersonnelEligibleForDuty(
   person: Personnel,
   dutyType: DutyType,
-  date: Date,
+  dateStr: DateString,
   additionalAssignedIds?: Set<string>
 ): boolean {
   // Check availability (not on non-availability)
-  if (!isAvailable(person.id, date)) {
+  if (!isAvailable(person.id, dateStr)) {
     return false;
   }
 
   // Check if already assigned for this date
-  if (isAlreadyAssigned(person.id, date)) {
+  if (isAlreadyAssigned(person.id, dateStr)) {
     return false;
   }
 
@@ -266,8 +267,8 @@ export function isPersonnelEligibleForDuty(
 /**
  * Check if personnel is available on a given date
  */
-function isAvailable(personnelId: string, date: Date): boolean {
-  const nonAvail = getActiveNonAvailability(personnelId, date);
+function isAvailable(personnelId: string, dateStr: DateString): boolean {
+  const nonAvail = getActiveNonAvailability(personnelId, dateStr);
   return !nonAvail;
 }
 
@@ -275,16 +276,15 @@ function isAvailable(personnelId: string, date: Date): boolean {
  * Check if personnel is already assigned on a given date
  * @deprecated Use isAlreadyAssignedFromContext for better performance
  */
-function isAlreadyAssigned(personnelId: string, date: Date, ctx?: SchedulingContext): boolean {
+function isAlreadyAssigned(personnelId: string, dateStr: DateString, ctx?: SchedulingContext): boolean {
   if (ctx) {
-    return isAlreadyAssignedFromContext(ctx, personnelId, date);
+    return isAlreadyAssignedFromContext(ctx, personnelId, dateStr);
   }
   // Fallback for compatibility (used by isPersonnelEligibleForDuty in non-scheduling contexts)
   const allSlots = getAllDutySlots();
-  const dateStr = formatDateToString(date);
+  // date_assigned is already a DateString, so just compare directly
   return allSlots.some((slot) => {
-    const slotDateStr = formatDateToString(new Date(slot.date_assigned));
-    return slotDateStr === dateStr && slot.personnel_id === personnelId;
+    return slot.date_assigned === dateStr && slot.personnel_id === personnelId;
   });
 }
 
@@ -295,7 +295,7 @@ function isAlreadyAssigned(personnelId: string, date: Date, ctx?: SchedulingCont
  */
 function getEligiblePersonnel(
   dutyType: DutyType,
-  date: Date,
+  dateStr: DateString,
   ctx: SchedulingContext
 ): EligiblePersonnel[] {
   // Get personnel from the duty type's unit and all its child units
@@ -305,12 +305,12 @@ function getEligiblePersonnel(
 
   for (const person of personnel) {
     // Check availability (not on non-availability)
-    if (!isAvailable(person.id, date)) {
+    if (!isAvailable(person.id, dateStr)) {
       continue;
     }
 
     // Check if already assigned for this date using context (O(1))
-    if (isAlreadyAssignedFromContext(ctx, person.id, date)) {
+    if (isAlreadyAssignedFromContext(ctx, person.id, dateStr)) {
       continue;
     }
 
@@ -333,7 +333,7 @@ function getEligiblePersonnel(
       personnel: person,
       score: person.current_duty_score,
       // Use context-based recent duty count (O(7) instead of O(7 * n))
-      recentDutyCount: getRecentDutyCountFromContext(ctx, person.id, date),
+      recentDutyCount: getRecentDutyCountFromContext(ctx, person.id, dateStr),
     });
   }
 
@@ -355,16 +355,15 @@ function getEligiblePersonnel(
 }
 
 /**
- * Generate dates between start and end (inclusive)
- * Uses date string comparison to avoid timezone issues
+ * Generate date strings between start and end (inclusive)
+ * Uses DateString for timezone-safe date iteration
  */
-function* generateDates(startDate: Date, endDate: Date): Generator<Date> {
-  const current = new Date(startDate);
-  const endDateStr = formatDateToString(endDate);
+function* generateDateStrings(startDate: DateString, endDate: DateString): Generator<DateString> {
+  let current = startDate;
 
-  while (formatDateToString(current) <= endDateStr) {
-    yield new Date(current);
-    current.setDate(current.getDate() + 1);
+  while (current <= endDate) {
+    yield current;
+    current = addDaysToDateString(current, 1);
   }
 }
 
@@ -406,15 +405,15 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
   // Track personnel score updates for this run
   const scoreUpdates: Map<string, number> = new Map();
 
-  // Iterate through each date
-  for (const date of generateDates(startDate, endDate)) {
+  // Iterate through each date using DateString
+  for (const dateStr of generateDateStrings(startDate, endDate)) {
     // Process each duty type
     for (const dutyType of dutyTypes) {
       const dutyValue = getDutyValueByDutyType(dutyType.id);
-      const pointsForDay = calculateDutyPoints(date, dutyValue);
+      const pointsForDay = calculateDutyPoints(dateStr, dutyValue);
 
       // Check how many slots already exist for this duty type on this date
-      const existingSlotCount = getExistingSlotsForDutyType(ctx, dutyType.id, date);
+      const existingSlotCount = getExistingSlotsForDutyType(ctx, dutyType.id, dateStr);
       const slotsToCreate = dutyType.slots_needed - existingSlotCount;
 
       if (slotsToCreate <= 0) {
@@ -425,11 +424,11 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
       // Fill remaining required slots
       for (let slot = 0; slot < slotsToCreate; slot++) {
         // Get eligible personnel using indexed context (O(1) lookups)
-        const eligible = getEligiblePersonnel(dutyType, date, ctx);
+        const eligible = getEligiblePersonnel(dutyType, dateStr, ctx);
 
         if (eligible.length === 0) {
           result.warnings.push(
-            `No eligible personnel for ${dutyType.duty_name} on ${formatDateToString(date)} (slot ${existingSlotCount + slot + 1})`
+            `No eligible personnel for ${dutyType.duty_name} on ${dateStr} (slot ${existingSlotCount + slot + 1})`
           );
           result.slotsSkipped++;
           continue;
@@ -444,10 +443,13 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
           id: crypto.randomUUID(),
           duty_type_id: dutyType.id,
           personnel_id: selected.personnel.id,
-          date_assigned: date,
+          date_assigned: dateStr, // DateString
           assigned_by: assignedBy,
           points: pointsForDay,
           status: "scheduled",
+          swapped_at: null,
+          swapped_from_personnel_id: null,
+          swap_pair_id: null,
           created_at: now,
           updated_at: now,
         };
@@ -457,7 +459,7 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
         result.slotsCreated++;
 
         // Update context to track this new assignment and slot
-        addAssignmentToContext(ctx, selected.personnel.id, date);
+        addAssignmentToContext(ctx, selected.personnel.id, dateStr);
         addSlotToContext(ctx, newSlot);
 
         // Update personnel's duty score
@@ -514,17 +516,15 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
   const personnel = getPersonnelByUnitWithDescendants(unitId);
   personnel.forEach((p) => tempScores.set(p.id, p.current_duty_score));
 
-  // Iterate through each date
-  for (const date of generateDates(startDate, endDate)) {
-    const dateKey = formatDateToString(date);
-
+  // Iterate through each date using DateString
+  for (const dateStr of generateDateStrings(startDate, endDate)) {
     // Process each duty type
     for (const dutyType of dutyTypes) {
       const dutyValue = getDutyValueByDutyType(dutyType.id);
-      const pointsForDay = calculateDutyPoints(date, dutyValue);
+      const pointsForDay = calculateDutyPoints(dateStr, dutyValue);
 
       // Check how many slots already exist for this duty type on this date
-      const existingSlotCount = getExistingSlotsForDutyType(ctx, dutyType.id, date);
+      const existingSlotCount = getExistingSlotsForDutyType(ctx, dutyType.id, dateStr);
       const slotsToCreate = dutyType.slots_needed - existingSlotCount;
 
       if (slotsToCreate <= 0) {
@@ -542,12 +542,12 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
 
         for (const person of unitPersonnel) {
           // Check availability
-          if (!isAvailable(person.id, date)) {
+          if (!isAvailable(person.id, dateStr)) {
             continue;
           }
 
           // Check if already assigned using context (O(1))
-          if (isAlreadyAssignedFromContext(ctx, person.id, date)) {
+          if (isAlreadyAssignedFromContext(ctx, person.id, dateStr)) {
             continue;
           }
 
@@ -567,7 +567,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
           eligibleList.push({
             personnel: person,
             score: tempScores.get(person.id) ?? person.current_duty_score,
-            recentDutyCount: getRecentDutyCountFromContext(ctx, person.id, date),
+            recentDutyCount: getRecentDutyCountFromContext(ctx, person.id, dateStr),
           });
         }
 
@@ -579,7 +579,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
 
         if (eligibleList.length === 0) {
           result.warnings.push(
-            `No eligible personnel for ${dutyType.duty_name} on ${dateKey} (slot ${existingSlotCount + slot + 1})`
+            `No eligible personnel for ${dutyType.duty_name} on ${dateStr} (slot ${existingSlotCount + slot + 1})`
           );
           result.slotsSkipped++;
           continue;
@@ -593,10 +593,13 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
           id: `preview-${crypto.randomUUID()}`,
           duty_type_id: dutyType.id,
           personnel_id: selected.personnel.id,
-          date_assigned: date,
+          date_assigned: dateStr, // DateString
           assigned_by: assignedBy,
           points: pointsForDay,
           status: "scheduled",
+          swapped_at: null,
+          swapped_from_personnel_id: null,
+          swap_pair_id: null,
           created_at: new Date(),
           updated_at: new Date(),
         };
@@ -609,7 +612,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
         tempScores.set(selected.personnel.id, currentScore + pointsForDay);
 
         // Update context to track this preview assignment and slot
-        addAssignmentToContext(ctx, selected.personnel.id, date);
+        addAssignmentToContext(ctx, selected.personnel.id, dateStr);
         addSlotToContext(ctx, previewSlot);
       }
     }
@@ -621,8 +624,8 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
 /**
  * Get day type label for display
  */
-export function getDayType(date: Date): "weekday" | "weekend" | "holiday" {
-  if (isHoliday(date)) return "holiday";
-  if (isWeekend(date)) return "weekend";
+export function getDayType(dateStr: DateString): "weekday" | "weekend" | "holiday" {
+  if (isHolidayStr(dateStr)) return "holiday";
+  if (isWeekendStr(dateStr)) return "weekend";
   return "weekday";
 }

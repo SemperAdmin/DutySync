@@ -4,13 +4,24 @@ import { useState, useEffect, useCallback } from "react";
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/supabase-auth";
 import { getUnitSections, getPersonnelByEdipi } from "@/lib/data-layer";
+import { updatePersonnel } from "@/lib/client-stores";
+import { useToast } from "@/components/ui/Toast";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import type { UnitSection, Personnel } from "@/types";
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [fullUnitPath, setFullUnitPath] = useState<string>("");
   const [personnel, setPersonnel] = useState<Personnel | null>(null);
+
+  // Editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadProfileData = useCallback(() => {
     const allUnits = getUnitSections();
@@ -57,6 +68,49 @@ export default function ProfilePage() {
     return buildUnitPath(unitId, allUnits) || "Unknown Unit";
   }
 
+  // Start editing - populate form with current values
+  function startEditing() {
+    setEditEmail(user?.email || "");
+    setEditPhone(personnel?.phone_number || "");
+    setIsEditing(true);
+  }
+
+  // Cancel editing
+  function cancelEditing() {
+    setIsEditing(false);
+    setEditEmail("");
+    setEditPhone("");
+  }
+
+  // Save changes
+  async function saveChanges() {
+    if (!personnel) {
+      toast.error("No personnel record linked to update");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Update phone number on personnel record
+      const updated = updatePersonnel(personnel.id, {
+        phone_number: editPhone || null,
+      });
+
+      if (updated) {
+        setPersonnel(updated);
+        toast.success("Profile updated successfully");
+        setIsEditing(false);
+      } else {
+        toast.error("Failed to update profile");
+      }
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      toast.error("Error updating profile");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -69,8 +123,21 @@ export default function ProfilePage() {
       <div className="grid md:grid-cols-2 gap-6">
         {/* Account Information */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Account Information</CardTitle>
+            {personnel && !isEditing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={startEditing}
+                aria-label="Edit profile"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {personnel && (
@@ -118,12 +185,50 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
+
+            {/* Email field - editable */}
             <div>
               <label className="text-sm text-foreground-muted">Email</label>
-              <p className="font-medium text-foreground">
-                {user?.email}
-              </p>
+              {isEditing ? (
+                <Input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="Enter email address"
+                  className="mt-1"
+                  disabled
+                  title="Email changes require account verification. Contact your administrator."
+                />
+              ) : (
+                <p className="font-medium text-foreground">
+                  {user?.email}
+                </p>
+              )}
+              {isEditing && (
+                <p className="text-xs text-foreground-muted mt-1">
+                  Email changes require account verification
+                </p>
+              )}
             </div>
+
+            {/* Phone field - editable */}
+            <div>
+              <label className="text-sm text-foreground-muted">Phone Number</label>
+              {isEditing ? (
+                <Input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="Enter phone number"
+                  className="mt-1"
+                />
+              ) : (
+                <p className="font-medium text-foreground">
+                  {personnel?.phone_number || <span className="text-foreground-muted italic">Not set</span>}
+                </p>
+              )}
+            </div>
+
             <div>
               <label className="text-sm text-foreground-muted">
                 Personnel Linked
@@ -136,6 +241,26 @@ export default function ProfilePage() {
                 )}
               </p>
             </div>
+
+            {/* Edit action buttons */}
+            {isEditing && (
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="primary"
+                  onClick={saveChanges}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={cancelEditing}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

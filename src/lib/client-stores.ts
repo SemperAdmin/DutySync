@@ -12,10 +12,24 @@ import type {
   BlockedDuty,
   DutyChangeRequest,
   DutyScoreEvent,
+  SwapApproval,
+  SwapRecommendation,
+  SwapPair,
+  DutyChangeRequestWithApprovals,
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
-import { isHoliday, isWeekend, formatDateToString, parseLocalDate } from "@/lib/date-utils";
+import {
+  isHolidayStr,
+  isWeekendStr,
+  formatDateToString,
+  parseLocalDate,
+  isDateInRange,
+  getTodayString,
+  addDaysToDateString,
+  isValidDateString,
+} from "@/lib/date-utils";
+import type { DateString } from "@/types";
 import { getCurrentRuc } from "@/lib/auto-save";
 
 // Import Supabase sync functions (aliased to avoid name collision)
@@ -46,6 +60,14 @@ import {
   createDutyChangeRequest as supabaseCreateDutyChangeRequest,
   updateDutyChangeRequest as supabaseUpdateDutyChangeRequest,
   deleteDutyChangeRequest as supabaseDeleteDutyChangeRequest,
+  deleteDutyChangeRequestsBySwapPairId as supabaseDeleteDutyChangeRequestsBySwapPairId,
+  // Swap approvals
+  createSwapApprovals as supabaseCreateSwapApprovals,
+  updateSwapApproval as supabaseUpdateSwapApproval,
+  deleteSwapApprovalsByRequestId as supabaseDeleteSwapApprovalsByRequestId,
+  // Swap recommendations
+  createSwapRecommendation as supabaseCreateSwapRecommendation,
+  deleteSwapRecommendationsByRequestId as supabaseDeleteSwapRecommendationsByRequestId,
   // Migration functions (use ID mapping by unique fields)
   createDutySlotsWithMapping as supabaseCreateDutySlotsWithMapping,
   createDutySlotWithMapping as supabaseCreateDutySlotWithMapping,
@@ -302,6 +324,8 @@ const KEYS = {
   dutySlots: "dutysync_duty_slots",
   nonAvailability: "dutysync_non_availability",
   dutyChangeRequests: "dutysync_duty_change_requests",
+  swapApprovals: "dutysync_swap_approvals",
+  swapRecommendations: "dutysync_swap_recommendations",
   qualifications: "dutysync_qualifications",
   blockedDuties: "dutysync_blocked_duties",
   users: "dutysync_users",
@@ -310,6 +334,40 @@ const KEYS = {
   approvedRosters: "dutysync_approved_rosters",
   dutyScoreEvents: "dutysync_duty_score_events",
 };
+
+// Duty slot retention period (in months)
+const DUTY_SLOT_RETENTION_MONTHS = 12;
+
+/**
+ * Get the cutoff date for duty slot retention (12 months ago)
+ */
+export function getDutySlotRetentionCutoff(): string {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - DUTY_SLOT_RETENTION_MONTHS);
+  return cutoff.toISOString().split('T')[0]; // Return as YYYY-MM-DD string
+}
+
+/**
+ * Clean up duty slots older than the retention period (12 months)
+ * Returns the number of slots removed
+ */
+export function cleanupOldDutySlots(): number {
+  const cutoffDate = getDutySlotRetentionCutoff();
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  const originalCount = slots.length;
+
+  // Keep slots that are within the retention period
+  const recentSlots = slots.filter(slot => slot.date_assigned >= cutoffDate);
+
+  const removedCount = originalCount - recentSlots.length;
+
+  if (removedCount > 0) {
+    saveToStorage(KEYS.dutySlots, recentSlots);
+    console.log(`[Data Retention] Cleaned up ${removedCount} duty slots older than ${DUTY_SLOT_RETENTION_MONTHS} months (before ${cutoffDate})`);
+  }
+
+  return removedCount;
+}
 
 // Track localStorage errors for diagnostics
 let lastStorageError: { key: string; error: string; timestamp: Date } | null = null;
@@ -416,7 +474,15 @@ export function syncPersonnelToLocalStorage(personnel: Personnel[]): boolean {
 }
 
 export function syncDutySlotsToLocalStorage(dutySlots: DutySlot[]): boolean {
-  return syncToLocalStorageWithErrorHandling(KEYS.dutySlots, dutySlots, "duty slots");
+  // Apply 12-month retention policy before syncing
+  const cutoffDate = getDutySlotRetentionCutoff();
+  const recentSlots = dutySlots.filter(slot => slot.date_assigned >= cutoffDate);
+
+  if (recentSlots.length < dutySlots.length) {
+    console.log(`[Data Retention] Filtered out ${dutySlots.length - recentSlots.length} duty slots older than 12 months during sync`);
+  }
+
+  return syncToLocalStorageWithErrorHandling(KEYS.dutySlots, recentSlots, "duty slots");
 }
 
 // ============ Migration: Sync localStorage TO Supabase ============
@@ -481,7 +547,7 @@ export async function migrateLocalStorageToSupabase(): Promise<{
         orgId,
         slot.duty_type_id,
         slot.personnel_id,
-        formatDateToString(new Date(slot.date_assigned)),
+        slot.date_assigned, // Already a DateString
         slot.assigned_by || undefined,
         slot.id
       );
@@ -1096,6 +1162,9 @@ export function deduplicateLocalStorageData(): void {
   deduplicateAndSave<DutySlot>(KEYS.dutySlots, "duty slots");
   deduplicateAndSave<DutyType>(KEYS.dutyTypes, "duty types");
   deduplicateAndSave<NonAvailability>(KEYS.nonAvailability, "non-availability");
+
+  // Apply 12-month retention policy for duty slots
+  cleanupOldDutySlots();
 }
 
 // Unit Sections
@@ -1156,6 +1225,100 @@ export function getPersonnelByUnitWithDescendants(unitId: string): Personnel[] {
       ...p,
       service_id: isEncryptedEdipi(p.service_id) ? decryptEdipi(p.service_id) : p.service_id,
     }));
+}
+
+/**
+ * Get the hierarchy path for a unit as a string
+ * Example: "02301 > H Company > S1DV"
+ */
+export function getUnitHierarchyPath(unitId: string): string {
+  const path: string[] = [];
+  let currentUnit = getUnitSectionById(unitId);
+
+  while (currentUnit) {
+    // Use unit_code if available, otherwise use unit_name
+    const label = currentUnit.unit_code || currentUnit.unit_name;
+    path.unshift(label);
+    currentUnit = currentUnit.parent_id ? getUnitSectionById(currentUnit.parent_id) : undefined;
+  }
+
+  return path.join(' > ');
+}
+
+/**
+ * Get the ancestor chain for a unit (from unit up to root)
+ * Returns array of unit IDs starting from the given unit
+ */
+export function getUnitAncestorChain(unitId: string): string[] {
+  const chain: string[] = [];
+  let currentUnit = getUnitSectionById(unitId);
+
+  while (currentUnit) {
+    chain.push(currentUnit.id);
+    currentUnit = currentUnit.parent_id ? getUnitSectionById(currentUnit.parent_id) : undefined;
+  }
+
+  return chain;
+}
+
+/**
+ * Find the Lowest Common Ancestor (LCA) unit for two personnel
+ * This is the first unit in the hierarchy that both personnel fall under
+ * Returns: { lcaUnitId: string, approverLevel: 'work_section' | 'section' | 'company' }
+ */
+export function findLowestCommonAncestor(
+  personnelAId: string,
+  personnelBId: string
+): { lcaUnitId: string | null; approverLevel: 'work_section_manager' | 'section_manager' | 'company_manager' } {
+  const personA = getPersonnelById(personnelAId);
+  const personB = getPersonnelById(personnelBId);
+
+  if (!personA || !personB) {
+    return { lcaUnitId: null, approverLevel: 'company_manager' };
+  }
+
+  // Same work section - work section manager is the LCA approver
+  if (personA.unit_section_id === personB.unit_section_id) {
+    return { lcaUnitId: personA.unit_section_id, approverLevel: 'work_section_manager' };
+  }
+
+  const unitA = getUnitSectionById(personA.unit_section_id);
+  const unitB = getUnitSectionById(personB.unit_section_id);
+
+  if (!unitA || !unitB) {
+    return { lcaUnitId: null, approverLevel: 'company_manager' };
+  }
+
+  // Same section (same parent) - section manager is the LCA approver
+  if (unitA.parent_id && unitA.parent_id === unitB.parent_id) {
+    return { lcaUnitId: unitA.parent_id, approverLevel: 'section_manager' };
+  }
+
+  // Get ancestor chains for both
+  const chainA = new Set(getUnitAncestorChain(personA.unit_section_id));
+  const chainB = getUnitAncestorChain(personB.unit_section_id);
+
+  // Find first common ancestor (walking up from B)
+  for (const unitId of chainB) {
+    if (chainA.has(unitId)) {
+      const unit = getUnitSectionById(unitId);
+      if (!unit) continue;
+
+      // Return immediately on first common ancestor - this is the LCA
+      // Determine the approver level based on hierarchy level
+      if (unit.hierarchy_level === 'work_section') {
+        return { lcaUnitId: unitId, approverLevel: 'work_section_manager' };
+      } else if (unit.hierarchy_level === 'section') {
+        return { lcaUnitId: unitId, approverLevel: 'section_manager' };
+      } else {
+        // company, battalion, unit, or any other higher level
+        return { lcaUnitId: unitId, approverLevel: 'company_manager' };
+      }
+    }
+  }
+
+  // Default to company manager if no common ancestor found
+  return { lcaUnitId: null, approverLevel: 'company_manager' };
 }
 
 export function deleteUnitSection(id: string): boolean {
@@ -1220,11 +1383,20 @@ export function updatePersonnel(id: string, updates: Partial<Personnel>): Person
   saveToStorage(KEYS.personnel, personnel);
   triggerAutoSave('unitMembers');
 
-  // Sync to Supabase in background (only if score-related updates)
+  // Sync to Supabase in background for specific field updates
+  // Use a plain object type for Supabase updates to avoid Date vs string type conflicts
+  const supabaseUpdates: Record<string, unknown> = {};
   if (updates.current_duty_score !== undefined) {
+    supabaseUpdates.current_duty_score = updates.current_duty_score;
+  }
+  if (updates.phone_number !== undefined) {
+    supabaseUpdates.phone_number = updates.phone_number;
+  }
+
+  if (Object.keys(supabaseUpdates).length > 0) {
     syncToSupabase(
-      () => supabaseUpdatePersonnel(id, { current_duty_score: updates.current_duty_score }),
-      "updatePersonnelScore"
+      () => supabaseUpdatePersonnel(id, supabaseUpdates as Parameters<typeof supabaseUpdatePersonnel>[1]),
+      "updatePersonnel"
     );
   }
 
@@ -1440,8 +1612,9 @@ export function clearDutyRequirements(dutyTypeId: string): void {
 
 // Duty Slots
 export function getAllDutySlots(): DutySlot[] {
+  // String comparison works correctly for YYYY-MM-DD format
   return getFromStorage<DutySlot>(KEYS.dutySlots).sort(
-    (a, b) => new Date(a.date_assigned).getTime() - new Date(b.date_assigned).getTime()
+    (a, b) => a.date_assigned.localeCompare(b.date_assigned)
   );
 }
 
@@ -1449,53 +1622,54 @@ export function getDutySlotById(id: string): DutySlot | undefined {
   return getFromStorage<DutySlot>(KEYS.dutySlots).find((s) => s.id === id);
 }
 
-export function getDutySlotsByDateRange(startDate: Date, endDate: Date): DutySlot[] {
+export function getDutySlotsByDateRange(startDate: DateString, endDate: DateString): DutySlot[] {
+  // Since date_assigned is now a DateString, we can use simple string comparison
+  // YYYY-MM-DD format sorts correctly as strings
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    const slotDate = new Date(slot.date_assigned);
-    return slotDate >= startDate && slotDate <= endDate;
+    return slot.date_assigned >= startDate && slot.date_assigned <= endDate;
   });
 }
 
-export function getDutySlotsByDate(date: Date): DutySlot[] {
-  const dateStr = formatDateToString(date);
+export function getDutySlotsByDate(dateStr: DateString): DutySlot[] {
+  // Direct string comparison - timezone safe
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    const slotDateStr = formatDateToString(new Date(slot.date_assigned));
-    return slotDateStr === dateStr;
+    return slot.date_assigned === dateStr;
   });
 }
 
-export function getDutySlotsByDateAndType(date: Date, dutyTypeId: string): DutySlot[] {
-  const dateStr = formatDateToString(date);
+export function getDutySlotsByDateAndType(dateStr: DateString, dutyTypeId: string): DutySlot[] {
+  // Direct string comparison - timezone safe
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    const slotDateStr = formatDateToString(new Date(slot.date_assigned));
-    return slotDateStr === dateStr && slot.duty_type_id === dutyTypeId;
+    return slot.date_assigned === dateStr && slot.duty_type_id === dutyTypeId;
   });
 }
 
 /**
  * Calculate duty score for a personnel from duty_slots.
- * Only counts slots with status 'approved' or 'swapped'.
+ * Counts slots with status 'scheduled', 'approved', or 'completed'.
  * This gives an accurate score based on the current organization's data.
  */
 export function calculateDutyScoreFromSlots(personnelId: string): number {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  // Count scheduled, approved, and completed duties toward the score
   const relevantSlots = slots.filter(
     slot => slot.personnel_id === personnelId &&
-            (slot.status === 'approved' || slot.status === 'swapped')
+            (slot.status === 'scheduled' || slot.status === 'approved' || slot.status === 'completed')
   );
   return relevantSlots.reduce((sum, slot) => sum + (slot.points || 0), 0);
 }
 
 /**
  * Get duty slots for a personnel that count toward their score.
- * Only returns slots with status 'approved' or 'swapped'.
+ * Returns slots with status 'scheduled', 'approved', or 'completed'.
  */
 export function getDutySlotsForScore(personnelId: string): DutySlot[] {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  // Sort descending by date string (most recent first)
   return slots.filter(
     slot => slot.personnel_id === personnelId &&
-            (slot.status === 'approved' || slot.status === 'swapped')
-  ).sort((a, b) => new Date(b.date_assigned).getTime() - new Date(a.date_assigned).getTime());
+            (slot.status === 'scheduled' || slot.status === 'approved' || slot.status === 'completed')
+  ).sort((a, b) => b.date_assigned.localeCompare(a.date_assigned));
 }
 
 export function createDutySlot(slot: DutySlot): DutySlot {
@@ -1531,7 +1705,8 @@ export function createDutySlot(slot: DutySlot): DutySlot {
     return slot;
   }
 
-  const dateStr = formatDateToString(new Date(slot.date_assigned));
+  // date_assigned is already a DateString
+  const dateStr = slot.date_assigned;
 
   if (process.env.NODE_ENV === "development") {
     console.log("[Supabase Sync] createDutySlot: Syncing slot to Supabase with mapping", {
@@ -1612,13 +1787,87 @@ export function updateDutySlot(id: string, updates: Partial<DutySlot>): DutySlot
   if (updates.personnel_id !== undefined) supabaseUpdates.personnel_id = updates.personnel_id;
   if (updates.status !== undefined) supabaseUpdates.status = updates.status;
   if (updates.date_assigned !== undefined) {
-    supabaseUpdates.date_assigned = formatDateToString(new Date(updates.date_assigned));
+    supabaseUpdates.date_assigned = updates.date_assigned; // Already a DateString
   }
   if (Object.keys(supabaseUpdates).length > 0) {
     syncToSupabase(() => supabaseUpdateDutySlot(id, supabaseUpdates), "updateDutySlot");
   }
 
   return slots[idx];
+}
+
+/**
+ * Mark a single duty slot as completed.
+ * Only allowed if the duty date has passed (is before today).
+ */
+export function markDutyAsCompleted(slotId: string): { success: boolean; error?: string } {
+  const today = getTodayString();
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  const slot = slots.find(s => s.id === slotId);
+
+  if (!slot) {
+    return { success: false, error: "Duty slot not found" };
+  }
+
+  // Only allow completion if date has passed
+  if (slot.date_assigned >= today) {
+    return { success: false, error: "Cannot mark future or current day duties as completed" };
+  }
+
+  // Only allow completion of scheduled or approved duties
+  if (slot.status !== 'scheduled' && slot.status !== 'approved') {
+    return { success: false, error: `Duty is already ${slot.status}` };
+  }
+
+  const updated = updateDutySlot(slotId, { status: 'completed' });
+  if (updated) {
+    return { success: true };
+  }
+  return { success: false, error: "Failed to update duty slot" };
+}
+
+/**
+ * Auto-complete all past duties that are still scheduled or approved.
+ * Called when data is loaded to ensure past duties are marked completed.
+ * Returns the number of duties that were marked as completed.
+ */
+export function autoCompletePastDuties(): number {
+  const today = getTodayString();
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+
+  let completedCount = 0;
+  const updatedSlots = slots.map(slot => {
+    // Only auto-complete if:
+    // 1. Date is in the past (before today)
+    // 2. Status is 'scheduled' or 'approved'
+    // 3. Slot has a personnel assigned
+    if (
+      slot.date_assigned < today &&
+      (slot.status === 'scheduled' || slot.status === 'approved') &&
+      slot.personnel_id
+    ) {
+      completedCount++;
+      return { ...slot, status: 'completed' as const, updated_at: new Date() };
+    }
+    return slot;
+  });
+
+  if (completedCount > 0) {
+    saveToStorage(KEYS.dutySlots, updatedSlots);
+    console.log(`[AutoComplete] Marked ${completedCount} past duties as completed`);
+
+    // Sync completed status to Supabase for each updated slot
+    updatedSlots
+      .filter(slot => slot.date_assigned < today && slot.status === 'completed')
+      .forEach(slot => {
+        syncToSupabase(
+          () => supabaseUpdateDutySlot(slot.id, { status: 'completed' }),
+          "autoCompleteDuty"
+        );
+      });
+  }
+
+  return completedCount;
 }
 
 export function deleteDutySlot(id: string): boolean {
@@ -1638,13 +1887,13 @@ export function deleteDutySlot(id: string): boolean {
   const rucCode = dutyType ? getRucCodeFromUnitHierarchy(dutyType.unit_section_id) || getCurrentRuc() : null;
 
   if (dutyType && personnel && rucCode) {
-    const dateStr = formatDateToString(new Date(slotToDelete.date_assigned));
+    // date_assigned is already a DateString
     syncToSupabase(
       () => supabaseDeleteDutySlotWithMapping(
         rucCode,
         dutyType.duty_name,
         personnel.service_id,
-        dateStr
+        slotToDelete.date_assigned
       ),
       "deleteDutySlot"
     );
@@ -1656,12 +1905,12 @@ export function deleteDutySlot(id: string): boolean {
   return true;
 }
 
-export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: string): number {
+export function clearDutySlotsInRange(startDate: DateString, endDate: DateString, unitId?: string): number {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   let count = 0;
   const filtered = slots.filter((slot) => {
-    const slotDate = new Date(slot.date_assigned);
-    const inRange = slotDate >= startDate && slotDate <= endDate;
+    // Simple string comparison - timezone safe with DateString
+    const inRange = slot.date_assigned >= startDate && slot.date_assigned <= endDate;
     if (!inRange) return true;
     if (unitId) {
       const dutyType = getDutyTypeById(slot.duty_type_id);
@@ -1681,8 +1930,8 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
         syncToSupabase(
           () => supabaseDeleteDutySlotsInRange(
             orgId,
-            formatDateToString(startDate),
-            formatDateToString(endDate),
+            startDate,
+            endDate,
             unitId
           ),
           "clearDutySlotsInRange"
@@ -1693,15 +1942,14 @@ export function clearDutySlotsInRange(startDate: Date, endDate: Date, unitId?: s
   return count;
 }
 
-export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, endDate: Date): number {
+export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: DateString, endDate: DateString): number {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
   let count = 0;
   const filtered = slots.filter((slot) => {
     // Keep slots that don't match this duty type
     if (slot.duty_type_id !== dutyTypeId) return true;
-    // Keep slots outside the date range
-    const slotDate = new Date(slot.date_assigned);
-    const inRange = slotDate >= startDate && slotDate <= endDate;
+    // Simple string comparison - timezone safe with DateString
+    const inRange = slot.date_assigned >= startDate && slot.date_assigned <= endDate;
     if (!inRange) return true;
     // This slot matches - remove it
     count++;
@@ -1721,8 +1969,8 @@ export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: Date, en
           () => supabaseDeleteDutySlotsByDutyTypeWithMapping(
             rucCode,
             dutyType.duty_name,
-            formatDateToString(startDate),
-            formatDateToString(endDate)
+            startDate,
+            endDate
           ),
           "clearDutySlotsByDutyType"
         );
@@ -1827,7 +2075,7 @@ export async function migrateDutySlotsToSupabase(rucCode?: string): Promise<{
       rucCode: targetRuc,
       dutyTypeName: dutyType.duty_name,
       personnelServiceId: person.service_id,
-      dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+      dateAssigned: slot.date_assigned, // Already a DateString
       assignedBy: slot.assigned_by || undefined,
       points: slot.points,
     });
@@ -2006,14 +2254,11 @@ export async function approveRoster(
     const weekendMultiplier = dutyValue?.weekend_multiplier ?? DEFAULT_WEEKEND_MULTIPLIER;
     const holidayMultiplier = dutyValue?.holiday_multiplier ?? DEFAULT_HOLIDAY_MULTIPLIER;
 
-    // Check if this is a weekend or holiday
-    const slotDate = new Date(slot.date_assigned);
-
-    // Calculate points (holiday takes precedence over weekend)
+    // Calculate points using string-based date utilities (holiday takes precedence over weekend)
     let points = baseWeight;
-    if (isHoliday(slotDate)) {
+    if (isHolidayStr(slot.date_assigned)) {
       points = baseWeight * holidayMultiplier;
-    } else if (isWeekend(slotDate)) {
+    } else if (isWeekendStr(slot.date_assigned)) {
       points = baseWeight * weekendMultiplier;
     }
 
@@ -2025,7 +2270,7 @@ export async function approveRoster(
       unit_section_id: dutyType.unit_section_id,
       duty_type_name: dutyType.duty_name,
       points,
-      date_earned: slotDate,
+      date_earned: slot.date_assigned, // Already a DateString
       roster_month: rosterMonth,
       approved_by: approvedBy,
       created_at: new Date(),
@@ -2080,7 +2325,7 @@ export async function approveRoster(
         return {
           dutyTypeName: dutyType?.duty_name || "",
           personnelServiceId: person?.service_id || "",
-          dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+          dateAssigned: slot.date_assigned, // Already a DateString
         };
       })
       .filter(s => s.dutyTypeName && s.personnelServiceId);
@@ -2247,7 +2492,7 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
     id: string;
     duty_type_id: string;
     personnel_id: string;
-    date_assigned: Date | string;
+    date_assigned: DateString;
   }
   const slotsToRevert: SlotToRevert[] = [];
   for (let i = 0; i < allSlots.length; i++) {
@@ -2290,7 +2535,7 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
           return {
             dutyTypeName: dutyType?.duty_name || "",
             personnelServiceId: person?.service_id || "",
-            dateAssigned: formatDateToString(new Date(slot.date_assigned)),
+            dateAssigned: slot.date_assigned, // Already a DateString
           };
         })
         .filter(s => s.dutyTypeName && s.personnelServiceId);
@@ -2315,8 +2560,9 @@ export function unapproveRoster(unitId: string, year: number, month: number): bo
 
 // Get all duty score events
 export function getAllDutyScoreEvents(): DutyScoreEvent[] {
+  // Sort descending by date string (most recent first)
   return getFromStorage<DutyScoreEvent>(KEYS.dutyScoreEvents).sort(
-    (a, b) => new Date(b.date_earned).getTime() - new Date(a.date_earned).getTime()
+    (a, b) => b.date_earned.localeCompare(a.date_earned)
   );
 }
 
@@ -2540,8 +2786,9 @@ export function getPersonnelScoreBreakdown(
 
 // Non-Availability
 export function getAllNonAvailability(): NonAvailability[] {
+  // String comparison works correctly for YYYY-MM-DD format
   return getFromStorage<NonAvailability>(KEYS.nonAvailability).sort(
-    (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    (a, b) => a.start_date.localeCompare(b.start_date)
   );
 }
 
@@ -2555,14 +2802,12 @@ export function getNonAvailabilityById(id: string): NonAvailability | undefined 
   return getFromStorage<NonAvailability>(KEYS.nonAvailability).find((na) => na.id === id);
 }
 
-export function getActiveNonAvailability(personnelId: string, date: Date): NonAvailability | undefined {
-  const dateTime = date.getTime();
+export function getActiveNonAvailability(personnelId: string, dateStr: DateString): NonAvailability | undefined {
+  // Simple string comparison - timezone safe with DateString
   return getFromStorage<NonAvailability>(KEYS.nonAvailability).find((na) => {
     if (na.personnel_id !== personnelId) return false;
     if (na.status !== "approved") return false;
-    const start = new Date(na.start_date).getTime();
-    const end = new Date(na.end_date).getTime();
-    return dateTime >= start && dateTime <= end;
+    return dateStr >= na.start_date && dateStr <= na.end_date;
   });
 }
 
@@ -2581,12 +2826,13 @@ export function createNonAvailability(na: NonAvailability): NonAvailability {
         () => supabaseCreateNonAvailability(
           orgId,
           na.personnel_id,
-          formatDateToString(new Date(na.start_date)),
-          formatDateToString(new Date(na.end_date)),
+          na.start_date, // Already a DateString
+          na.end_date,   // Already a DateString
           {
             id: na.id,
             reason: na.reason,
             status: na.status,
+            submittedBy: na.submitted_by || undefined,
             approvedBy: na.approved_by || undefined,
           }
         ),
@@ -2608,11 +2854,15 @@ export function updateNonAvailability(id: string, updates: Partial<NonAvailabili
 
   // Sync to Supabase in background
   const supabaseUpdates: Record<string, unknown> = {};
-  if (updates.start_date) supabaseUpdates.start_date = formatDateToString(new Date(updates.start_date));
-  if (updates.end_date) supabaseUpdates.end_date = formatDateToString(new Date(updates.end_date));
+  if (updates.start_date) supabaseUpdates.start_date = updates.start_date; // Already a DateString
+  if (updates.end_date) supabaseUpdates.end_date = updates.end_date; // Already a DateString
   if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
   if (updates.status !== undefined) supabaseUpdates.status = updates.status;
   if (updates.approved_by !== undefined) supabaseUpdates.approved_by = updates.approved_by;
+  if (updates.recommended_by !== undefined) supabaseUpdates.recommended_by = updates.recommended_by;
+  if (updates.recommended_at !== undefined) supabaseUpdates.recommended_at = updates.recommended_at instanceof Date
+    ? updates.recommended_at.toISOString()
+    : updates.recommended_at;
 
   if (Object.keys(supabaseUpdates).length > 0) {
     syncToSupabase(
@@ -2788,48 +3038,110 @@ export function canRecommendChangeRequest(
   return true;
 }
 
-/**
- * Add a recommendation to a duty change request
- */
-export function addRecommendation(
-  requestId: string,
-  userId: string,
-  userName: string,
-  roleName: string,
-  recommendation: 'recommend' | 'not_recommend',
-  comment: string
-): DutyChangeRequest | null {
-  const request = getDutyChangeRequestById(requestId);
-  if (!request) return null;
-  if (request.status !== 'pending') return null;
+// ============================================================================
+// SWAP APPROVALS (localStorage)
+// ============================================================================
 
-  // Initialize recommendations array if not present (backwards compatibility)
-  const recommendations = request.recommendations || [];
-
-  // Check if user already recommended
-  const existingIdx = recommendations.findIndex(r => r.recommender_id === userId);
-  if (existingIdx >= 0) {
-    // Update existing recommendation
-    recommendations[existingIdx] = {
-      ...recommendations[existingIdx],
-      recommendation,
-      comment,
-      created_at: new Date(),
-    };
-  } else {
-    // Add new recommendation
-    recommendations.push({
-      recommender_id: userId,
-      recommender_name: userName,
-      role_name: roleName,
-      recommendation,
-      comment,
-      created_at: new Date(),
-    });
-  }
-
-  return updateDutyChangeRequest(requestId, { recommendations });
+export function getAllSwapApprovals(): SwapApproval[] {
+  return getFromStorage<SwapApproval>(KEYS.swapApprovals);
 }
+
+export function getSwapApprovalsByRequestId(requestId: string): SwapApproval[] {
+  return getFromStorage<SwapApproval>(KEYS.swapApprovals)
+    .filter(a => a.duty_change_request_id === requestId)
+    .sort((a, b) => a.approval_order - b.approval_order);
+}
+
+export function saveSwapApproval(approval: SwapApproval): SwapApproval {
+  const list = getFromStorage<SwapApproval>(KEYS.swapApprovals);
+  const idx = list.findIndex(a => a.id === approval.id);
+  if (idx >= 0) {
+    list[idx] = approval;
+  } else {
+    list.push(approval);
+  }
+  saveToStorage(KEYS.swapApprovals, list);
+  return approval;
+}
+
+export function saveSwapApprovals(approvals: SwapApproval[]): void {
+  const list = getFromStorage<SwapApproval>(KEYS.swapApprovals);
+  for (const approval of approvals) {
+    const idx = list.findIndex(a => a.id === approval.id);
+    if (idx >= 0) {
+      list[idx] = approval;
+    } else {
+      list.push(approval);
+    }
+  }
+  saveToStorage(KEYS.swapApprovals, list);
+}
+
+export function deleteSwapApprovalsByRequestId(requestId: string): void {
+  const list = getFromStorage<SwapApproval>(KEYS.swapApprovals);
+  const filtered = list.filter(a => a.duty_change_request_id !== requestId);
+  saveToStorage(KEYS.swapApprovals, filtered);
+}
+
+// ============================================================================
+// SWAP RECOMMENDATIONS (localStorage)
+// ============================================================================
+
+export function getAllSwapRecommendations(): SwapRecommendation[] {
+  return getFromStorage<SwapRecommendation>(KEYS.swapRecommendations);
+}
+
+export function getSwapRecommendationsByRequestId(requestId: string): SwapRecommendation[] {
+  return getFromStorage<SwapRecommendation>(KEYS.swapRecommendations)
+    .filter(r => r.duty_change_request_id === requestId)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+export function saveSwapRecommendation(recommendation: SwapRecommendation): SwapRecommendation {
+  const list = getFromStorage<SwapRecommendation>(KEYS.swapRecommendations);
+  // Check if user already has a recommendation for this request
+  const idx = list.findIndex(r =>
+    r.duty_change_request_id === recommendation.duty_change_request_id &&
+    r.recommender_id === recommendation.recommender_id
+  );
+  if (idx >= 0) {
+    list[idx] = recommendation;
+  } else {
+    list.push(recommendation);
+  }
+  saveToStorage(KEYS.swapRecommendations, list);
+
+  // Sync to Supabase
+  syncToSupabase(
+    () => supabaseCreateSwapRecommendation({
+      id: recommendation.id,
+      duty_change_request_id: recommendation.duty_change_request_id,
+      recommender_id: recommendation.recommender_id,
+      recommendation: recommendation.recommendation,
+      comment: recommendation.comment,
+    }),
+    "createSwapRecommendation"
+  );
+
+  return recommendation;
+}
+
+export function deleteSwapRecommendationsByRequestId(requestId: string): void {
+  const list = getFromStorage<SwapRecommendation>(KEYS.swapRecommendations);
+  const filtered = list.filter(r => r.duty_change_request_id !== requestId);
+  saveToStorage(KEYS.swapRecommendations, filtered);
+
+  // Sync to Supabase
+  syncToSupabase(
+    () => supabaseDeleteSwapRecommendationsByRequestId(requestId),
+    "deleteSwapRecommendations"
+  );
+}
+
+// ============================================================================
+// DUTY CHANGE REQUESTS (Two-Row Swap Model)
+// Each swap creates two linked rows - one for each person's side
+// ============================================================================
 
 export function getAllDutyChangeRequests(): DutyChangeRequest[] {
   return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).sort(
@@ -2841,9 +3153,14 @@ export function getDutyChangeRequestById(id: string): DutyChangeRequest | undefi
   return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).find((r) => r.id === id);
 }
 
+export function getDutyChangeRequestsBySwapPairId(swapPairId: string): DutyChangeRequest[] {
+  return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests)
+    .filter(r => r.swap_pair_id === swapPairId);
+}
+
 export function getDutyChangeRequestsByPersonnel(personnelId: string): DutyChangeRequest[] {
   return getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests).filter(
-    (r) => r.original_personnel_id === personnelId || r.target_personnel_id === personnelId
+    (r) => r.personnel_id === personnelId || r.swap_partner_id === personnelId
   );
 }
 
@@ -2874,115 +3191,266 @@ export function getMissingQualifications(personnelId: string, dutyTypeId: string
 }
 
 /**
- * Helper function to create a SwapApproval object with default pending status
+ * Build the approval chain for a single person's side of the swap
+ * Returns approvals needed based on their chain of command
+ * lcaApproverLevel determines which level is the actual approver (LCA manager)
+ * Levels below LCA can only recommend, not approve
  */
-function createSwapApproval(
-  approverType: import("@/types").SwapApproval['approver_type'],
-  forPersonnel: import("@/types").SwapApproval['for_personnel'],
-  scopeUnitId: string | null = null
-): import("@/types").SwapApproval {
-  return {
-    approver_type: approverType,
-    for_personnel: forPersonnel,
-    scope_unit_id: scopeUnitId,
+export function buildApprovalChainForPerson(
+  personnelId: string,
+  requestId: string,
+  lcaApproverLevel: 'work_section_manager' | 'section_manager' | 'company_manager' = 'company_manager'
+): SwapApproval[] {
+  const approvals: SwapApproval[] = [];
+  const person = getPersonnelById(personnelId);
+
+  // Helper to determine if this level is the approver (LCA) or just a recommender
+  const isApproverLevel = (level: 'work_section_manager' | 'section_manager' | 'company_manager') => {
+    return level === lcaApproverLevel;
+  };
+
+  if (!person) {
+    // Default to company level if can't determine
+    approvals.push({
+      id: crypto.randomUUID(),
+      duty_change_request_id: requestId,
+      approval_order: 1,
+      approver_type: 'company_manager',
+      scope_unit_id: null,
+      is_approver: true, // Default to approver when we can't determine
+      status: 'pending',
+      approved_by: null,
+      approved_at: null,
+      rejection_reason: null,
+      created_at: new Date(),
+    });
+    return approvals;
+  }
+
+  const unit = getUnitSectionById(person.unit_section_id);
+
+  // Work Section Manager - approval or recommendation based on LCA
+  approvals.push({
+    id: crypto.randomUUID(),
+    duty_change_request_id: requestId,
+    approval_order: 1,
+    approver_type: 'work_section_manager',
+    scope_unit_id: person.unit_section_id,
+    is_approver: isApproverLevel('work_section_manager'),
     status: 'pending',
     approved_by: null,
     approved_at: null,
     rejection_reason: null,
-  };
-}
+    created_at: new Date(),
+  });
 
-/**
- * Build the list of required approvals for a duty swap
- * Returns approvals needed: target person + both chains of command up to common level
- */
-export function buildSwapApprovals(
-  originalPersonnelId: string,
-  targetPersonnelId: string
-): import("@/types").SwapApproval[] {
-  const approvals: import("@/types").SwapApproval[] = [];
+  // Only add higher levels if LCA is at that level or higher
+  if (lcaApproverLevel !== 'work_section_manager') {
+    // Section Manager (if unit has a parent)
+    if (unit?.parent_id) {
+      const section = getUnitSectionById(unit.parent_id);
+      if (section) {
+        approvals.push({
+          id: crypto.randomUUID(),
+          duty_change_request_id: requestId,
+          approval_order: 2,
+          approver_type: 'section_manager',
+          scope_unit_id: section.id,
+          is_approver: isApproverLevel('section_manager'),
+          status: 'pending',
+          approved_by: null,
+          approved_at: null,
+          rejection_reason: null,
+          created_at: new Date(),
+        });
 
-  // 1. Target person must approve (unless they initiated the request)
-  approvals.push(createSwapApproval('target_person', 'target'));
-
-  // 2. Determine the approval chain based on unit relationships
-  const originalPerson = getPersonnelById(originalPersonnelId);
-  const targetPerson = getPersonnelById(targetPersonnelId);
-
-  if (!originalPerson || !targetPerson) {
-    // Default to company level if can't determine
-    approvals.push(createSwapApproval('company_manager', 'both'));
-    return approvals;
+        // Company Manager (if section has a parent and LCA is at company level)
+        if (lcaApproverLevel === 'company_manager' && section.parent_id) {
+          approvals.push({
+            id: crypto.randomUUID(),
+            duty_change_request_id: requestId,
+            approval_order: 3,
+            approver_type: 'company_manager',
+            scope_unit_id: section.parent_id,
+            is_approver: true, // Company manager is always the approver at this level
+            status: 'pending',
+            approved_by: null,
+            approved_at: null,
+            rejection_reason: null,
+            created_at: new Date(),
+          });
+        }
+      }
+    }
   }
-
-  const originalUnit = getUnitSectionById(originalPerson.unit_section_id);
-  const targetUnit = getUnitSectionById(targetPerson.unit_section_id);
-
-  if (!originalUnit || !targetUnit) {
-    approvals.push(createSwapApproval('company_manager', 'both'));
-    return approvals;
-  }
-
-  // Same work section - only one work section manager needed
-  if (originalPerson.unit_section_id === targetPerson.unit_section_id) {
-    approvals.push(createSwapApproval('work_section_manager', 'both', originalPerson.unit_section_id));
-    return approvals;
-  }
-
-  // Different work sections - both work section managers needed
-  approvals.push(createSwapApproval('work_section_manager', 'original', originalPerson.unit_section_id));
-  approvals.push(createSwapApproval('work_section_manager', 'target', targetPerson.unit_section_id));
-
-  // Check if same section (same parent)
-  const originalSection = originalUnit.parent_id ? getUnitSectionById(originalUnit.parent_id) : null;
-  const targetSection = targetUnit.parent_id ? getUnitSectionById(targetUnit.parent_id) : null;
-
-  if (originalSection && targetSection && originalSection.id === targetSection.id) {
-    // Same section - section manager approval needed (shared)
-    approvals.push(createSwapApproval('section_manager', 'both', originalSection.id));
-    return approvals;
-  }
-
-  // Different sections - both section managers + company manager needed
-  if (originalSection) {
-    approvals.push(createSwapApproval('section_manager', 'original', originalSection.id));
-  }
-  if (targetSection) {
-    approvals.push(createSwapApproval('section_manager', 'target', targetSection.id));
-  }
-
-  // Company manager for cross-section swaps
-  approvals.push(createSwapApproval('company_manager', 'both'));
 
   return approvals;
 }
 
-export function createDutyChangeRequest(request: DutyChangeRequest): DutyChangeRequest {
+/**
+ * Determine if cross-section swap requires higher level approvals
+ */
+export function determineRequiredApprovalLevel(
+  personAId: string,
+  personBId: string
+): 'work_section' | 'section' | 'company' {
+  const personA = getPersonnelById(personAId);
+  const personB = getPersonnelById(personBId);
+
+  if (!personA || !personB) return 'company';
+
+  // Same work section - only work section manager needed
+  if (personA.unit_section_id === personB.unit_section_id) {
+    return 'work_section';
+  }
+
+  const unitA = getUnitSectionById(personA.unit_section_id);
+  const unitB = getUnitSectionById(personB.unit_section_id);
+
+  if (!unitA || !unitB) return 'company';
+
+  // Same section (same parent) - section manager needed
+  if (unitA.parent_id && unitA.parent_id === unitB.parent_id) {
+    return 'section';
+  }
+
+  // Different sections - company manager needed
+  return 'company';
+}
+
+/**
+ * Create a duty swap with two linked rows
+ * Returns the swap_pair_id and both request objects
+ */
+export function createDutySwap(params: {
+  personAId: string;
+  personASlotId: string;
+  personBId: string;
+  personBSlotId: string;
+  requesterId: string;
+  reason: string;
+}): { swapPairId: string; requestA: DutyChangeRequest; requestB: DutyChangeRequest } {
+  const swapPairId = crypto.randomUUID();
+  const now = new Date();
+
+  // Get slots to determine duty types
+  const slotA = getDutySlotById(params.personASlotId);
+  const slotB = getDutySlotById(params.personBSlotId);
+
+  // Determine who initiated - they auto-accept
+  const personA = getPersonnelById(params.personAId);
+  const isPersonARequester = personA?.id === params.personAId;
+
+  // Create Request A (Person A's side)
+  const requestA: DutyChangeRequest = {
+    id: crypto.randomUUID(),
+    swap_pair_id: swapPairId,
+    personnel_id: params.personAId,
+    giving_slot_id: params.personASlotId,
+    receiving_slot_id: params.personBSlotId,
+    swap_partner_id: params.personBId,
+    requester_id: params.requesterId,
+    reason: params.reason,
+    status: 'pending',
+    partner_accepted: isPersonARequester, // Requester auto-accepts their side
+    partner_accepted_at: isPersonARequester ? now : null,
+    partner_accepted_by: isPersonARequester ? params.requesterId : null,
+    rejection_reason: null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  // Create Request B (Person B's side)
+  const requestB: DutyChangeRequest = {
+    id: crypto.randomUUID(),
+    swap_pair_id: swapPairId,
+    personnel_id: params.personBId,
+    giving_slot_id: params.personBSlotId,
+    receiving_slot_id: params.personASlotId,
+    swap_partner_id: params.personAId,
+    requester_id: params.requesterId,
+    reason: params.reason,
+    status: 'pending',
+    partner_accepted: !isPersonARequester, // Non-requester needs to accept
+    partner_accepted_at: !isPersonARequester ? now : null,
+    partner_accepted_by: !isPersonARequester ? params.requesterId : null,
+    rejection_reason: null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  // Save to localStorage
   const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
-  list.push(request);
+  list.push(requestA, requestB);
   saveToStorage(KEYS.dutyChangeRequests, list);
   triggerAutoSave('dutyChangeRequests');
 
-  // Sync to Supabase in background
-  const originalPersonnel = getPersonnelById(request.original_personnel_id);
-  if (originalPersonnel) {
-    const orgId = getOrganizationIdFromUnit(originalPersonnel.unit_section_id);
+  // Find the LCA to determine who can approve vs recommend
+  const { approverLevel } = findLowestCommonAncestor(params.personAId, params.personBId);
+
+  // Build and save approval chains for each person
+  // Pass LCA level so we know which step is the actual approver
+  const approvalsA = buildApprovalChainForPerson(params.personAId, requestA.id, approverLevel);
+  const approvalsB = buildApprovalChainForPerson(params.personBId, requestB.id, approverLevel);
+  saveSwapApprovals([...approvalsA, ...approvalsB]);
+
+  // Sync to Supabase
+  if (personA) {
+    const orgId = getOrganizationIdFromUnit(personA.unit_section_id);
     if (orgId) {
+      // Sync request A
       syncToSupabase(
         () => supabaseCreateDutyChangeRequest(orgId, {
-          id: request.id,
-          originalSlotId: request.original_slot_id,
-          originalPersonnelId: request.original_personnel_id,
-          targetPersonnelId: request.target_personnel_id,
-          requestedBy: request.requester_id,
-          reason: request.reason || undefined,
+          id: requestA.id,
+          swapPairId: swapPairId,
+          personnelId: requestA.personnel_id,
+          givingSlotId: requestA.giving_slot_id,
+          receivingSlotId: requestA.receiving_slot_id,
+          swapPartnerId: requestA.swap_partner_id,
+          requestedBy: requestA.requester_id,
+          reason: requestA.reason,
+          partnerAccepted: requestA.partner_accepted,
+          partnerAcceptedAt: requestA.partner_accepted_at?.toISOString() || null,
+          partnerAcceptedBy: requestA.partner_accepted_by,
         }),
         "createDutyChangeRequest"
+      );
+
+      // Sync request B
+      syncToSupabase(
+        () => supabaseCreateDutyChangeRequest(orgId, {
+          id: requestB.id,
+          swapPairId: swapPairId,
+          personnelId: requestB.personnel_id,
+          givingSlotId: requestB.giving_slot_id,
+          receivingSlotId: requestB.receiving_slot_id,
+          swapPartnerId: requestB.swap_partner_id,
+          requestedBy: requestB.requester_id,
+          reason: requestB.reason,
+          partnerAccepted: requestB.partner_accepted,
+          partnerAcceptedAt: requestB.partner_accepted_at?.toISOString() || null,
+          partnerAcceptedBy: requestB.partner_accepted_by,
+        }),
+        "createDutyChangeRequest"
+      );
+
+      // Sync approvals
+      const allApprovals = [...approvalsA, ...approvalsB].map(a => ({
+        id: a.id,
+        duty_change_request_id: a.duty_change_request_id,
+        approval_order: a.approval_order,
+        approver_type: a.approver_type,
+        scope_unit_id: a.scope_unit_id,
+        status: a.status as "pending" | "approved" | "rejected",
+      }));
+      syncToSupabase(
+        () => supabaseCreateSwapApprovals(allApprovals),
+        "createSwapApprovals"
       );
     }
   }
 
-  return request;
+  return { swapPairId, requestA, requestB };
 }
 
 export function updateDutyChangeRequest(
@@ -2999,12 +3467,23 @@ export function updateDutyChangeRequest(
   // Sync to Supabase in background
   const supabaseUpdates: {
     status?: "pending" | "approved" | "rejected";
-    approvedBy?: string;
+    partnerAccepted?: boolean;
+    partnerAcceptedAt?: string | null;
+    partnerAcceptedBy?: string | null;
+    rejectionReason?: string | null;
     reason?: string;
   } = {};
-  if (updates.status !== undefined) {
-    supabaseUpdates.status = updates.status;
+  if (updates.status !== undefined) supabaseUpdates.status = updates.status;
+  if (updates.partner_accepted !== undefined) supabaseUpdates.partnerAccepted = updates.partner_accepted;
+  if (updates.partner_accepted_at !== undefined) {
+    supabaseUpdates.partnerAcceptedAt = updates.partner_accepted_at
+      ? (updates.partner_accepted_at instanceof Date
+          ? updates.partner_accepted_at.toISOString()
+          : updates.partner_accepted_at)
+      : null;
   }
+  if (updates.partner_accepted_by !== undefined) supabaseUpdates.partnerAcceptedBy = updates.partner_accepted_by;
+  if (updates.rejection_reason !== undefined) supabaseUpdates.rejectionReason = updates.rejection_reason;
   if (updates.reason !== undefined) supabaseUpdates.reason = updates.reason;
 
   if (Object.keys(supabaseUpdates).length > 0) {
@@ -3018,169 +3497,412 @@ export function updateDutyChangeRequest(
 }
 
 /**
- * Execute the duty swap by swapping personnel assignments between two slots
- * Returns error message if slots don't exist, undefined on success
+ * Accept a swap request (partner acceptance)
  */
-function _executeDutySwap(request: DutyChangeRequest): string | undefined {
-  const originalSlot = getDutySlotById(request.original_slot_id);
-  const targetSlot = getDutySlotById(request.target_slot_id);
+export function acceptSwapRequest(
+  requestId: string,
+  accepterId: string
+): { success: boolean; error?: string; swapCompleted?: boolean } {
+  const request = getDutyChangeRequestById(requestId);
+  if (!request) return { success: false, error: 'Request not found' };
+  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+  if (request.partner_accepted) return { success: false, error: 'Already accepted' };
 
-  if (!originalSlot || !targetSlot) {
+  const now = new Date();
+
+  // Update this request's partner_accepted
+  updateDutyChangeRequest(requestId, {
+    partner_accepted: true,
+    partner_accepted_at: now,
+    partner_accepted_by: accepterId,
+  });
+
+  // Also update the partner's row to show this person accepted
+  const partnerRequests = getDutyChangeRequestsBySwapPairId(request.swap_pair_id)
+    .filter(r => r.id !== requestId);
+
+  for (const partnerReq of partnerRequests) {
+    updateDutyChangeRequest(partnerReq.id, {
+      partner_accepted: true,
+      partner_accepted_at: now,
+      partner_accepted_by: accepterId,
+    });
+  }
+
+  // Check if swap is now fully approved (both accepted + all approvals complete)
+  // This handles the case where no approvals are needed
+  if (isSwapFullyApproved(request.swap_pair_id)) {
+    const swapError = _executeDutySwap(request.swap_pair_id);
+    if (swapError) {
+      return { success: false, error: swapError };
+    }
+
+    // Mark both requests as approved
+    const requests = getDutyChangeRequestsBySwapPairId(request.swap_pair_id);
+    for (const req of requests) {
+      updateDutyChangeRequest(req.id, { status: 'approved' });
+    }
+
+    return { success: true, swapCompleted: true };
+  }
+
+  return { success: true, swapCompleted: false };
+}
+
+/**
+ * Execute the duty swap by swapping personnel assignments between slots
+ * This is called when both sides have all approvals complete
+ *
+ * IMPORTANT: This operation is atomic - both slots are updated in a single
+ * localStorage write to prevent inconsistent state if interrupted.
+ */
+function _executeDutySwap(swapPairId: string): string | undefined {
+  const requests = getDutyChangeRequestsBySwapPairId(swapPairId);
+  if (requests.length !== 2) {
+    return 'Invalid swap pair - expected 2 requests';
+  }
+
+  const [reqA, reqB] = requests;
+
+  // Load all slots once for atomic update
+  const allSlots = getFromStorage<DutySlot>(KEYS.dutySlots);
+
+  const slotAIdx = allSlots.findIndex(s => s.id === reqA.giving_slot_id);
+  const slotBIdx = allSlots.findIndex(s => s.id === reqB.giving_slot_id);
+
+  if (slotAIdx === -1 || slotBIdx === -1) {
     return 'One or both duty slots no longer exist';
   }
 
-  // Swap the personnel assignments
-  updateDutySlot(originalSlot.id, {
-    personnel_id: request.target_personnel_id,
-    updated_at: new Date()
-  });
-  updateDutySlot(targetSlot.id, {
-    personnel_id: request.original_personnel_id,
-    updated_at: new Date()
-  });
+  const slotA = allSlots[slotAIdx];
+  const slotB = allSlots[slotBIdx];
+  const now = new Date();
+
+  // Store original personnel IDs before swapping
+  const originalPersonnelA = slotA.personnel_id;
+  const originalPersonnelB = slotB.personnel_id;
+
+  // SlotA: originally assigned to personA, now assigned to personB (reqA.swap_partner_id)
+  allSlots[slotAIdx] = {
+    ...slotA,
+    personnel_id: reqA.swap_partner_id,
+    status: 'swapped',
+    swapped_at: now,
+    swapped_from_personnel_id: originalPersonnelA,
+    swap_pair_id: swapPairId,
+    updated_at: now
+  };
+
+  // SlotB: originally assigned to personB, now assigned to personA (reqB.swap_partner_id)
+  allSlots[slotBIdx] = {
+    ...slotB,
+    personnel_id: reqB.swap_partner_id,
+    status: 'swapped',
+    swapped_at: now,
+    swapped_from_personnel_id: originalPersonnelB,
+    swap_pair_id: swapPairId,
+    updated_at: now
+  };
+
+  // Atomic save - both slots updated in single localStorage write
+  saveToStorage(KEYS.dutySlots, allSlots);
+  triggerAutoSave('dutyRoster');
+
+  // Sync to Supabase (non-blocking)
+  syncToSupabase(() => supabaseUpdateDutySlot(slotA.id, {
+    personnel_id: reqA.swap_partner_id,
+    status: 'swapped',
+  }), "executeDutySwap-slotA");
+
+  syncToSupabase(() => supabaseUpdateDutySlot(slotB.id, {
+    personnel_id: reqB.swap_partner_id,
+    status: 'swapped',
+  }), "executeDutySwap-slotB");
 
   return undefined;
 }
 
 /**
- * Approve a specific step in a duty change request
- * For multi-level approvals, this approves the appropriate step based on the user's role/identity
+ * Check if a swap is fully approved on both sides
  */
-export function approveDutyChangeRequest(
-  id: string,
-  approverId: string,
-  approvalIndex?: number // Optional: specify which approval step to approve
-): { success: boolean; error?: string; allApproved?: boolean } {
-  const request = getDutyChangeRequestById(id);
-  if (!request) return { success: false, error: 'Request not found' };
-  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+function isSwapFullyApproved(swapPairId: string): boolean {
+  const requests = getDutyChangeRequestsBySwapPairId(swapPairId);
+  if (requests.length !== 2) return false;
 
-  // Handle legacy requests without approvals array
-  if (!request.approvals || request.approvals.length === 0) {
-    // Legacy single-approval flow
-    const swapError = _executeDutySwap(request);
-    if (swapError) {
-      return { success: false, error: swapError };
-    }
+  // Both partners must have accepted
+  if (!requests.every(r => r.partner_accepted)) return false;
 
-    updateDutyChangeRequest(id, {
-      status: 'approved',
-      approved_by: approverId,
-      approved_at: new Date()
-    });
-
-    return { success: true, allApproved: true };
+  // All approvals for both requests must be approved
+  for (const req of requests) {
+    const approvals = getSwapApprovalsByRequestId(req.id);
+    if (approvals.length === 0) continue; // No approvals needed
+    if (!approvals.every(a => a.status === 'approved')) return false;
   }
-
-  // New multi-level approval flow
-  const updatedApprovals = [...request.approvals];
-  let approvedIdx = approvalIndex;
-
-  // If no specific index provided, find the first pending approval the user can approve
-  if (approvedIdx === undefined) {
-    approvedIdx = updatedApprovals.findIndex(a => a.status === 'pending');
-    if (approvedIdx === -1) {
-      return { success: false, error: 'No pending approvals found' };
-    }
-  }
-
-  if (approvedIdx < 0 || approvedIdx >= updatedApprovals.length) {
-    return { success: false, error: 'Invalid approval index' };
-  }
-
-  if (updatedApprovals[approvedIdx].status !== 'pending') {
-    return { success: false, error: 'This approval step is not pending' };
-  }
-
-  // Mark this approval as approved
-  updatedApprovals[approvedIdx] = {
-    ...updatedApprovals[approvedIdx],
-    status: 'approved',
-    approved_by: approverId,
-    approved_at: new Date(),
-  };
-
-  // Check if all approvals are now complete
-  const allApproved = updatedApprovals.every(a => a.status === 'approved');
-
-  if (allApproved) {
-    // All approvals complete - execute the swap
-    const swapError = _executeDutySwap(request);
-    if (swapError) {
-      return { success: false, error: swapError };
-    }
-
-    updateDutyChangeRequest(id, {
-      status: 'approved',
-      approvals: updatedApprovals,
-      approved_by: approverId,
-      approved_at: new Date()
-    });
-  } else {
-    // Update just the approvals array
-    updateDutyChangeRequest(id, {
-      approvals: updatedApprovals
-    });
-  }
-
-  return { success: true, allApproved };
-}
-
-export function rejectDutyChangeRequest(
-  id: string,
-  approverId: string,
-  reason: string
-): DutyChangeRequest | null {
-  return updateDutyChangeRequest(id, {
-    status: 'rejected',
-    approved_by: approverId,
-    approved_at: new Date(),
-    rejection_reason: reason
-  });
-}
-
-export function deleteDutyChangeRequest(id: string): boolean {
-  const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
-  const filtered = list.filter((r) => r.id !== id);
-  if (filtered.length === list.length) return false;
-  saveToStorage(KEYS.dutyChangeRequests, filtered);
-  triggerAutoSave('dutyChangeRequests');
-
-  // Sync to Supabase in background
-  syncToSupabase(() => supabaseDeleteDutyChangeRequest(id), "deleteDutyChangeRequest");
 
   return true;
 }
 
-// Enriched duty change request with personnel and duty type info
-export interface EnrichedDutyChangeRequest extends DutyChangeRequest {
-  originalPersonnel?: Personnel;
-  targetPersonnel?: Personnel;
-  originalDutyType?: DutyType;
-  targetDutyType?: DutyType;
-  requester?: Personnel;
-}
+/**
+ * Approve a specific step in a duty change request
+ */
+export function approveSwapApproval(
+  approvalId: string,
+  approverId: string
+): { success: boolean; error?: string; swapCompleted?: boolean } {
+  const allApprovals = getAllSwapApprovals();
+  const approval = allApprovals.find(a => a.id === approvalId);
 
-export function getEnrichedDutyChangeRequests(status?: string): EnrichedDutyChangeRequest[] {
-  let requests = getAllDutyChangeRequests();
-  if (status) {
-    requests = requests.filter(r => r.status === status);
+  if (!approval) return { success: false, error: 'Approval not found' };
+  if (approval.status !== 'pending') return { success: false, error: 'Approval is not pending' };
+
+  const request = getDutyChangeRequestById(approval.duty_change_request_id);
+  if (!request) return { success: false, error: 'Request not found' };
+  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+  if (!request.partner_accepted) return { success: false, error: 'Partner has not accepted yet' };
+
+  // Update the approval
+  const updatedApproval: SwapApproval = {
+    ...approval,
+    status: 'approved',
+    approved_by: approverId,
+    approved_at: new Date(),
+  };
+  saveSwapApproval(updatedApproval);
+
+  // Sync to Supabase
+  syncToSupabase(
+    () => supabaseUpdateSwapApproval(approvalId, {
+      status: 'approved',
+      approvedBy: approverId,
+      approvedAt: new Date().toISOString(),
+    }),
+    "updateSwapApproval"
+  );
+
+  // Check if the entire swap is now fully approved
+  if (isSwapFullyApproved(request.swap_pair_id)) {
+    // Execute the swap
+    const swapError = _executeDutySwap(request.swap_pair_id);
+    if (swapError) {
+      return { success: false, error: swapError };
+    }
+
+    // Mark both requests as approved
+    const requests = getDutyChangeRequestsBySwapPairId(request.swap_pair_id);
+    for (const req of requests) {
+      updateDutyChangeRequest(req.id, { status: 'approved' });
+    }
+
+    return { success: true, swapCompleted: true };
   }
 
+  return { success: true, swapCompleted: false };
+}
+
+/**
+ * Reject a swap - marks both sides as rejected
+ */
+export function rejectSwap(
+  requestId: string,
+  rejecterId: string,
+  reason: string
+): { success: boolean; error?: string } {
+  const request = getDutyChangeRequestById(requestId);
+  if (!request) return { success: false, error: 'Request not found' };
+  if (request.status !== 'pending') return { success: false, error: 'Request is not pending' };
+
+  // Reject both sides of the swap
+  const requests = getDutyChangeRequestsBySwapPairId(request.swap_pair_id);
+  for (const req of requests) {
+    updateDutyChangeRequest(req.id, {
+      status: 'rejected',
+      rejection_reason: reason,
+    });
+  }
+
+  return { success: true };
+}
+
+/**
+ * Delete a swap - removes both rows and their approvals
+ */
+export function deleteSwap(swapPairId: string): boolean {
+  const requests = getDutyChangeRequestsBySwapPairId(swapPairId);
+  if (requests.length === 0) return false;
+
+  // Delete approvals and recommendations for each request
+  for (const req of requests) {
+    deleteSwapApprovalsByRequestId(req.id);
+    deleteSwapRecommendationsByRequestId(req.id);
+  }
+
+  // Delete the requests
+  const list = getFromStorage<DutyChangeRequest>(KEYS.dutyChangeRequests);
+  const filtered = list.filter(r => r.swap_pair_id !== swapPairId);
+  saveToStorage(KEYS.dutyChangeRequests, filtered);
+  triggerAutoSave('dutyChangeRequests');
+
+  // Sync to Supabase
+  syncToSupabase(
+    () => supabaseDeleteDutyChangeRequestsBySwapPairId(swapPairId),
+    "deleteDutyChangeRequestsBySwapPairId"
+  );
+
+  return true;
+}
+
+/**
+ * Add a recommendation to a swap request
+ */
+export function addSwapRecommendation(
+  requestId: string,
+  userId: string,
+  recommendation: 'recommend' | 'not_recommend',
+  comment: string
+): SwapRecommendation | null {
+  const request = getDutyChangeRequestById(requestId);
+  if (!request) return null;
+  if (request.status !== 'pending') return null;
+
+  const rec: SwapRecommendation = {
+    id: crypto.randomUUID(),
+    duty_change_request_id: requestId,
+    recommender_id: userId,
+    recommendation,
+    comment,
+    created_at: new Date(),
+  };
+
+  return saveSwapRecommendation(rec);
+}
+
+/**
+ * Get all swap pairs with enriched data
+ */
+export function getAllSwapPairs(status?: 'pending' | 'approved' | 'rejected'): SwapPair[] {
+  const allRequests = getAllDutyChangeRequests();
+  const swapPairMap = new Map<string, DutyChangeRequest[]>();
+
+  // Group requests by swap_pair_id
+  for (const req of allRequests) {
+    if (status && req.status !== status) continue;
+    const existing = swapPairMap.get(req.swap_pair_id) || [];
+    existing.push(req);
+    swapPairMap.set(req.swap_pair_id, existing);
+  }
+
+  const swapPairs: SwapPair[] = [];
+
+  for (const [swapPairId, requests] of swapPairMap) {
+    if (requests.length !== 2) continue; // Invalid swap pair
+
+    const [reqA, reqB] = requests;
+
+    // Determine overall status
+    let overallStatus: 'pending' | 'approved' | 'rejected' = 'pending';
+    if (reqA.status === 'rejected' || reqB.status === 'rejected') {
+      overallStatus = 'rejected';
+    } else if (reqA.status === 'approved' && reqB.status === 'approved') {
+      overallStatus = 'approved';
+    }
+
+    swapPairs.push({
+      swap_pair_id: swapPairId,
+      requester_id: reqA.requester_id,
+      reason: reqA.reason,
+      status: overallStatus,
+      created_at: reqA.created_at,
+      personA: {
+        request: reqA,
+        personnel_id: reqA.personnel_id,
+        giving_slot_id: reqA.giving_slot_id,
+        receiving_slot_id: reqA.receiving_slot_id,
+        approvals: getSwapApprovalsByRequestId(reqA.id),
+        partner_accepted: reqA.partner_accepted,
+      },
+      personB: {
+        request: reqB,
+        personnel_id: reqB.personnel_id,
+        giving_slot_id: reqB.giving_slot_id,
+        receiving_slot_id: reqB.receiving_slot_id,
+        approvals: getSwapApprovalsByRequestId(reqB.id),
+        partner_accepted: reqB.partner_accepted,
+      },
+    });
+  }
+
+  return swapPairs.sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+}
+
+// Enriched swap pair with personnel and duty type info for UI display
+export interface EnrichedSwapPair extends SwapPair {
+  personADetails?: {
+    personnel?: Personnel;
+    givingSlot?: DutySlot;
+    receivingSlot?: DutySlot;
+    givingDutyType?: DutyType;
+    receivingDutyType?: DutyType;
+  };
+  personBDetails?: {
+    personnel?: Personnel;
+    givingSlot?: DutySlot;
+    receivingSlot?: DutySlot;
+    givingDutyType?: DutyType;
+    receivingDutyType?: DutyType;
+  };
+  recommendations: SwapRecommendation[];
+}
+
+export function getEnrichedSwapPairs(status?: 'pending' | 'approved' | 'rejected'): EnrichedSwapPair[] {
+  const swapPairs = getAllSwapPairs(status);
   const personnel = getAllPersonnel();
+  const dutySlots = getAllDutySlots();
   const dutyTypes = getAllDutyTypes();
 
   const personnelMap = new Map(personnel.map(p => [p.id, p]));
+  const slotMap = new Map(dutySlots.map(s => [s.id, s]));
   const dutyTypeMap = new Map(dutyTypes.map(dt => [dt.id, dt]));
 
-  return requests.map(r => ({
-    ...r,
-    originalPersonnel: personnelMap.get(r.original_personnel_id),
-    targetPersonnel: personnelMap.get(r.target_personnel_id),
-    originalDutyType: dutyTypeMap.get(r.original_duty_type_id),
-    targetDutyType: dutyTypeMap.get(r.target_duty_type_id),
-    requester: r.requester_personnel_id ? personnelMap.get(r.requester_personnel_id) : undefined,
-  }));
+  return swapPairs.map(pair => {
+    const givingSlotA = slotMap.get(pair.personA.giving_slot_id);
+    const receivingSlotA = slotMap.get(pair.personA.receiving_slot_id);
+    const givingSlotB = slotMap.get(pair.personB.giving_slot_id);
+    const receivingSlotB = slotMap.get(pair.personB.receiving_slot_id);
+
+    // Get recommendations from both requests
+    const recsA = getSwapRecommendationsByRequestId(pair.personA.request.id);
+    const recsB = getSwapRecommendationsByRequestId(pair.personB.request.id);
+
+    return {
+      ...pair,
+      personADetails: {
+        personnel: personnelMap.get(pair.personA.personnel_id),
+        givingSlot: givingSlotA,
+        receivingSlot: receivingSlotA,
+        givingDutyType: givingSlotA ? dutyTypeMap.get(givingSlotA.duty_type_id) : undefined,
+        receivingDutyType: receivingSlotA ? dutyTypeMap.get(receivingSlotA.duty_type_id) : undefined,
+      },
+      personBDetails: {
+        personnel: personnelMap.get(pair.personB.personnel_id),
+        givingSlot: givingSlotB,
+        receivingSlot: receivingSlotB,
+        givingDutyType: givingSlotB ? dutyTypeMap.get(givingSlotB.duty_type_id) : undefined,
+        receivingDutyType: receivingSlotB ? dutyTypeMap.get(receivingSlotB.duty_type_id) : undefined,
+      },
+      recommendations: [...recsA, ...recsB],
+    };
+  });
+}
+
+// Get swap pairs involving a specific personnel (as either personA or personB)
+export function getSwapPairsByPersonnel(personnelId: string, status?: 'pending' | 'approved' | 'rejected'): SwapPair[] {
+  const allPairs = getAllSwapPairs(status);
+  return allPairs.filter(pair =>
+    pair.personA.personnel_id === personnelId ||
+    pair.personB.personnel_id === personnelId
+  );
 }
 
 // Qualifications
@@ -3222,8 +3944,9 @@ export function removeQualification(personnelId: string, qualName: string): bool
 
 // Blocked Duties
 export function getAllBlockedDuties(): BlockedDuty[] {
+  // String comparison works correctly for YYYY-MM-DD format
   return getFromStorage<BlockedDuty>(KEYS.blockedDuties).sort(
-    (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    (a, b) => a.start_date.localeCompare(b.start_date)
   );
 }
 
@@ -3244,26 +3967,21 @@ export function getBlockedDutyById(id: string): BlockedDuty | undefined {
 }
 
 // Check if a duty is blocked on a specific date
-export function isDutyBlockedOnDate(dutyTypeId: string, date: Date): BlockedDuty | undefined {
-  const dateTime = date.getTime();
+export function isDutyBlockedOnDate(dutyTypeId: string, dateStr: DateString): BlockedDuty | undefined {
+  // Simple string comparison - timezone safe with DateString
   return getFromStorage<BlockedDuty>(KEYS.blockedDuties).find((bd) => {
     if (bd.duty_type_id !== dutyTypeId) return false;
-    const start = new Date(bd.start_date).getTime();
-    const end = new Date(bd.end_date).getTime();
-    return dateTime >= start && dateTime <= end;
+    return dateStr >= bd.start_date && dateStr <= bd.end_date;
   });
 }
 
 // Get all active blocks for a duty type (blocks that overlap with today or future)
 export function getActiveBlocksForDutyType(dutyTypeId: string): BlockedDuty[] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayTime = today.getTime();
+  const todayStr = getTodayString();
 
   return getFromStorage<BlockedDuty>(KEYS.blockedDuties).filter((bd) => {
     if (bd.duty_type_id !== dutyTypeId) return false;
-    const end = new Date(bd.end_date).getTime();
-    return end >= todayTime; // Block end is today or in the future
+    return bd.end_date >= todayStr; // Block end is today or in the future
   });
 }
 
@@ -3321,7 +4039,7 @@ export function getEnrichedDutyTypes(unitId?: string): EnrichedDutyType[] {
 // Get duty slots with their duty type and personnel info
 export interface EnrichedSlot extends DutySlot {
   duty_type: { id: string; duty_name: string; unit_section_id: string } | null;
-  personnel: { id: string; first_name: string; last_name: string; rank: string } | null;
+  personnel: { id: string; first_name: string; last_name: string; rank: string; unit_section_id: string } | null;
   assigned_by_info: {
     type: "scheduler" | "user";
     display: string; // "Automated by Scheduler" or "RANK FIRSTNAME LASTNAME - SECTION"
@@ -3395,7 +4113,7 @@ export function reportDataIntegrity(): { missingPersonnel: number; missingDutyTy
   };
 }
 
-export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: string): EnrichedSlot[] {
+export function getEnrichedSlots(startDate?: DateString, endDate?: DateString, unitId?: string): EnrichedSlot[] {
   let slots: DutySlot[];
 
   if (startDate && endDate) {
@@ -3462,7 +4180,7 @@ export function getEnrichedSlots(startDate?: Date, endDate?: Date, unitId?: stri
     return {
       ...slot,
       duty_type: dutyType ? { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id } : null,
-      personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank } : null,
+      personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank, unit_section_id: personnel.unit_section_id } : null,
       assigned_by_info,
     };
   });
@@ -3570,6 +4288,7 @@ export function importPersonnel(
           first_name: record.first_name,
           last_name: record.last_name,
           rank: record.rank,
+          phone_number: null,
           unit_section_id: unitId,
           current_duty_score: 0,
           created_at: new Date(),
@@ -3668,12 +4387,17 @@ function cleanTsvValue(value: string): string {
 }
 
 // Parse date from format like "2025/08/08" or "2025/12/10"
-function parseManpowerDate(dateStr: string): Date | null {
+// Returns DateString (YYYY-MM-DD) format
+function parseManpowerDate(dateStr: string): DateString | null {
   const cleaned = cleanTsvValue(dateStr);
   if (!cleaned || cleaned === "" || cleaned === '""') return null;
   const match = cleaned.match(/(\d{4})\/(\d{2})\/(\d{2})/);
   if (match) {
-    return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+    // Return as DateString (YYYY-MM-DD) format, validating it's a real date
+    const parsedDateString = `${match[1]}-${match[2]}-${match[3]}`;
+    if (isValidDateString(parsedDateString)) {
+      return parsedDateString;
+    }
   }
   return null;
 }
@@ -3992,6 +4716,7 @@ export function importManpowerData(
         first_name,
         last_name,
         rank: record.rank,
+        phone_number: null,
         unit_section_id: unitId,
         current_duty_score: 0,
         created_at: new Date(),
@@ -4013,8 +4738,10 @@ export function importManpowerData(
             end_date: endDate,
             reason: `${record.category}: ${record.dutyStatus} - ${record.location}`,
             status: "approved",
+            submitted_by: null, // Auto-imported, no submitter
             recommended_by: null,
-            approved_by: null,
+            recommended_at: null,
+            approved_by: null, // Auto-approved on import
             created_at: new Date(),
           };
           newNonAvailList.push(newNa);
@@ -4705,8 +5432,8 @@ export function exportDutyChangeRequests(unitId?: string): {
   if (unitId) {
     const unitPersonnelIds = new Set(getPersonnelByUnit(unitId).map(p => p.id));
     requests = requests.filter(r =>
-      unitPersonnelIds.has(r.original_personnel_id) ||
-      unitPersonnelIds.has(r.target_personnel_id)
+      unitPersonnelIds.has(r.personnel_id) ||
+      unitPersonnelIds.has(r.swap_partner_id)
     );
   }
 

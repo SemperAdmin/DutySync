@@ -9,7 +9,7 @@ import Card, {
 } from "@/components/ui/Card";
 import { useAuth } from "@/lib/supabase-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
-import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, DutyChangeRequest } from "@/types";
+import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, SwapPair } from "@/types";
 import {
   getAllPersonnel,
   getPersonnelByEdipi,
@@ -17,10 +17,10 @@ import {
   getNonAvailabilityByPersonnel,
   getUnitSections,
   getAllDutyTypes,
-  getDutyChangeRequestsByPersonnel,
 } from "@/lib/data-layer";
-import { calculateDutyScoreFromSlots } from "@/lib/client-stores";
+import { calculateDutyScoreFromSlots, getSwapPairsByPersonnel, getAllDutySlots } from "@/lib/client-stores";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
+import { getTodayString, addDaysToDateString, parseLocalDate } from "@/lib/date-utils";
 
 interface DutyHistoryEntry {
   id: string;
@@ -37,7 +37,8 @@ export default function UserDashboard() {
   const [upcomingDuties, setUpcomingDuties] = useState<DutySlot[]>([]);
   const [pastDuties, setPastDuties] = useState<DutySlot[]>([]);
   const [nonAvailability, setNonAvailability] = useState<NonAvailability[]>([]);
-  const [dutyChangeRequests, setDutyChangeRequests] = useState<DutyChangeRequest[]>([]);
+  const [swapPairs, setSwapPairs] = useState<SwapPair[]>([]);
+  const [allDutySlots, setAllDutySlots] = useState<DutySlot[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,17 +65,17 @@ export default function UserDashboard() {
 
       if (myPersonnel) {
         // Get upcoming duties (next 90 days)
-        const today = new Date();
-        const futureDate = new Date();
-        futureDate.setDate(today.getDate() + 90);
+        // Include both "scheduled" and "approved" statuses for upcoming duties
+        const today = getTodayString();
+        const futureDate = addDaysToDateString(today, 90);
         const upcoming = getDutySlotsByDateRange(today, futureDate).filter(
-          (slot) => slot.personnel_id === myPersonnel.id && slot.status === "scheduled"
+          (slot) => slot.personnel_id === myPersonnel.id &&
+            (slot.status === "scheduled" || slot.status === "approved")
         );
         setUpcomingDuties(upcoming);
 
         // Get past duties (last 90 days)
-        const pastDate = new Date();
-        pastDate.setDate(today.getDate() - 90);
+        const pastDate = addDaysToDateString(today, -90);
         const past = getDutySlotsByDateRange(pastDate, today).filter(
           (slot) => slot.personnel_id === myPersonnel.id && slot.status === "completed"
         );
@@ -84,9 +85,13 @@ export default function UserDashboard() {
         const na = getNonAvailabilityByPersonnel(myPersonnel.id);
         setNonAvailability(na);
 
-        // Get duty change requests involving this personnel
-        const dcRequests = getDutyChangeRequestsByPersonnel(myPersonnel.id);
-        setDutyChangeRequests(dcRequests);
+        // Get swap pairs involving this personnel
+        const pairs = getSwapPairsByPersonnel(myPersonnel.id);
+        setSwapPairs(pairs);
+
+        // Get all duty slots for date lookups
+        const dutySlots = getAllDutySlots();
+        setAllDutySlots(dutySlots);
       }
     } catch (err) {
       console.error("Error loading dashboard data:", err);
@@ -172,43 +177,93 @@ export default function UserDashboard() {
   // Get next duty
   const nextDuty = upcomingDuties.length > 0 ? upcomingDuties[0] : null;
 
-  // Calculate days until next duty
+  // Calculate days until next duty (use parseLocalDate to avoid timezone issues)
   const daysUntilNextDuty = nextDuty
     ? Math.ceil(
-        (new Date(nextDuty.date_assigned).getTime() - new Date().getTime()) /
+        (parseLocalDate(nextDuty.date_assigned).getTime() - new Date().setHours(0, 0, 0, 0)) /
           (1000 * 60 * 60 * 24)
       )
     : null;
 
+  // Create a personnel map for O(1) lookups
+  const personnelMap = useMemo(() => new Map(allPersonnel.map(p => [p.id, p])), [allPersonnel]);
+
+  // Find previous and next duty personnel (for the same duty type on adjacent days)
+  const adjacentDutyInfo = useMemo(() => {
+    if (!nextDuty) return { previous: null, following: null };
+
+    const dutyDate = nextDuty.date_assigned;
+    const dutyTypeId = nextDuty.duty_type_id;
+
+    // Calculate previous and following dates
+    const prevDate = addDaysToDateString(dutyDate as string, -1);
+    const followDate = addDaysToDateString(dutyDate as string, 1);
+
+    // Find slots for same duty type on adjacent days
+    const prevSlot = allDutySlots.find(
+      (s) => s.date_assigned === prevDate && s.duty_type_id === dutyTypeId && s.personnel_id
+    );
+    const followSlot = allDutySlots.find(
+      (s) => s.date_assigned === followDate && s.duty_type_id === dutyTypeId && s.personnel_id
+    );
+
+    // Get personnel info
+    const prevPerson = prevSlot?.personnel_id ? personnelMap.get(prevSlot.personnel_id) : null;
+    const followPerson = followSlot?.personnel_id ? personnelMap.get(followSlot.personnel_id) : null;
+
+    // Get unit info for each person
+    const prevUnit = prevPerson ? unitMap.get(prevPerson.unit_section_id) : null;
+    const followUnit = followPerson ? unitMap.get(followPerson.unit_section_id) : null;
+
+    return {
+      previous: prevPerson ? {
+        rank: prevPerson.rank,
+        name: `${prevPerson.last_name}, ${prevPerson.first_name}`,
+        phone: prevPerson.phone_number,
+        unit: prevUnit?.unit_name || "Unknown",
+      } : null,
+      following: followPerson ? {
+        rank: followPerson.rank,
+        name: `${followPerson.last_name}, ${followPerson.first_name}`,
+        phone: followPerson.phone_number,
+        unit: followUnit?.unit_name || "Unknown",
+      } : null,
+    };
+  }, [nextDuty, allDutySlots, personnelMap, unitMap]);
+
   // Get current and upcoming non-availability with efficient Date handling
   const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Local midnight
 
   // Get current non-availability status
   const currentNA = nonAvailability.find((na) => {
-    const start = new Date(na.start_date);
-    const end = new Date(na.end_date);
-    return now >= start && now <= end && na.status === "approved";
+    const start = parseLocalDate(na.start_date);
+    const end = parseLocalDate(na.end_date);
+    return today >= start && today <= end && na.status === "approved";
   });
 
   // Get upcoming approved non-availability
   const upcomingNA = nonAvailability.filter((na) => {
-    const start = new Date(na.start_date);
-    return start > now && na.status === "approved";
+    const start = parseLocalDate(na.start_date);
+    return start > today && na.status === "approved";
   });
 
   // Get pending non-availability requests
   const pendingNA = nonAvailability.filter((na) => na.status === "pending");
 
   // Get pending duty swap requests (where the user is involved)
-  const pendingSwaps = dutyChangeRequests.filter((req) => req.status === "pending");
+  const pendingSwaps = swapPairs.filter((pair) => pair.status === "pending");
+
+  // Create a slot map for O(1) lookups
+  const slotMap = useMemo(() => new Map(allDutySlots.map(s => [s.id, s])), [allDutySlots]);
 
   // Build duty history
   const dutyHistory: DutyHistoryEntry[] = pastDuties
-    .sort((a, b) => new Date(b.date_assigned).getTime() - new Date(a.date_assigned).getTime())
+    .sort((a, b) => parseLocalDate(b.date_assigned).getTime() - parseLocalDate(a.date_assigned).getTime())
     .slice(0, 10)
     .map((slot) => ({
       id: slot.id,
-      date: new Date(slot.date_assigned),
+      date: parseLocalDate(slot.date_assigned),
       dutyType: getDutyTypeName(slot.duty_type_id),
       duration: "24hr",
       points: slot.points ?? 0,
@@ -323,7 +378,7 @@ export default function UserDashboard() {
                     {getDutyTypeName(nextDuty.duty_type_id)}
                   </p>
                   <p className="text-foreground-muted mt-1">
-                    {new Date(nextDuty.date_assigned).toLocaleDateString("en-US", {
+                    {parseLocalDate(nextDuty.date_assigned).toLocaleDateString("en-US", {
                       weekday: "long",
                       month: "short",
                       day: "numeric",
@@ -332,6 +387,54 @@ export default function UserDashboard() {
                   </p>
                   <p className="text-sm text-foreground-muted">0600 - 0600 (24hr)</p>
                 </div>
+
+                {/* Adjacent Duty Personnel */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Previous Day */}
+                  <div className="p-3 rounded-lg bg-surface-elevated">
+                    <p className="text-xs text-foreground-muted uppercase tracking-wide mb-1">Duty Before</p>
+                    {adjacentDutyInfo.previous ? (
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium text-foreground">
+                          {adjacentDutyInfo.previous.rank} {adjacentDutyInfo.previous.name}
+                        </p>
+                        <p className="text-xs text-foreground-muted">{adjacentDutyInfo.previous.unit}</p>
+                        {adjacentDutyInfo.previous.phone && (
+                          <p className="text-xs text-primary">
+                            <a href={`tel:${adjacentDutyInfo.previous.phone}`}>
+                              {adjacentDutyInfo.previous.phone}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground-muted">Not assigned</p>
+                    )}
+                  </div>
+
+                  {/* Following Day */}
+                  <div className="p-3 rounded-lg bg-surface-elevated">
+                    <p className="text-xs text-foreground-muted uppercase tracking-wide mb-1">Duty After</p>
+                    {adjacentDutyInfo.following ? (
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium text-foreground">
+                          {adjacentDutyInfo.following.rank} {adjacentDutyInfo.following.name}
+                        </p>
+                        <p className="text-xs text-foreground-muted">{adjacentDutyInfo.following.unit}</p>
+                        {adjacentDutyInfo.following.phone && (
+                          <p className="text-xs text-primary">
+                            <a href={`tel:${adjacentDutyInfo.following.phone}`}>
+                              {adjacentDutyInfo.following.phone}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground-muted">Not assigned</p>
+                    )}
+                  </div>
+                </div>
+
                 {daysUntilNextDuty !== null && (
                   <div className="text-center">
                     <span className="text-3xl font-bold text-highlight">{daysUntilNextDuty}</span>
@@ -377,7 +480,7 @@ export default function UserDashboard() {
                     <div>
                       <p className="font-medium text-warning">{currentNA.reason}</p>
                       <p className="text-sm text-foreground-muted">
-                        Until {new Date(currentNA.end_date).toLocaleDateString()}
+                        Until {parseLocalDate(currentNA.end_date).toLocaleDateString()}
                       </p>
                     </div>
                   </>
@@ -403,12 +506,12 @@ export default function UserDashboard() {
                       >
                         <span className="text-foreground">{na.reason}</span>
                         <span className="text-foreground-muted">
-                          {new Date(na.start_date).toLocaleDateString("en-US", {
+                          {parseLocalDate(na.start_date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
                           {" - "}
-                          {new Date(na.end_date).toLocaleDateString("en-US", {
+                          {parseLocalDate(na.end_date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
@@ -502,12 +605,12 @@ export default function UserDashboard() {
                         <div>
                           <p className="font-medium text-foreground">{na.reason}</p>
                           <p className="text-sm text-foreground-muted">
-                            {new Date(na.start_date).toLocaleDateString("en-US", {
+                            {parseLocalDate(na.start_date).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                             })}
                             {" - "}
-                            {new Date(na.end_date).toLocaleDateString("en-US", {
+                            {parseLocalDate(na.end_date).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                             })}
@@ -529,38 +632,50 @@ export default function UserDashboard() {
                     Duty Swap Requests
                   </p>
                   <div className="space-y-2">
-                    {pendingSwaps.map((swap) => (
-                      <div
-                        key={swap.id}
-                        className="flex justify-between items-center p-3 rounded-lg bg-surface-elevated border border-warning/20"
-                      >
-                        <div>
-                          <p className="font-medium text-foreground">
-                            Duty Swap Request
-                          </p>
-                          <p className="text-sm text-foreground-muted">
-                            {new Date(swap.original_duty_date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                            {swap.target_duty_date && (
-                              <>
-                                {" ↔ "}
-                                {new Date(swap.target_duty_date).toLocaleDateString("en-US", {
-                                  weekday: "short",
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                              </>
-                            )}
-                          </p>
+                    {pendingSwaps.map((pair) => {
+                      const personASlot = slotMap.get(pair.personA.giving_slot_id);
+                      const personBSlot = slotMap.get(pair.personB.giving_slot_id);
+                      const personA = personnelMap.get(pair.personA.personnel_id);
+                      const personB = personnelMap.get(pair.personB.personnel_id);
+                      // Determine if current user is personA or personB
+                      const isPersonA = personnel?.id === pair.personA.personnel_id;
+                      const partner = isPersonA ? personB : personA;
+
+                      return (
+                        <div
+                          key={pair.swap_pair_id}
+                          className="flex justify-between items-center p-3 rounded-lg bg-surface-elevated border border-warning/20"
+                        >
+                          <div>
+                            <p className="font-medium text-foreground">
+                              Swap with {partner?.rank} {partner?.last_name}
+                            </p>
+                            <p className="text-sm text-foreground-muted">
+                              {personASlot?.date_assigned
+                                ? parseLocalDate(personASlot.date_assigned).toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                  })
+                                : "Unknown date"}
+                              {personBSlot?.date_assigned && (
+                                <>
+                                  {" ↔ "}
+                                  {parseLocalDate(personBSlot.date_assigned).toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-warning/20 text-warning">
+                            Pending
+                          </span>
                         </div>
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-warning/20 text-warning">
-                          Pending
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

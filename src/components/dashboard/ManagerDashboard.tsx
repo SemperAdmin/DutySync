@@ -9,19 +9,20 @@ import Card, {
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/lib/supabase-auth";
-import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, RoleName, DutyChangeRequest } from "@/types";
+import type { Personnel, DutySlot, NonAvailability, UnitSection, DutyType, RoleName, SwapPair } from "@/types";
 import {
   getAllPersonnel,
   getUnitSections,
   getAllDutySlots,
   getAllNonAvailability,
   getAllDutyTypes,
-  getAllDutyChangeRequests,
+  getAllSwapPairs,
   updateNonAvailability,
   calculateDutyScoreFromSlots,
 } from "@/lib/client-stores";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { MAX_DUTY_SCORE } from "@/lib/constants";
+import { parseLocalDate } from "@/lib/date-utils";
 
 // Manager role names - should match DashboardLayout
 const MANAGER_ROLES: RoleName[] = [
@@ -43,7 +44,7 @@ export default function ManagerDashboard() {
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutySlots, setDutySlots] = useState<DutySlot[]>([]);
   const [nonAvailability, setNonAvailability] = useState<NonAvailability[]>([]);
-  const [dutyChangeRequests, setDutyChangeRequests] = useState<DutyChangeRequest[]>([]);
+  const [swapPairs, setSwapPairs] = useState<SwapPair[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,13 +57,13 @@ export default function ManagerDashboard() {
       const dutySlotsData = getAllDutySlots();
       const naData = getAllNonAvailability();
       const dutyTypesData = getAllDutyTypes();
-      const dcRequestsData = getAllDutyChangeRequests();
+      const swapPairsData = getAllSwapPairs();
 
       setAllPersonnel(personnelData);
       setUnits(unitsData);
       setDutySlots(dutySlotsData);
       setNonAvailability(naData);
-      setDutyChangeRequests(dcRequestsData);
+      setSwapPairs(swapPairsData);
       setDutyTypes(dutyTypesData);
     } catch (err) {
       console.error("Error loading manager dashboard data:", err);
@@ -148,6 +149,7 @@ export default function ManagerDashboard() {
   // Create Maps for O(1) lookups in calculations
   const personnelMap = useMemo(() => new Map(scopedPersonnel.map(p => [p.id, p])), [scopedPersonnel]);
   const dutyTypeMap = useMemo(() => new Map(dutyTypes.map(dt => [dt.id, dt])), [dutyTypes]);
+  const dutySlotMap = useMemo(() => new Map(dutySlots.map(s => [s.id, s])), [dutySlots]);
 
   // Categorize non-availability reason
   // Note: Medical is checked before leave to handle "medical leave" correctly
@@ -177,10 +179,8 @@ export default function ManagerDashboard() {
     scopedNonAvailability.forEach(na => {
       if (na.status !== "approved") return;
 
-      const start = new Date(na.start_date);
-      const end = new Date(na.end_date);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(0, 0, 0, 0);
+      const start = parseLocalDate(na.start_date);
+      const end = parseLocalDate(na.end_date);
 
       if (today >= start && today <= end) {
         const category = categorizeNA(na.reason);
@@ -235,24 +235,26 @@ export default function ManagerDashboard() {
 
   // Get pending duty swap requests involving personnel within scope
   const pendingSwapRequests = useMemo(() => {
-    return dutyChangeRequests
-      .filter(req => {
-        if (req.status !== "pending") return false;
+    return swapPairs
+      .filter(pair => {
+        if (pair.status !== "pending") return false;
         // Check if either personnel is within scope
-        const origInScope = scopedPersonnelIds.has(req.original_personnel_id);
-        const targetInScope = req.target_personnel_id
-          ? scopedPersonnelIds.has(req.target_personnel_id)
-          : false;
-        return origInScope || targetInScope;
+        const personAInScope = scopedPersonnelIds.has(pair.personA.personnel_id);
+        const personBInScope = scopedPersonnelIds.has(pair.personB.personnel_id);
+        return personAInScope || personBInScope;
       })
-      .map(req => ({
-        ...req,
-        originalPerson: personnelMap.get(req.original_personnel_id),
-        targetPerson: req.target_personnel_id
-          ? personnelMap.get(req.target_personnel_id)
-          : undefined,
-      }));
-  }, [dutyChangeRequests, scopedPersonnelIds, personnelMap]);
+      .map(pair => {
+        const personASlot = dutySlotMap.get(pair.personA.giving_slot_id);
+        const personBSlot = dutySlotMap.get(pair.personB.giving_slot_id);
+        return {
+          ...pair,
+          personADetails: personnelMap.get(pair.personA.personnel_id),
+          personBDetails: personnelMap.get(pair.personB.personnel_id),
+          personASlotDate: personASlot?.date_assigned,
+          personBSlotDate: personBSlot?.date_assigned,
+        };
+      });
+  }, [swapPairs, scopedPersonnelIds, personnelMap, dutySlotMap]);
 
   // Get personnel on duty this week
   const personnelOnDutyThisWeek = useMemo(() => {
@@ -262,9 +264,8 @@ export default function ManagerDashboard() {
     // Group duty slots by date for efficient lookup
     const slotsByDate = new Map<string, DutySlot[]>();
     scopedDutySlots.forEach(slot => {
-      const slotDate = new Date(slot.date_assigned);
-      slotDate.setHours(0, 0, 0, 0);
-      const dateKey = slotDate.toISOString().split('T')[0];
+      // Use the date_assigned string directly as the key (YYYY-MM-DD format)
+      const dateKey = slot.date_assigned;
       const existing = slotsByDate.get(dateKey) || [];
       existing.push(slot);
       slotsByDate.set(dateKey, existing);
@@ -278,7 +279,8 @@ export default function ManagerDashboard() {
 
       const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
       const dayNum = date.getDate();
-      const dateKey = date.toISOString().split('T')[0];
+      // Generate dateKey in local timezone (YYYY-MM-DD)
+      const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
       const daySlots = slotsByDate.get(dateKey) || [];
       const dayDuties = daySlots
@@ -521,9 +523,9 @@ export default function ManagerDashboard() {
                           </p>
                           <p className="text-sm text-foreground-muted">
                             {request.reason} &bull;{" "}
-                            {new Date(request.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {parseLocalDate(request.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                             {" - "}
-                            {new Date(request.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {parseLocalDate(request.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -556,32 +558,34 @@ export default function ManagerDashboard() {
                     Duty Swap Requests ({pendingSwapRequests.length})
                   </p>
                   <div className="space-y-3">
-                    {pendingSwapRequests.map(request => (
+                    {pendingSwapRequests.map(pair => (
                       <div
-                        key={request.id}
+                        key={pair.swap_pair_id}
                         className="flex items-center justify-between p-4 rounded-lg bg-surface-elevated border border-warning/20"
                       >
                         <div className="flex-1">
                           <p className="font-medium text-foreground">
-                            {request.originalPerson?.rank} {request.originalPerson?.last_name}
-                            {request.targetPerson && (
+                            {pair.personADetails?.rank} {pair.personADetails?.last_name}
+                            {pair.personBDetails && (
                               <>
                                 {" ↔ "}
-                                {request.targetPerson.rank} {request.targetPerson.last_name}
+                                {pair.personBDetails.rank} {pair.personBDetails.last_name}
                               </>
                             )}
                           </p>
                           <p className="text-sm text-foreground-muted">
                             Duty Swap &bull;{" "}
-                            {new Date(request.original_duty_date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                            {request.target_duty_date && (
+                            {pair.personASlotDate
+                              ? parseLocalDate(pair.personASlotDate).toLocaleDateString("en-US", {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                })
+                              : "Unknown date"}
+                            {pair.personBSlotDate && (
                               <>
                                 {" ↔ "}
-                                {new Date(request.target_duty_date).toLocaleDateString("en-US", {
+                                {parseLocalDate(pair.personBSlotDate).toLocaleDateString("en-US", {
                                   weekday: "short",
                                   month: "short",
                                   day: "numeric",

@@ -3,6 +3,10 @@
 
 export type UUID = string;
 
+// Date string type for timezone-agnostic dates (YYYY-MM-DD format)
+// These dates are static and don't shift with timezone conversions
+export type DateString = string;
+
 // Hierarchy levels for unit_sections
 // Unit > Company > Section > Work Section
 export type HierarchyLevel = 'unit' | 'company' | 'section' | 'work_section' | 'ruc' | 'battalion';
@@ -40,6 +44,7 @@ export interface Personnel {
   first_name: string;
   last_name: string;
   rank: string;
+  phone_number: string | null; // Contact phone number
   current_duty_score: number;
   created_at: Date;
   updated_at: Date;
@@ -115,10 +120,14 @@ export interface DutySlot {
   id: UUID;
   duty_type_id: UUID;
   personnel_id: UUID;
-  date_assigned: Date;
+  date_assigned: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
   assigned_by: UUID; // User who assigned
   points: number; // Calculated duty score (base_weight * multipliers)
   status: 'scheduled' | 'approved' | 'completed' | 'missed' | 'swapped';
+  // Swap tracking fields
+  swapped_at: Date | null; // When the swap was executed (timestamp)
+  swapped_from_personnel_id: UUID | null; // Original personnel before swap
+  swap_pair_id: UUID | null; // Link to the swap request pair
   created_at: Date;
   updated_at: Date;
 }
@@ -127,11 +136,13 @@ export interface DutySlot {
 export interface NonAvailability {
   id: UUID;
   personnel_id: UUID;
-  start_date: Date;
-  end_date: Date;
+  start_date: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
+  end_date: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
   reason: string;
   status: 'pending' | 'recommended' | 'approved' | 'rejected';
+  submitted_by: UUID | null; // User who submitted the request
   recommended_by: UUID | null; // Manager who recommended (for chain of command)
+  recommended_at: Date | null; // When recommendation was made (timestamp)
   approved_by: UUID | null;
   created_at: Date;
 }
@@ -154,7 +165,7 @@ export interface DutyScoreEvent {
   unit_section_id: UUID;
   duty_type_name: string;     // Denormalized for history
   points: number;
-  date_earned: Date;
+  date_earned: DateString;    // Static date string (YYYY-MM-DD) - timezone agnostic
   roster_month: string;       // Format: YYYY-MM (which approval period)
   approved_by: UUID | null;
   created_at: Date;
@@ -165,69 +176,108 @@ export interface BlockedDuty {
   id: UUID;
   duty_type_id: UUID;
   unit_section_id: UUID; // The unit scope for this block
-  start_date: Date;
-  end_date: Date;
+  start_date: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
+  end_date: DateString; // Static date string (YYYY-MM-DD) - timezone agnostic
   reason: string | null;
   blocked_by: UUID; // User ID who created the block
   created_at: Date;
 }
 
 // Duty Change Request (swap duties between personnel after roster approval)
+// Two-Row Model: Each swap creates two linked rows - one for each person's side
+// Both rows share the same swap_pair_id and must both be approved for the swap to execute
+
 // Approval tracking for each step in the swap approval workflow
+// Stored in separate swap_approvals table, linked by duty_change_request_id
 export interface SwapApproval {
-  approver_type: 'target_person' | 'work_section_manager' | 'section_manager' | 'company_manager';
-  for_personnel: 'original' | 'target' | 'both'; // Which personnel's chain this approval is for
+  id: UUID;
+  duty_change_request_id: UUID; // Links to the specific person's request row
+  approval_order: number; // Sequence in the approval chain (1, 2, 3...)
+  approver_type: 'work_section_manager' | 'section_manager' | 'company_manager';
   scope_unit_id: string | null; // The unit scope for manager approvals
+  is_approver: boolean; // true = can approve, false = can only recommend
   status: 'pending' | 'approved' | 'rejected';
   approved_by: string | null;
   approved_at: Date | null;
   rejection_reason: string | null;
-}
-
-// Recommendation from managers not in the direct approval chain
-export interface SwapRecommendation {
-  recommender_id: string; // User ID of the recommender
-  recommender_name: string; // Display name
-  role_name: string; // Their role (e.g., "Work Section Manager")
-  recommendation: 'recommend' | 'not_recommend';
-  comment: string;
   created_at: Date;
 }
 
+// Recommendation from managers not in the direct approval chain
+// Stored in separate swap_recommendations table
+export interface SwapRecommendation {
+  id: UUID;
+  duty_change_request_id: UUID; // Links to the specific request row
+  recommender_id: string; // User ID of the recommender
+  recommendation: 'recommend' | 'not_recommend';
+  comment: string | null;
+  created_at: Date;
+}
+
+// Each DutyChangeRequest row represents ONE person's side of a swap
+// Two rows are created per swap, linked by swap_pair_id
 export interface DutyChangeRequest {
   id: UUID;
-  // The requester (could be duty holder or manager acting on their behalf)
-  requester_id: UUID; // User ID
-  requester_personnel_id: UUID | null; // Personnel ID if applicable
+  swap_pair_id: UUID; // Links the two rows of a swap together
 
-  // Original duty assignment (the one being given up)
-  original_slot_id: UUID;
-  original_personnel_id: UUID; // Person currently assigned
-  original_duty_date: Date;
-  original_duty_type_id: UUID;
+  // This person's side of the swap
+  personnel_id: UUID; // The person this row is for
+  giving_slot_id: UUID; // The duty slot they are giving up
+  receiving_slot_id: UUID; // The duty slot they are receiving
 
-  // Target duty assignment (the one being received in exchange)
-  target_slot_id: UUID;
-  target_personnel_id: UUID; // Person to swap with
-  target_duty_date: Date;
-  target_duty_type_id: UUID;
+  // The swap partner
+  swap_partner_id: UUID; // The other person in the swap
 
   // Request details
+  requester_id: UUID; // User ID who initiated the swap request
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
 
-  // Multi-level approval tracking
-  required_approver_level: 'work_section' | 'section' | 'company'; // Highest common level needed
-  approvals: SwapApproval[]; // All required approvals for this swap
-  recommendations: SwapRecommendation[]; // Recommendations from managers not in approval chain
+  // Partner acceptance (the other party must accept before manager approvals begin)
+  partner_accepted: boolean;
+  partner_accepted_at: Date | null;
+  partner_accepted_by: string | null; // User ID who accepted
 
-  // Legacy fields for backwards compatibility
-  approved_by: UUID | null;
-  approved_at: Date | null;
+  // Rejection info
   rejection_reason: string | null;
 
   created_at: Date;
   updated_at: Date;
+}
+
+// Enriched types with related data for UI display
+export interface DutyChangeRequestWithApprovals extends DutyChangeRequest {
+  approvals: SwapApproval[];
+  recommendations: SwapRecommendation[];
+}
+
+// Represents both sides of a swap for combined display
+export interface SwapPair {
+  swap_pair_id: UUID;
+  requester_id: UUID;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected'; // Overall status (rejected if either rejected, approved if both approved)
+  created_at: Date;
+
+  // Person A's side
+  personA: {
+    request: DutyChangeRequest;
+    personnel_id: UUID;
+    giving_slot_id: UUID;
+    receiving_slot_id: UUID;
+    approvals: SwapApproval[];
+    partner_accepted: boolean;
+  };
+
+  // Person B's side
+  personB: {
+    request: DutyChangeRequest;
+    personnel_id: UUID;
+    giving_slot_id: UUID;
+    receiving_slot_id: UUID;
+    approvals: SwapApproval[];
+    partner_accepted: boolean;
+  };
 }
 
 // Session user for Auth.js

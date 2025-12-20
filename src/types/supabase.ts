@@ -23,7 +23,9 @@ export type RoleName =
   | "Standard User";
 export type FilterMode = "include" | "exclude" | "none";
 export type DutySlotStatus = "scheduled" | "approved" | "completed" | "missed" | "swapped";
-export type RequestStatus = "pending" | "approved" | "rejected";
+export type RequestStatus = "pending" | "recommended" | "approved" | "rejected";
+export type SwapApproverType = "work_section_manager" | "section_manager" | "company_manager";
+export type SwapRecommendationType = "recommend" | "not_recommend";
 
 export interface Database {
   public: {
@@ -98,6 +100,7 @@ export interface Database {
           first_name: string;
           last_name: string;
           rank: string;
+          phone_number: string | null;
           current_duty_score: number;
           created_at: string;
           updated_at: string;
@@ -110,6 +113,7 @@ export interface Database {
           first_name: string;
           last_name: string;
           rank: string;
+          phone_number?: string | null;
           current_duty_score?: number;
           created_at?: string;
           updated_at?: string;
@@ -122,6 +126,7 @@ export interface Database {
           first_name?: string;
           last_name?: string;
           rank?: string;
+          phone_number?: string | null;
           current_duty_score?: number;
           created_at?: string;
           updated_at?: string;
@@ -395,6 +400,8 @@ export interface Database {
           reason: string | null;
           status: RequestStatus;
           submitted_by: string | null;
+          recommended_by: string | null;
+          recommended_at: string | null;
           approved_by: string | null;
           created_at: string;
           updated_at: string;
@@ -408,6 +415,8 @@ export interface Database {
           reason?: string | null;
           status?: RequestStatus;
           submitted_by?: string | null;
+          recommended_by?: string | null;
+          recommended_at?: string | null;
           approved_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -421,6 +430,8 @@ export interface Database {
           reason?: string | null;
           status?: RequestStatus;
           submitted_by?: string | null;
+          recommended_by?: string | null;
+          recommended_at?: string | null;
           approved_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -430,41 +441,123 @@ export interface Database {
         Row: {
           id: string;
           organization_id: string;
-          original_slot_id: string;
-          original_personnel_id: string;
-          target_personnel_id: string;
+          swap_pair_id: string;
+          personnel_id: string;
+          giving_slot_id: string;
+          receiving_slot_id: string;
+          swap_partner_id: string;
           status: RequestStatus;
+          partner_accepted: boolean;
+          partner_accepted_at: string | null;
+          partner_accepted_by: string | null;
           requested_by: string | null;
-          approved_by: string | null;
           reason: string | null;
+          rejection_reason: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           organization_id: string;
-          original_slot_id: string;
-          original_personnel_id: string;
-          target_personnel_id: string;
+          swap_pair_id: string;
+          personnel_id: string;
+          giving_slot_id: string;
+          receiving_slot_id: string;
+          swap_partner_id: string;
           status?: RequestStatus;
+          partner_accepted?: boolean;
+          partner_accepted_at?: string | null;
+          partner_accepted_by?: string | null;
           requested_by?: string | null;
-          approved_by?: string | null;
           reason?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           organization_id?: string;
-          original_slot_id?: string;
-          original_personnel_id?: string;
-          target_personnel_id?: string;
+          swap_pair_id?: string;
+          personnel_id?: string;
+          giving_slot_id?: string;
+          receiving_slot_id?: string;
+          swap_partner_id?: string;
           status?: RequestStatus;
+          partner_accepted?: boolean;
+          partner_accepted_at?: string | null;
+          partner_accepted_by?: string | null;
           requested_by?: string | null;
-          approved_by?: string | null;
           reason?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      swap_approvals: {
+        Row: {
+          id: string;
+          duty_change_request_id: string;
+          approval_order: number;
+          approver_type: SwapApproverType;
+          scope_unit_id: string | null;
+          is_approver: boolean;
+          status: RequestStatus;
+          approved_by: string | null;
+          approved_at: string | null;
+          rejection_reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          duty_change_request_id: string;
+          approval_order: number;
+          approver_type: SwapApproverType;
+          scope_unit_id?: string | null;
+          is_approver?: boolean;
+          status?: RequestStatus;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          rejection_reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          duty_change_request_id?: string;
+          approval_order?: number;
+          approver_type?: SwapApproverType;
+          scope_unit_id?: string | null;
+          is_approver?: boolean;
+          status?: RequestStatus;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          rejection_reason?: string | null;
+          created_at?: string;
+        };
+      };
+      swap_recommendations: {
+        Row: {
+          id: string;
+          duty_change_request_id: string;
+          recommender_id: string;
+          recommendation: SwapRecommendationType;
+          comment: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          duty_change_request_id: string;
+          recommender_id: string;
+          recommendation: SwapRecommendationType;
+          comment?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          duty_change_request_id?: string;
+          recommender_id?: string;
+          recommendation?: SwapRecommendationType;
+          comment?: string | null;
+          created_at?: string;
         };
       };
       duty_score_events: {
@@ -535,6 +628,8 @@ export interface Database {
       filter_mode: FilterMode;
       duty_slot_status: DutySlotStatus;
       request_status: RequestStatus;
+      swap_approver_type: SwapApproverType;
+      swap_recommendation_type: SwapRecommendationType;
     };
   };
 }
@@ -554,6 +649,8 @@ export type DutyRequirement = Database["public"]["Tables"]["duty_requirements"][
 export type DutySlot = Database["public"]["Tables"]["duty_slots"]["Row"];
 export type NonAvailability = Database["public"]["Tables"]["non_availability"]["Row"];
 export type DutyChangeRequest = Database["public"]["Tables"]["duty_change_requests"]["Row"];
+export type SwapApproval = Database["public"]["Tables"]["swap_approvals"]["Row"];
+export type SwapRecommendation = Database["public"]["Tables"]["swap_recommendations"]["Row"];
 export type DutyScoreEvent = Database["public"]["Tables"]["duty_score_events"]["Row"];
 
 // Insert types
@@ -565,4 +662,6 @@ export type UserRoleInsert = Database["public"]["Tables"]["user_roles"]["Insert"
 export type DutySlotInsert = Database["public"]["Tables"]["duty_slots"]["Insert"];
 export type NonAvailabilityInsert = Database["public"]["Tables"]["non_availability"]["Insert"];
 export type DutyChangeRequestInsert = Database["public"]["Tables"]["duty_change_requests"]["Insert"];
+export type SwapApprovalInsert = Database["public"]["Tables"]["swap_approvals"]["Insert"];
+export type SwapRecommendationInsert = Database["public"]["Tables"]["swap_recommendations"]["Insert"];
 export type DutyScoreEventInsert = Database["public"]["Tables"]["duty_score_events"]["Insert"];

@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
-import type { UnitSection, DutyType, Personnel, RoleName, BlockedDuty } from "@/types";
+import { useToast } from "@/components/ui/Toast";
+import { PageSpinner } from "@/components/ui/Spinner";
+import type { UnitSection, DutyType, Personnel, RoleName, BlockedDuty, DateString } from "@/types";
 import {
   getUnitSections,
   getUnitSectionById,
@@ -10,6 +12,7 @@ import {
   getAllDutyTypes,
   getPersonnelByUnit,
   getAllPersonnel,
+  getPersonnelById,
   getDutyRequirements,
   hasQualification,
   getActiveNonAvailability,
@@ -26,17 +29,15 @@ import {
   approveRoster,
   unapproveRoster,
   getDutySlotsByDateAndType,
-  createDutyChangeRequest,
-  determineApproverLevel,
-  getApproverLevelName,
-  buildSwapApprovals,
+  createDutySwap,
+  determineRequiredApprovalLevel,
   clearDutySlotsByDutyType,
   buildUserAssignedByInfo,
   calculateDutyScoreFromSlots,
+  markDutyAsCompleted,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
-import type { DutyChangeRequest } from "@/types";
 import { useAuth } from "@/lib/supabase-auth";
 import {
   VIEW_MODE_KEY,
@@ -49,7 +50,7 @@ import {
 import { matchesFilter, calculateDutyPoints } from "@/lib/duty-thruster";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
-import { formatDateToString } from "@/lib/date-utils";
+import { formatDateToString, parseLocalDate, getTodayString, isWeekendStr, addDaysToDateString, formatDateForDisplay } from "@/lib/date-utils";
 
 // Manager role names that can assign duties within their scope
 const MANAGER_ROLES: RoleName[] = [
@@ -76,12 +77,13 @@ interface LibertyDay {
 // Cell selection key format: `${dutyTypeId}_${dateStr}`
 interface SelectedCell {
   dutyTypeId: string;
-  date: Date;
+  date: DateString;
   dutyTypeName: string;
 }
 
 export default function RosterPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [slots, setSlots] = useState<EnrichedSlot[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([]);
@@ -94,7 +96,7 @@ export default function RosterPage() {
   const [libertyDays, setLibertyDays] = useState<LibertyDay[]>([]);
   const [libertyModal, setLibertyModal] = useState<{
     isOpen: boolean;
-    startDate: Date | null;
+    startDate: DateString | null;
   }>({ isOpen: false, startDate: null });
   const [libertyFormData, setLibertyFormData] = useState({
     type: "liberty" as "holiday" | "liberty",
@@ -133,7 +135,7 @@ export default function RosterPage() {
   // Assignment modal state (supports multi-slot duties)
   const [assignmentModal, setAssignmentModal] = useState<{
     isOpen: boolean;
-    date: Date | null;
+    date: DateString | null;
     dutyType: DutyType | null;
     existingSlots: EnrichedSlot[]; // All slots for this duty on this date
   }>({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
@@ -331,20 +333,25 @@ export default function RosterPage() {
     }
   }, []);
 
-  // Get first and last day of the current month
+  // Get first and last day of the current month as DateStrings
   const { startDate, endDate, monthDays } = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
-    const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0);
+    // Create date objects for start and end
+    const startDateObj = new Date(year, month, 1);
+    const endDateObj = new Date(year, month + 1, 0);
 
-    // Generate array of days in the month
-    const days: Date[] = [];
-    const current = new Date(startDate);
+    // Convert to DateString format
+    const startDate: DateString = formatDateToString(startDateObj);
+    const endDate: DateString = formatDateToString(endDateObj);
+
+    // Generate array of DateStrings for each day in the month
+    const days: DateString[] = [];
+    let current = startDate;
     while (current <= endDate) {
-      days.push(new Date(current));
-      current.setDate(current.getDate() + 1);
+      days.push(current);
+      current = addDaysToDateString(current, 1);
     }
 
     return { startDate, endDate, monthDays: days };
@@ -444,11 +451,11 @@ export default function RosterPage() {
         }
       }
 
-      alert(message);
+      toast.success(message);
       fetchData(); // Refresh data
     } catch (err) {
       console.error("Error approving roster:", err);
-      alert(err instanceof Error ? err.message : "Failed to approve roster");
+      toast.error(err instanceof Error ? err.message : "Failed to approve roster");
     } finally {
       setApproving(false);
     }
@@ -474,15 +481,15 @@ export default function RosterPage() {
       );
       if (success) {
         setRosterApproval(null);
-        alert("Roster unlocked. You can now make changes.");
+        toast.success("Roster unlocked. You can now make changes.");
         fetchData();
       } else {
-        alert("Failed to unlock roster. The approval record may not exist.");
+        toast.error("Failed to unlock roster. The approval record may not exist.");
         fetchData();
       }
     } catch (err) {
       console.error("Error unlocking roster:", err);
-      alert(err instanceof Error ? err.message : "Failed to unlock roster");
+      toast.error(err instanceof Error ? err.message : "Failed to unlock roster");
     }
   }
 
@@ -502,7 +509,8 @@ export default function RosterPage() {
   const slotsByDate = useMemo(() => {
     const map = new Map<string, EnrichedSlot[]>();
     for (const slot of slots) {
-      const dateStr = formatDateToString(new Date(slot.date_assigned));
+      // slot.date_assigned is already a DateString
+      const dateStr = slot.date_assigned;
       if (!map.has(dateStr)) {
         map.set(dateStr, []);
       }
@@ -512,22 +520,19 @@ export default function RosterPage() {
   }, [slots]);
 
   // Get slot for a specific date and duty type (returns first match - for backward compatibility)
-  function getSlotForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot | null {
-    const dateStr = formatDateToString(date);
+  function getSlotForDateAndType(dateStr: DateString, dutyTypeId: string): EnrichedSlot | null {
     const slotsOnDate = slotsByDate.get(dateStr) || [];
     return slotsOnDate.find(slot => slot.duty_type_id === dutyTypeId) || null;
   }
 
   // Get ALL slots for a specific date and duty type (for multi-slot duties)
-  function getSlotsForDateAndType(date: Date, dutyTypeId: string): EnrichedSlot[] {
-    const dateStr = formatDateToString(date);
+  function getSlotsForDateAndType(dateStr: DateString, dutyTypeId: string): EnrichedSlot[] {
     const slotsOnDate = slotsByDate.get(dateStr) || [];
     return slotsOnDate.filter(slot => slot.duty_type_id === dutyTypeId);
   }
 
   // Check if date is a liberty/holiday day
-  function getLibertyDay(date: Date): LibertyDay | null {
-    const dateStr = formatDateToString(date);
+  function getLibertyDay(dateStr: DateString): LibertyDay | null {
     const effectiveUnit = selectedUnit || unitAdminUnitId;
     return libertyDays.find(ld =>
       ld.date === dateStr &&
@@ -536,24 +541,22 @@ export default function RosterPage() {
   }
 
   // Check if a specific duty cell is blocked
-  function getCellBlock(date: Date, dutyTypeId: string): BlockedDuty | null {
-    const dateTime = date.getTime();
+  function getCellBlock(dateStr: DateString, dutyTypeId: string): BlockedDuty | null {
+    // Use string comparison since BlockedDuty dates are now DateStrings
     return blockedDuties.find((bd) => {
       if (bd.duty_type_id !== dutyTypeId) return false;
-      const start = new Date(bd.start_date).getTime();
-      const end = new Date(bd.end_date).getTime();
-      return dateTime >= start && dateTime <= end;
+      return dateStr >= bd.start_date && dateStr <= bd.end_date;
     }) || null;
   }
 
   // Get cell key for selection map
-  function getCellKey(dutyTypeId: string, date: Date): string {
-    return `${dutyTypeId}_${formatDateToString(date)}`;
+  function getCellKey(dutyTypeId: string, dateStr: DateString): string {
+    return `${dutyTypeId}_${dateStr}`;
   }
 
   // Toggle cell selection (for multi-select blocking)
-  function toggleCellSelection(date: Date, dutyType: DutyType) {
-    const key = getCellKey(dutyType.id, date);
+  function toggleCellSelection(dateStr: DateString, dutyType: DutyType) {
+    const key = getCellKey(dutyType.id, dateStr);
     setSelectedCells(prev => {
       const newMap = new Map(prev);
       if (newMap.has(key)) {
@@ -561,7 +564,7 @@ export default function RosterPage() {
       } else {
         newMap.set(key, {
           dutyTypeId: dutyType.id,
-          date: new Date(date),
+          date: dateStr,
           dutyTypeName: dutyType.duty_name,
         });
       }
@@ -570,8 +573,8 @@ export default function RosterPage() {
   }
 
   // Check if cell is selected
-  function isCellSelected(dutyTypeId: string, date: Date): boolean {
-    return selectedCells.has(getCellKey(dutyTypeId, date));
+  function isCellSelected(dutyTypeId: string, dateStr: DateString): boolean {
+    return selectedCells.has(getCellKey(dutyTypeId, dateStr));
   }
 
   // Clear all selected cells
@@ -592,14 +595,14 @@ export default function RosterPage() {
   }
 
   // Open block modal to view/remove existing block
-  function openExistingBlockModal(date: Date, dutyType: DutyType) {
-    const existingBlock = getCellBlock(date, dutyType.id);
+  function openExistingBlockModal(dateStr: DateString, dutyType: DutyType) {
+    const existingBlock = getCellBlock(dateStr, dutyType.id);
     if (!existingBlock) return;
     setBlockModal({
       isOpen: true,
       cells: [{
         dutyTypeId: dutyType.id,
-        date: new Date(date),
+        date: dateStr,
         dutyTypeName: dutyType.duty_name,
       }],
       existingBlock,
@@ -611,7 +614,7 @@ export default function RosterPage() {
   function handleBlockCells() {
     if (blockModal.cells.length === 0 || !user) return;
     if (!blockComment.trim()) {
-      alert("Please provide a reason for blocking.");
+      toast.warning("Please provide a reason for blocking.");
       return;
     }
 
@@ -649,22 +652,33 @@ export default function RosterPage() {
     fetchData();
   }
 
-  function isToday(date: Date): boolean {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
+  function isToday(dateStr: DateString): boolean {
+    return dateStr === getTodayString();
   }
 
-  function isWeekend(date: Date): boolean {
-    const day = date.getDay();
-    return day === 0 || day === 6;
+  function isWeekend(dateStr: DateString): boolean {
+    return isWeekendStr(dateStr);
   }
 
   function formatMonthYear(date: Date): string {
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }
 
-  function formatDate(date: Date): string {
-    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  function formatDate(dateStr: DateString): string {
+    return formatDateForDisplay(dateStr);
+  }
+
+  // Get day name from DateString
+  function getDayName(dateStr: DateString, format: "short" | "long" = "short"): string {
+    const date = parseLocalDate(dateStr);
+    return date.toLocaleDateString("en-US", { weekday: format });
+  }
+
+  // Get the unit name for a personnel (returns the lowest level unit name)
+  function getPersonnelUnitName(unitSectionId: string | undefined): string {
+    if (!unitSectionId) return "";
+    const unit = unitMap.get(unitSectionId);
+    return unit?.unit_name || "";
   }
 
   function getStatusColor(status: string, isDuplicate: boolean = false): string {
@@ -763,7 +777,7 @@ export default function RosterPage() {
   // Get eligible personnel for a duty type on a specific date
   // For regular users: only themselves
   // For managers: personnel within their scope
-  function getEligiblePersonnel(dutyType: DutyType, date: Date): Personnel[] {
+  function getEligiblePersonnel(dutyType: DutyType, dateStr: DateString): Personnel[] {
     const allPersonnel = getAllPersonnel();
     const requirements = getDutyRequirements(dutyType.id);
 
@@ -791,7 +805,7 @@ export default function RosterPage() {
       }
 
       // Check if person is available (not on non-availability)
-      const nonAvail = getActiveNonAvailability(person.id, date);
+      const nonAvail = getActiveNonAvailability(person.id, dateStr);
       if (nonAvail) return false;
 
       // Check qualifications if any are required
@@ -807,21 +821,21 @@ export default function RosterPage() {
   }
 
   // Handle cell click for assignment
-  function handleCellClick(date: Date, dutyType: DutyType) {
+  function handleCellClick(dateStr: DateString, dutyType: DutyType) {
     if (!canAssignDuties) return;
 
     // Check if roster is approved (locked)
     if (rosterApproval) {
-      alert("This roster has been approved and is locked for editing.");
+      toast.warning("This roster has been approved and is locked for editing.");
       return;
     }
 
     // Check if cell is blocked
-    const cellBlock = getCellBlock(date, dutyType.id);
+    const cellBlock = getCellBlock(dateStr, dutyType.id);
     if (cellBlock) return; // Can't assign to blocked cells
 
     // Get all existing slots for this duty on this date
-    const existingSlots = getSlotsForDateAndType(date, dutyType.id);
+    const existingSlots = getSlotsForDateAndType(dateStr, dutyType.id);
     const filledSlots = existingSlots.filter(s => s.personnel_id);
     const slotsNeeded = dutyType.slots_needed || 1;
 
@@ -838,40 +852,40 @@ export default function RosterPage() {
       // Check if user is already assigned
       const userAlreadyAssigned = filledSlots.some(s => s.personnel_id === currentUserPersonnel?.id);
       if (userAlreadyAssigned) {
-        alert("You are already assigned to this duty on this date.");
+        toast.info("You are already assigned to this duty on this date.");
         return;
       }
     }
 
     setAssignmentModal({
       isOpen: true,
-      date,
+      date: dateStr,
       dutyType,
       existingSlots,
     });
   }
 
   // Handle date click for liberty marking (Unit Admin only)
-  function handleDateClick(date: Date) {
+  function handleDateClick(dateStr: DateString) {
     if (!isUnitAdmin || !unitAdminUnitId) return;
 
     // Check if roster is approved (locked)
     if (rosterApproval) {
-      alert("This roster has been approved and is locked for editing.");
+      toast.warning("This roster has been approved and is locked for editing.");
       return;
     }
 
     // Check if already a liberty day - if so, offer to remove
-    const existing = getLibertyDay(date);
+    const existing = getLibertyDay(dateStr);
     if (existing) {
-      if (confirm(`Remove ${existing.type} day on ${formatDate(date)}?`)) {
+      if (confirm(`Remove ${existing.type} day on ${formatDate(dateStr)}?`)) {
         const updated = libertyDays.filter(ld => ld.date !== existing.date || ld.unitId !== existing.unitId);
         saveLibertyDays(updated);
       }
       return;
     }
 
-    setLibertyModal({ isOpen: true, startDate: date });
+    setLibertyModal({ isOpen: true, startDate: dateStr });
     setLibertyFormData({ type: "liberty", days: 1 });
   }
 
@@ -880,12 +894,9 @@ export default function RosterPage() {
     if (!libertyModal.startDate || !user || !unitAdminUnitId) return;
 
     const newDays: LibertyDay[] = [];
-    const start = new Date(libertyModal.startDate);
 
     for (let i = 0; i < libertyFormData.days; i++) {
-      const date = new Date(start);
-      date.setDate(date.getDate() + i);
-      const dateStr = formatDateToString(date);
+      const dateStr = addDaysToDateString(libertyModal.startDate, i);
 
       // Check if this date already has a liberty day for this unit
       const exists = libertyDays.some(ld => ld.date === dateStr && ld.unitId === unitAdminUnitId);
@@ -919,7 +930,7 @@ export default function RosterPage() {
       const actualFilled = actualSlots.filter(s => s.personnel_id).length;
 
       if (actualFilled >= slotsNeeded) {
-        alert(`All ${slotsNeeded} slots are already filled for this duty.`);
+        toast.warning(`All ${slotsNeeded} slots are already filled for this duty.`);
         fetchData();
         setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
         return;
@@ -927,7 +938,7 @@ export default function RosterPage() {
 
       // Check if person is already assigned
       if (actualSlots.some(s => s.personnel_id === personnelId)) {
-        alert("This person is already assigned to this duty on this date.");
+        toast.info("This person is already assigned to this duty on this date.");
         return;
       }
 
@@ -944,6 +955,9 @@ export default function RosterPage() {
         assigned_by: user.id,
         points: calculatedPoints,
         status: "scheduled" as const,
+        swapped_at: null,
+        swapped_from_personnel_id: null,
+        swap_pair_id: null,
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -959,7 +973,7 @@ export default function RosterPage() {
       const newEnrichedSlot: EnrichedSlot = {
         ...newSlot,
         duty_type: { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id },
-        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank } : null,
+        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank, unit_section_id: assignedPerson.unit_section_id } : null,
         assigned_by_info,
       };
 
@@ -1041,62 +1055,30 @@ export default function RosterPage() {
   // Handle swap request submission
   function handleSubmitSwapRequest() {
     if (!swapModal.originalSlot || !swapModal.targetSlot || !user || !swapModal.reason.trim()) {
-      alert("Please select a duty to swap with and provide a reason.");
+      toast.warning("Please select a duty to swap with and provide a reason.");
       return;
     }
 
     setSubmittingSwap(true);
 
     try {
-      // Determine the required approver level
-      const approverLevel = determineApproverLevel(
-        swapModal.originalSlot.personnel_id!,
-        swapModal.targetSlot.personnel_id!
-      );
-
-      // Build the multi-level approval workflow
-      const approvals = buildSwapApprovals(
-        swapModal.originalSlot.personnel_id!,
-        swapModal.targetSlot.personnel_id!
-      );
-
-      // Create the swap request
-      const request: DutyChangeRequest = {
-        id: crypto.randomUUID(),
-        requester_id: user.id,
-        requester_personnel_id: currentUserPersonnel?.id || null,
-
-        original_slot_id: swapModal.originalSlot.id,
-        original_personnel_id: swapModal.originalSlot.personnel_id!,
-        original_duty_date: new Date(swapModal.originalSlot.date_assigned),
-        original_duty_type_id: swapModal.originalSlot.duty_type_id,
-
-        target_slot_id: swapModal.targetSlot.id,
-        target_personnel_id: swapModal.targetSlot.personnel_id!,
-        target_duty_date: new Date(swapModal.targetSlot.date_assigned),
-        target_duty_type_id: swapModal.targetSlot.duty_type_id,
-
+      // Create the swap request with two linked rows
+      createDutySwap({
+        personAId: swapModal.originalSlot.personnel_id!,
+        personASlotId: swapModal.originalSlot.id,
+        personBId: swapModal.targetSlot.personnel_id!,
+        personBSlotId: swapModal.targetSlot.id,
+        requesterId: user.id,
         reason: swapModal.reason.trim(),
-        status: 'pending',
-        required_approver_level: approverLevel,
-        approvals: approvals,
-        recommendations: [],
-        approved_by: null,
-        approved_at: null,
-        rejection_reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+      });
 
-      createDutyChangeRequest(request);
-
-      alert("Swap request submitted successfully! The target person and chain of command will need to approve.");
+      toast.success("Swap request submitted! The target person and chain of command will need to approve.");
 
       // Close the modal
       setSwapModal({ isOpen: false, originalSlot: null, step: 'select', targetSlot: null, reason: '' });
     } catch (err) {
       console.error("Error submitting swap request:", err);
-      alert("Failed to submit swap request. Please try again.");
+      toast.error("Failed to submit swap request. Please try again.");
     } finally {
       setSubmittingSwap(false);
     }
@@ -1123,18 +1105,23 @@ export default function RosterPage() {
   function exportToCSV() {
     if (exportDutyTypes.length === 0) return;
     const headers = ["Date", "Day", "Status", ...exportDutyTypes.map(dt => dt.duty_name)];
-    const rows = monthDays.map((date) => {
-      const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-      const dateStr = formatDateToString(date);
-      const libertyDay = getLibertyDay(date);
+    const rows = monthDays.map((dateStr) => {
+      const dayName = getDayName(dateStr, "long");
+      const libertyDay = getLibertyDay(dateStr);
       const dayStatus = libertyDay ? libertyDay.type.toUpperCase() : "";
 
       const dutyAssignments = exportDutyTypes.map(dt => {
         if (libertyDay) return libertyDay.type.toUpperCase();
-        const slot = getSlotForDateAndType(date, dt.id);
-        if (!slot) return "";
-        if (!slot.personnel) return "Unassigned";
-        return `${slot.personnel.rank} ${slot.personnel.last_name}`;
+        // Get ALL slots for this duty type on this date (handles multi-slot duties)
+        const allSlots = getSlotsForDateAndType(dateStr, dt.id);
+        if (allSlots.length === 0) return "";
+        // Get all assigned personnel, filter out unassigned slots
+        const assignedPersonnel = allSlots
+          .filter(slot => slot.personnel)
+          .map(slot => `${slot.personnel!.rank} ${slot.personnel!.last_name}`);
+        if (assignedPersonnel.length === 0) return "Unassigned";
+        // Join multiple personnel with semicolon for CSV compatibility
+        return assignedPersonnel.join("; ");
       });
 
       return [dateStr, dayName, dayStatus, ...dutyAssignments];
@@ -1206,12 +1193,12 @@ export default function RosterPage() {
               </tr>
             </thead>
             <tbody>
-              ${monthDays.map((date) => {
-                const isWeekendDay = isWeekend(date);
-                const isTodayDate = isToday(date);
-                const libertyDay = getLibertyDay(date);
-                const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
-                const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              ${monthDays.map((dateStr) => {
+                const isWeekendDay = isWeekend(dateStr);
+                const isTodayDate = isToday(dateStr);
+                const libertyDay = getLibertyDay(dateStr);
+                const dayName = getDayName(dateStr);
+                const formattedDate = formatDateForDisplay(dateStr, 'short');
 
                 let rowClass = "";
                 if (libertyDay?.type === "liberty") rowClass = "liberty";
@@ -1224,11 +1211,17 @@ export default function RosterPage() {
                     <td class="date-col">${formattedDate}</td>
                     <td>${dayName}${libertyDay ? ` (${libertyDay.type.toUpperCase()})` : ""}</td>
                     ${exportDutyTypes.map(dt => {
-                      if (libertyDay) return `<td style="color: #4CAF50; font-style: italic;">${libertyDay.type.toUpperCase()}</td>`;
-                      const slot = getSlotForDateAndType(date, dt.id);
-                      if (!slot) return '<td>-</td>';
-                      if (!slot.personnel) return '<td style="color: #999;">Unassigned</td>';
-                      return `<td>${slot.personnel.rank} ${slot.personnel.last_name}</td>`;
+                      // Get ALL slots for this duty type on this date (handles multi-slot duties)
+                      const allSlots = getSlotsForDateAndType(dateStr, dt.id);
+                      const cellStyle = libertyDay ? 'color: #4CAF50;' : '';
+                      if (allSlots.length === 0) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : '-'}</td>`;
+                      // Get all assigned personnel
+                      const assignedPersonnel = allSlots
+                        .filter(slot => slot.personnel)
+                        .map(slot => `${slot.personnel!.rank} ${slot.personnel!.last_name}`);
+                      if (assignedPersonnel.length === 0) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : 'Unassigned'}</td>`;
+                      // Join multiple personnel with line break for print view
+                      return `<td style="${cellStyle}">${assignedPersonnel.join('<br>')}</td>`;
                     }).join("")}
                   </tr>
                 `;
@@ -1266,8 +1259,8 @@ export default function RosterPage() {
 
     // Count blocked cells (individual duty+date blocks)
     const blockedCellsCount = blockedDuties.filter(bd => {
-      const blockDate = new Date(bd.start_date);
-      return blockDate >= startDate && blockDate <= endDate &&
+      // Use string comparison since bd.start_date and startDate/endDate are all DateStrings
+      return bd.start_date >= startDate && bd.start_date <= endDate &&
         filteredDutyTypes.some(dt => dt.id === bd.duty_type_id);
     }).length;
 
@@ -1293,6 +1286,94 @@ export default function RosterPage() {
       remainingDuties,
     };
   }, [monthDays, filteredDutyTypes, blockedDuties, startDate, endDate, slots]);
+
+  // Calculate personnel breakdown by unit hierarchy (Company, Section, WorkSection)
+  // Filtered by selected duty type(s)
+  const personnelBreakdown = useMemo(() => {
+    const companyMap = new Map<string, { name: string; count: number }>();
+    const sectionMap = new Map<string, { name: string; count: number }>();
+    const workSectionMap = new Map<string, { name: string; count: number }>();
+
+    // Filter slots by selected duty types
+    const filteredDutyTypeIds = new Set(filteredDutyTypes.map(dt => dt.id));
+    const filteredSlots = slots.filter(s => filteredDutyTypeIds.has(s.duty_type_id));
+
+    // Get unique personnel IDs assigned in this month (filtered by duty type)
+    const assignedPersonnelIds = new Set(
+      filteredSlots
+        .filter(s => s.personnel_id)
+        .map(s => s.personnel_id!)
+    );
+
+    // For each assigned personnel, find their unit hierarchy
+    assignedPersonnelIds.forEach(personnelId => {
+      const slot = filteredSlots.find(s => s.personnel_id === personnelId);
+      if (!slot?.personnel) return;
+
+      const personnelUnit = unitMap.get(slot.personnel.unit_section_id);
+      if (!personnelUnit) return;
+
+      // Walk up the hierarchy to categorize
+      let currentUnit: UnitSection | undefined = personnelUnit;
+      let workSection: UnitSection | undefined;
+      let section: UnitSection | undefined;
+      let company: UnitSection | undefined;
+
+      while (currentUnit) {
+        switch (currentUnit.hierarchy_level) {
+          case 'work_section':
+            workSection = currentUnit;
+            break;
+          case 'section':
+            section = currentUnit;
+            break;
+          case 'company':
+            company = currentUnit;
+            break;
+        }
+        currentUnit = currentUnit.parent_id ? unitMap.get(currentUnit.parent_id) : undefined;
+      }
+
+      // Increment counts
+      if (company) {
+        const key = company.id;
+        const existing = companyMap.get(key);
+        companyMap.set(key, {
+          name: company.unit_name,
+          count: (existing?.count || 0) + 1,
+        });
+      }
+
+      if (section) {
+        const key = section.id;
+        const existing = sectionMap.get(key);
+        sectionMap.set(key, {
+          name: section.unit_name,
+          count: (existing?.count || 0) + 1,
+        });
+      }
+
+      if (workSection) {
+        const key = workSection.id;
+        const existing = workSectionMap.get(key);
+        workSectionMap.set(key, {
+          name: workSection.unit_name,
+          count: (existing?.count || 0) + 1,
+        });
+      }
+    });
+
+    // Convert to sorted arrays
+    const sortByCount = (a: { name: string; count: number }, b: { name: string; count: number }) =>
+      b.count - a.count;
+
+    return {
+      companies: Array.from(companyMap.values()).sort(sortByCount),
+      sections: Array.from(sectionMap.values()).sort(sortByCount),
+      workSections: Array.from(workSectionMap.values()).sort(sortByCount),
+      totalAssigned: assignedPersonnelIds.size,
+    };
+  }, [slots, unitMap, filteredDutyTypes]);
 
   return (
     <div className="space-y-6">
@@ -1590,11 +1671,11 @@ export default function RosterPage() {
                 </tr>
               </thead>
               <tbody>
-                {monthDays.map((date, idx) => {
-                  const dateIsToday = isToday(date);
-                  const dateIsWeekend = isWeekend(date);
-                  const libertyDay = getLibertyDay(date);
-                  const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+                {monthDays.map((dateStr, idx) => {
+                  const dateIsToday = isToday(dateStr);
+                  const dateIsWeekend = isWeekend(dateStr);
+                  const libertyDay = getLibertyDay(dateStr);
+                  const dayName = getDayName(dateStr);
 
                   // Determine row background
                   let rowBg = "";
@@ -1620,14 +1701,14 @@ export default function RosterPage() {
                           dateIsToday ? "bg-primary/10 font-bold text-primary" :
                           dateIsWeekend ? "bg-highlight/5" : "bg-surface"
                         } ${isUnitAdmin && isUnitAdminView ? "cursor-pointer hover:bg-primary/20" : ""}`}
-                        onClick={() => isUnitAdmin && isUnitAdminView && handleDateClick(date)}
+                        onClick={() => isUnitAdmin && isUnitAdminView && handleDateClick(dateStr)}
                       >
                         <span className={
                           libertyDay ? "text-green-400" :
                           dateIsToday ? "text-primary" :
                           dateIsWeekend ? "text-highlight" : "text-foreground"
                         }>
-                          {formatDate(date)}
+                          {formatDate(dateStr)}
                         </span>
                         {libertyDay && (
                           <span className={`ml-1 text-xs px-1 rounded ${
@@ -1644,11 +1725,11 @@ export default function RosterPage() {
                         {dayName}
                       </td>
                       {filteredDutyTypes.map((dt) => {
-                        const allSlots = getSlotsForDateAndType(date, dt.id);
+                        const allSlots = getSlotsForDateAndType(dateStr, dt.id);
                         const filledSlots = allSlots.filter(s => s.personnel_id);
                         const slotsNeeded = dt.slots_needed || 1;
-                        const cellBlock = getCellBlock(date, dt.id);
-                        const isSelected = isCellSelected(dt.id, date);
+                        const cellBlock = getCellBlock(dateStr, dt.id);
+                        const isSelected = isCellSelected(dt.id, dateStr);
 
                         // Cell-level block (specific duty on specific day)
                         if (cellBlock) {
@@ -1656,7 +1737,7 @@ export default function RosterPage() {
                             <td
                               key={dt.id}
                               className={`text-center px-3 py-2 text-sm ${isUnitAdmin && isUnitAdminView ? "cursor-pointer hover:bg-orange-500/10" : ""}`}
-                              onClick={() => isUnitAdmin && isUnitAdminView && openExistingBlockModal(date, dt)}
+                              onClick={() => isUnitAdmin && isUnitAdminView && openExistingBlockModal(dateStr, dt)}
                               title={cellBlock.reason || "Blocked"}
                             >
                               <div className="flex flex-col items-center gap-0.5">
@@ -1683,14 +1764,17 @@ export default function RosterPage() {
                                   ? "bg-orange-500/30 ring-2 ring-orange-500 ring-inset"
                                   : "hover:bg-orange-500/10"
                               }`}
-                              onClick={() => toggleCellSelection(date, dt)}
+                              onClick={() => toggleCellSelection(dateStr, dt)}
                             >
                               {filledSlots.length > 0 ? (
                                 <div className={`flex flex-col gap-0.5 ${isSelected ? "opacity-50" : ""}`}>
                                   {filledSlots.map((slot, idx) => (
                                     <div key={slot.id || idx} className={`px-2 py-0.5 rounded text-xs ${getStatusColor(slot.status, isPersonnelDuplicate(slot.personnel_id))}`}>
                                       {slot.personnel ? (
-                                        <span>{slot.personnel.rank} {slot.personnel.first_name} {slot.personnel.last_name}</span>
+                                        <span className="flex flex-col">
+                                          <span className="text-foreground-muted text-[10px]">{getPersonnelUnitName(slot.personnel.unit_section_id)}</span>
+                                          <span>{slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}</span>
+                                        </span>
                                       ) : (
                                         <span className="text-foreground-muted italic">Unassigned</span>
                                       )}
@@ -1716,7 +1800,7 @@ export default function RosterPage() {
                           <td
                             key={dt.id}
                             className={`text-center px-3 py-2 text-sm ${canAssignDuties ? "cursor-pointer hover:bg-primary/5" : ""}`}
-                            onClick={() => canAssignDuties && handleCellClick(date, dt)}
+                            onClick={() => canAssignDuties && handleCellClick(dateStr, dt)}
                           >
                             {filledSlots.length > 0 ? (
                               <div className="flex flex-col gap-0.5">
@@ -1726,16 +1810,21 @@ export default function RosterPage() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       if (canAssignDuties) {
-                                        handleCellClick(date, dt);
+                                        handleCellClick(dateStr, dt);
                                       } else {
                                         setSelectedSlot(slot);
                                       }
                                     }}
                                     className={`px-2 py-0.5 rounded text-xs transition-colors hover:brightness-110 ${getStatusColor(slot.status, isPersonnelDuplicate(slot.personnel_id))}`}
+                                    title={slot.status === 'swapped' && slot.swapped_at ? `Swapped on ${new Date(slot.swapped_at).toLocaleString()}` : undefined}
                                   >
                                     {slot.personnel ? (
-                                      <span>
-                                        {slot.personnel.rank} {slot.personnel.first_name} {slot.personnel.last_name}
+                                      <span className="flex flex-col text-left">
+                                        <span className="text-foreground-muted text-[10px]">{getPersonnelUnitName(slot.personnel.unit_section_id)}</span>
+                                        <span className="flex items-center gap-1">
+                                          {slot.status === 'swapped' && <span className="text-blue-400">↔</span>}
+                                          {slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}
+                                        </span>
                                       </span>
                                     ) : (
                                       <span className="text-foreground-muted italic">Unassigned</span>
@@ -1774,6 +1863,10 @@ export default function RosterPage() {
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded bg-green-500/20" />
           <span className="text-foreground-muted">Completed</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded bg-blue-500/20" />
+          <span className="text-foreground-muted">↔ Swapped</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded bg-red-500/20" />
@@ -1826,6 +1919,75 @@ export default function RosterPage() {
         </div>
       </div>
 
+      {/* Personnel Breakdown by Unit */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Company Breakdown */}
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">By Company</h3>
+            <span className="text-xs text-foreground-muted">
+              {personnelBreakdown.companies.length} companies
+            </span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {personnelBreakdown.companies.length > 0 ? (
+              personnelBreakdown.companies.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between py-1 px-2 rounded bg-surface-elevated">
+                  <span className="text-sm text-foreground truncate">{item.name}</span>
+                  <span className="text-sm font-medium text-primary ml-2">{item.count}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-foreground-muted text-center py-2">No data</p>
+            )}
+          </div>
+        </div>
+
+        {/* Section Breakdown */}
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">By Section</h3>
+            <span className="text-xs text-foreground-muted">
+              {personnelBreakdown.sections.length} sections
+            </span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {personnelBreakdown.sections.length > 0 ? (
+              personnelBreakdown.sections.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between py-1 px-2 rounded bg-surface-elevated">
+                  <span className="text-sm text-foreground truncate">{item.name}</span>
+                  <span className="text-sm font-medium text-primary ml-2">{item.count}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-foreground-muted text-center py-2">No data</p>
+            )}
+          </div>
+        </div>
+
+        {/* Work Section Breakdown */}
+        <div className="bg-surface rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">By Work Section</h3>
+            <span className="text-xs text-foreground-muted">
+              {personnelBreakdown.workSections.length} work sections
+            </span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {personnelBreakdown.workSections.length > 0 ? (
+              personnelBreakdown.workSections.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between py-1 px-2 rounded bg-surface-elevated">
+                  <span className="text-sm text-foreground truncate">{item.name}</span>
+                  <span className="text-sm font-medium text-primary ml-2">{item.count}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-foreground-muted text-center py-2">No data</p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Slot Detail Modal (read-only) */}
       {selectedSlot && !assignmentModal.isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1852,7 +2014,7 @@ export default function RosterPage() {
                 <label className="text-sm text-foreground-muted">Assigned To</label>
                 <p className="text-foreground font-medium">
                   {selectedSlot.personnel
-                    ? `${selectedSlot.personnel.rank} ${selectedSlot.personnel.first_name} ${selectedSlot.personnel.last_name}`
+                    ? `${selectedSlot.personnel.rank} ${selectedSlot.personnel.last_name}, ${selectedSlot.personnel.first_name}`
                     : "Unassigned"}
                 </p>
               </div>
@@ -1874,7 +2036,7 @@ export default function RosterPage() {
                     <span
                       className={`inline-block px-2 py-0.5 rounded text-sm ${getStatusColor(selectedSlot.status)}`}
                     >
-                      {selectedSlot.status.charAt(0).toUpperCase() + selectedSlot.status.slice(1)}
+                      {selectedSlot.status === 'swapped' ? '↔ Swapped' : selectedSlot.status.charAt(0).toUpperCase() + selectedSlot.status.slice(1)}
                     </span>
                   </p>
                 </div>
@@ -1885,8 +2047,62 @@ export default function RosterPage() {
                   </p>
                 </div>
               </div>
+              {/* Swap Information */}
+              {selectedSlot.status === 'swapped' && selectedSlot.swapped_at && (
+                <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-blue-400">↔</span>
+                    <span className="text-sm font-medium text-blue-400">Swap Details</span>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    {selectedSlot.swapped_from_personnel_id && (
+                      <p className="text-foreground-muted">
+                        <span className="text-foreground">Originally assigned to:</span>{' '}
+                        {(() => {
+                          const originalPerson = getPersonnelById(selectedSlot.swapped_from_personnel_id);
+                          return originalPerson
+                            ? `${originalPerson.rank} ${originalPerson.last_name}, ${originalPerson.first_name}`
+                            : 'Unknown';
+                        })()}
+                      </p>
+                    )}
+                    <p className="text-foreground-muted">
+                      <span className="text-foreground">Swapped on:</span>{' '}
+                      {new Date(selectedSlot.swapped_at).toLocaleString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="p-4 border-t border-border flex justify-end gap-2">
+              {/* Show Mark Complete button for past duties that are still scheduled/approved */}
+              {selectedSlot.date_assigned < getTodayString() &&
+                (selectedSlot.status === 'scheduled' || selectedSlot.status === 'approved') &&
+                selectedSlot.personnel_id &&
+                isManager && (
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      const result = markDutyAsCompleted(selectedSlot.id);
+                      if (result.success) {
+                        toast.success("Duty marked as completed");
+                        setSelectedSlot(null);
+                        fetchData(); // Refresh data
+                      } else {
+                        toast.error(result.error || "Failed to mark duty as completed");
+                      }
+                    }}
+                  >
+                    Mark Complete
+                  </Button>
+                )}
               {/* Show Request Swap button if roster is approved and user can request */}
               {rosterApproval && selectedSlot.personnel_id && (
                 (selectedSlot.personnel_id === currentUserPersonnel?.id || isManager) && (
@@ -2011,7 +2227,18 @@ export default function RosterPage() {
                       <div className="p-3 bg-yellow-500/10 rounded-lg text-sm">
                         <p className="text-yellow-400 font-medium">Approval Required:</p>
                         <p className="text-foreground-muted">
-                          {getApproverLevelName(determineApproverLevel(swapModal.originalSlot.personnel_id!, swapModal.targetSlot.personnel_id!))}
+                          {(() => {
+                            const level = determineRequiredApprovalLevel(
+                              swapModal.originalSlot.personnel_id!,
+                              swapModal.targetSlot.personnel_id!
+                            );
+                            const levelNames: Record<string, string> = {
+                              'work_section': 'Work Section Managers',
+                              'section': 'Section Managers',
+                              'company': 'Company Manager',
+                            };
+                            return levelNames[level] || 'Manager approval';
+                          })()}
                         </p>
                       </div>
                     )}
@@ -2096,7 +2323,7 @@ export default function RosterPage() {
                         <div key={slot.id} className="flex items-center justify-between p-2 bg-primary/10 rounded-lg">
                           <div className="flex-1">
                             <span className="text-foreground font-medium">
-                              {slot.personnel?.rank} {slot.personnel?.first_name} {slot.personnel?.last_name}
+                              {slot.personnel?.rank} {slot.personnel?.last_name}, {slot.personnel?.first_name}
                             </span>
                             {slot.assigned_by_info && (
                               <p className="text-xs text-foreground-muted mt-0.5">
@@ -2497,10 +2724,9 @@ export default function RosterPage() {
                       `Clear all ${dt.duty_name} assignments for ${currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}?\n\nThis will remove all assigned personnel for this duty type in the current month.`
                     );
                     if (confirmed) {
-                      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-                      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-                      const cleared = clearDutySlotsByDutyType(dt.id, startOfMonth, endOfMonth);
-                      alert(`Cleared ${cleared} duty slot${cleared !== 1 ? 's' : ''}`);
+                      // Use DateString format for start and end of month
+                      const cleared = clearDutySlotsByDutyType(dt.id, startDate, endDate);
+                      toast.success(`Cleared ${cleared} duty slot${cleared !== 1 ? 's' : ''}`);
                       setDutyTypeDetailsModal({ isOpen: false, dutyType: null });
                       fetchData();
                     }
