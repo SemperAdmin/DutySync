@@ -1611,6 +1611,30 @@ export function clearDutyRequirements(dutyTypeId: string): void {
 }
 
 // Duty Slots
+
+/**
+ * Normalize a date string to DateString (YYYY-MM-DD) format.
+ * Handles both ISO timestamps (2025-12-01T00:00:00.000Z) and DateString (2025-12-01) formats.
+ * This is critical for slot limit validation - dates must match exactly.
+ */
+function normalizeDateToDateString(date: string): DateString {
+  // If it's already a DateString (YYYY-MM-DD), return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date as DateString;
+  }
+  // Handle ISO timestamp format by extracting the date part
+  if (date.includes('T')) {
+    return date.split('T')[0] as DateString;
+  }
+  // Fallback: try to extract YYYY-MM-DD pattern
+  const match = date.match(/(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    return match[1] as DateString;
+  }
+  // Last resort: return as-is (will likely fail comparison but won't crash)
+  return date as DateString;
+}
+
 export function getAllDutySlots(): DutySlot[] {
   // String comparison works correctly for YYYY-MM-DD format
   return getFromStorage<DutySlot>(KEYS.dutySlots).sort(
@@ -1623,24 +1647,28 @@ export function getDutySlotById(id: string): DutySlot | undefined {
 }
 
 export function getDutySlotsByDateRange(startDate: DateString, endDate: DateString): DutySlot[] {
-  // Since date_assigned is now a DateString, we can use simple string comparison
+  // Normalize dates for comparison - handles both ISO timestamps and DateString formats
   // YYYY-MM-DD format sorts correctly as strings
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    return slot.date_assigned >= startDate && slot.date_assigned <= endDate;
+    const slotDate = normalizeDateToDateString(slot.date_assigned);
+    return slotDate >= startDate && slotDate <= endDate;
   });
 }
 
 export function getDutySlotsByDate(dateStr: DateString): DutySlot[] {
-  // Direct string comparison - timezone safe
+  // Normalize dates for comparison - handles both ISO timestamps and DateString formats
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    return slot.date_assigned === dateStr;
+    const slotDate = normalizeDateToDateString(slot.date_assigned);
+    return slotDate === dateStr;
   });
 }
 
 export function getDutySlotsByDateAndType(dateStr: DateString, dutyTypeId: string): DutySlot[] {
-  // Direct string comparison - timezone safe
+  // Normalize dates for comparison - handles both ISO timestamps and DateString formats
+  // This is critical for slot limit validation to work correctly
   return getFromStorage<DutySlot>(KEYS.dutySlots).filter((slot) => {
-    return slot.date_assigned === dateStr && slot.duty_type_id === dutyTypeId;
+    const slotDate = normalizeDateToDateString(slot.date_assigned);
+    return slotDate === dateStr && slot.duty_type_id === dutyTypeId;
   });
 }
 

@@ -153,3 +153,57 @@ export function ModalFooter({ children, className = "" }: ModalFooterProps) {
     </div>
   );
 }
+
+interface ConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: "danger" | "warning" | "default";
+}
+
+export function ConfirmModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  variant = "default",
+}: ConfirmModalProps) {
+  const confirmButtonClass =
+    variant === "danger"
+      ? "bg-red-600 hover:bg-red-700 text-white"
+      : variant === "warning"
+      ? "bg-yellow-600 hover:bg-yellow-700 text-white"
+      : "bg-accent hover:bg-accent/80 text-white";
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={title} className="max-w-md w-full">
+      <ModalBody>
+        <p className="text-foreground-muted">{message}</p>
+      </ModalBody>
+      <ModalFooter>
+        <button
+          onClick={onClose}
+          className="px-4 py-2 text-sm font-medium text-foreground bg-surface-elevated hover:bg-surface-elevated/80 rounded-md border border-border transition-colors"
+        >
+          {cancelText}
+        </button>
+        <button
+          onClick={() => {
+            onConfirm();
+            onClose();
+          }}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${confirmButtonClass}`}
+        >
+          {confirmText}
+        </button>
+      </ModalFooter>
+    </Modal>
+  );
+}
