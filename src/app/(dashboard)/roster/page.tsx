@@ -34,6 +34,7 @@ import {
   clearDutySlotsByDutyType,
   buildUserAssignedByInfo,
   calculateDutyScoreFromSlots,
+  markDutyAsCompleted,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -1287,21 +1288,26 @@ export default function RosterPage() {
   }, [monthDays, filteredDutyTypes, blockedDuties, startDate, endDate, slots]);
 
   // Calculate personnel breakdown by unit hierarchy (Company, Section, WorkSection)
+  // Filtered by selected duty type(s)
   const personnelBreakdown = useMemo(() => {
     const companyMap = new Map<string, { name: string; count: number }>();
     const sectionMap = new Map<string, { name: string; count: number }>();
     const workSectionMap = new Map<string, { name: string; count: number }>();
 
-    // Get unique personnel IDs assigned in this month
+    // Filter slots by selected duty types
+    const filteredDutyTypeIds = new Set(filteredDutyTypes.map(dt => dt.id));
+    const filteredSlots = slots.filter(s => filteredDutyTypeIds.has(s.duty_type_id));
+
+    // Get unique personnel IDs assigned in this month (filtered by duty type)
     const assignedPersonnelIds = new Set(
-      slots
+      filteredSlots
         .filter(s => s.personnel_id)
         .map(s => s.personnel_id!)
     );
 
     // For each assigned personnel, find their unit hierarchy
     assignedPersonnelIds.forEach(personnelId => {
-      const slot = slots.find(s => s.personnel_id === personnelId);
+      const slot = filteredSlots.find(s => s.personnel_id === personnelId);
       if (!slot?.personnel) return;
 
       const personnelUnit = unitMap.get(slot.personnel.unit_section_id);
@@ -1367,7 +1373,7 @@ export default function RosterPage() {
       workSections: Array.from(workSectionMap.values()).sort(sortByCount),
       totalAssigned: assignedPersonnelIds.size,
     };
-  }, [slots, unitMap]);
+  }, [slots, unitMap, filteredDutyTypes]);
 
   return (
     <div className="space-y-6">
@@ -2076,6 +2082,27 @@ export default function RosterPage() {
               )}
             </div>
             <div className="p-4 border-t border-border flex justify-end gap-2">
+              {/* Show Mark Complete button for past duties that are still scheduled/approved */}
+              {selectedSlot.date_assigned < getTodayString() &&
+                (selectedSlot.status === 'scheduled' || selectedSlot.status === 'approved') &&
+                selectedSlot.personnel_id &&
+                isManager && (
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      const result = markDutyAsCompleted(selectedSlot.id);
+                      if (result.success) {
+                        toast.success("Duty marked as completed");
+                        setSelectedSlot(null);
+                        fetchData(); // Refresh data
+                      } else {
+                        toast.error(result.error || "Failed to mark duty as completed");
+                      }
+                    }}
+                  >
+                    Mark Complete
+                  </Button>
+                )}
               {/* Show Request Swap button if roster is approved and user can request */}
               {rosterApproval && selectedSlot.personnel_id && (
                 (selectedSlot.personnel_id === currentUserPersonnel?.id || isManager) && (
