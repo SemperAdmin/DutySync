@@ -1193,11 +1193,11 @@ export default function RosterPage() {
                     <td class="date-col">${formattedDate}</td>
                     <td>${dayName}${libertyDay ? ` (${libertyDay.type.toUpperCase()})` : ""}</td>
                     ${exportDutyTypes.map(dt => {
-                      if (libertyDay) return `<td style="color: #4CAF50; font-style: italic;">${libertyDay.type.toUpperCase()}</td>`;
                       const slot = getSlotForDateAndType(date, dt.id);
-                      if (!slot) return '<td>-</td>';
-                      if (!slot.personnel) return '<td style="color: #999;">Unassigned</td>';
-                      return `<td>${slot.personnel.rank} ${slot.personnel.last_name}</td>`;
+                      const cellStyle = libertyDay ? 'color: #4CAF50;' : '';
+                      if (!slot) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : '-'}</td>`;
+                      if (!slot.personnel) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : 'Unassigned'}</td>`;
+                      return `<td style="${cellStyle}">${slot.personnel.rank} ${slot.personnel.last_name}</td>`;
                     }).join("")}
                   </tr>
                 `;
