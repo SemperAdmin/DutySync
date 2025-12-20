@@ -150,7 +150,9 @@ function convertNonAvailability(na: SupabaseNonAvailability): NonAvailability {
     end_date: new Date(na.end_date),
     reason: na.reason || "",
     status: na.status,
-    recommended_by: null,
+    submitted_by: na.submitted_by,
+    recommended_by: na.recommended_by,
+    recommended_at: na.recommended_at ? new Date(na.recommended_at) : null,
     approved_by: na.approved_by,
     created_at: new Date(na.created_at),
   };

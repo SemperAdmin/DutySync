@@ -23,7 +23,7 @@ export type RoleName =
   | "Standard User";
 export type FilterMode = "include" | "exclude" | "none";
 export type DutySlotStatus = "scheduled" | "approved" | "completed" | "missed" | "swapped";
-export type RequestStatus = "pending" | "approved" | "rejected";
+export type RequestStatus = "pending" | "recommended" | "approved" | "rejected";
 export type SwapApproverType = "work_section_manager" | "section_manager" | "company_manager";
 export type SwapRecommendationType = "recommend" | "not_recommend";
 
@@ -397,6 +397,8 @@ export interface Database {
           reason: string | null;
           status: RequestStatus;
           submitted_by: string | null;
+          recommended_by: string | null;
+          recommended_at: string | null;
           approved_by: string | null;
           created_at: string;
           updated_at: string;
@@ -410,6 +412,8 @@ export interface Database {
           reason?: string | null;
           status?: RequestStatus;
           submitted_by?: string | null;
+          recommended_by?: string | null;
+          recommended_at?: string | null;
           approved_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -423,6 +427,8 @@ export interface Database {
           reason?: string | null;
           status?: RequestStatus;
           submitted_by?: string | null;
+          recommended_by?: string | null;
+          recommended_at?: string | null;
           approved_by?: string | null;
           created_at?: string;
           updated_at?: string;
