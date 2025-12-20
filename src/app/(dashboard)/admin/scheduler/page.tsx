@@ -9,7 +9,8 @@ import {
   getPersonnelById,
   type EnrichedSlot,
 } from "@/lib/client-stores";
-import { generateSchedule, previewSchedule } from "@/lib/duty-thruster";
+import { previewSchedule, applyPreviewedSlots } from "@/lib/duty-thruster";
+import type { DutySlot } from "@/types";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 import { parseLocalDate, formatDateToString } from "@/lib/date-utils";
@@ -38,6 +39,9 @@ export default function SchedulerPage() {
   // Results
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [error, setError] = useState("");
+
+  // Store preview slots so we can apply the exact same schedule
+  const [previewSlots, setPreviewSlots] = useState<DutySlot[]>([]);
 
   const fetchUnits = useCallback(() => {
     try {
@@ -68,7 +72,24 @@ export default function SchedulerPage() {
     return buildHierarchicalUnitOptions(units);
   }, [units]);
 
-  function handleGenerate(preview: boolean) {
+  // Helper to enrich slots with duty type and personnel info
+  function enrichSlots(slots: DutySlot[]): EnrichedSlot[] {
+    return slots.map((slot) => {
+      const dutyType = getDutyTypeById(slot.duty_type_id);
+      const personnel = slot.personnel_id ? getPersonnelById(slot.personnel_id) : undefined;
+      return {
+        ...slot,
+        duty_type: dutyType ? { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id } : null,
+        personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank, unit_section_id: personnel.unit_section_id } : null,
+        assigned_by_info: {
+          type: "scheduler" as const,
+          display: "Automated by Scheduler",
+        },
+      };
+    });
+  }
+
+  function handlePreview() {
     if (!selectedUnit || !startDate || !endDate) {
       setError("Please select a unit and date range");
       return;
@@ -77,6 +98,7 @@ export default function SchedulerPage() {
     setGenerating(true);
     setError("");
     setResult(null);
+    setPreviewSlots([]);
 
     try {
       const request = {
@@ -87,36 +109,61 @@ export default function SchedulerPage() {
         clearExisting,
       };
 
-      const scheduleResult = preview
-        ? previewSchedule(request)
-        : generateSchedule(request);
+      const scheduleResult = previewSchedule(request);
 
-      // Enrich slots with duty type and personnel info
-      const enrichedSlots: EnrichedSlot[] = scheduleResult.slots.map((slot) => {
-        const dutyType = getDutyTypeById(slot.duty_type_id);
-        const personnel = slot.personnel_id ? getPersonnelById(slot.personnel_id) : undefined;
-        return {
-          ...slot,
-          duty_type: dutyType ? { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id } : null,
-          personnel: personnel ? { id: personnel.id, first_name: personnel.first_name, last_name: personnel.last_name, rank: personnel.rank, unit_section_id: personnel.unit_section_id } : null,
-          assigned_by_info: {
-            type: "scheduler" as const,
-            display: "Automated by Scheduler",
-          },
-        };
-      });
+      // Store the raw preview slots so we can apply exactly these later
+      setPreviewSlots(scheduleResult.slots);
 
       setResult({
         success: scheduleResult.success,
-        preview,
+        preview: true,
         slots_created: scheduleResult.slotsCreated,
         slots_skipped: scheduleResult.slotsSkipped,
         errors: scheduleResult.errors,
         warnings: scheduleResult.warnings,
-        slots: enrichedSlots,
+        slots: enrichSlots(scheduleResult.slots),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate schedule");
+      setError(err instanceof Error ? err.message : "Failed to generate preview");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function handleApply() {
+    if (previewSlots.length === 0) {
+      setError("No preview to apply. Please preview first.");
+      return;
+    }
+
+    setGenerating(true);
+    setError("");
+
+    try {
+      // Apply the exact preview slots that were shown
+      const applyResult = applyPreviewedSlots(
+        previewSlots,
+        clearExisting,
+        startDate as `${number}-${number}-${number}`,
+        endDate as `${number}-${number}-${number}`,
+        selectedUnit
+      );
+
+      // Update result to show applied (not preview)
+      setResult({
+        success: applyResult.success,
+        preview: false,
+        slots_created: applyResult.slotsCreated,
+        slots_skipped: applyResult.slotsSkipped,
+        errors: applyResult.errors,
+        warnings: applyResult.warnings,
+        slots: enrichSlots(applyResult.slots),
+      });
+
+      // Clear preview slots after applying
+      setPreviewSlots([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to apply schedule");
     } finally {
       setGenerating(false);
     }
@@ -241,20 +288,23 @@ export default function SchedulerPage() {
 
         <div className="flex gap-3 pt-4 border-t border-border">
           <Button
-            onClick={() => handleGenerate(true)}
+            onClick={handlePreview}
             variant="secondary"
             disabled={generating}
           >
             {generating ? "Processing..." : "Preview Schedule"}
           </Button>
-          <Button onClick={() => handleGenerate(false)} disabled={generating}>
-            {generating ? "Processing..." : "Generate Schedule"}
+          <Button
+            onClick={handleApply}
+            disabled={generating || previewSlots.length === 0}
+          >
+            {generating ? "Processing..." : "Apply Schedule"}
           </Button>
         </div>
 
         <p className="text-xs text-foreground-muted">
           <strong>Preview</strong> shows what the schedule would look like without saving.{" "}
-          <strong>Generate</strong> creates the actual duty assignments.
+          <strong>Apply Schedule</strong> creates the exact duty assignments shown in the preview.
         </p>
       </div>
 
@@ -293,11 +343,11 @@ export default function SchedulerPage() {
         <div className="bg-surface rounded-lg border border-border p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
-              {result.preview ? "Schedule Preview" : "Generated Schedule"}
+              {result.preview ? "Schedule Preview" : "Applied Schedule"}
             </h2>
             <div className="flex gap-3 text-sm">
               <span className="text-green-400">
-                {result.slots_created} slots {result.preview ? "planned" : "created"}
+                {result.slots_created} slots {result.preview ? "planned" : "applied"}
               </span>
               {result.slots_skipped > 0 && (
                 <span className="text-yellow-400">{result.slots_skipped} skipped</span>
