@@ -16,6 +16,7 @@ import {
   syncPersonnelToLocalStorage,
   syncDutySlotsToLocalStorage,
   clearDataIntegrityIssues,
+  autoCompletePastDuties,
 } from "./client-stores";
 import type {
   UnitSection,
@@ -589,6 +590,23 @@ export async function loadDutySlots(organizationId?: string, startDate?: string,
 
   // Sync to localStorage so client-stores uses valid Supabase data
   syncDutySlotsToLocalStorage(dutySlotsCache);
+
+  // Auto-complete any past duties that are still scheduled/approved
+  const completedCount = autoCompletePastDuties();
+  if (completedCount > 0) {
+    // Refresh cache from localStorage to include the completed status
+    dutySlotsCache = dutySlotsCache.map(slot => {
+      const today = new Date().toISOString().split('T')[0];
+      if (
+        slot.date_assigned < today &&
+        (slot.status === 'scheduled' || slot.status === 'approved') &&
+        slot.personnel_id
+      ) {
+        return { ...slot, status: 'completed' };
+      }
+      return slot;
+    });
+  }
 
   return dutySlotsCache;
 }

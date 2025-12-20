@@ -1751,6 +1751,80 @@ export function updateDutySlot(id: string, updates: Partial<DutySlot>): DutySlot
   return slots[idx];
 }
 
+/**
+ * Mark a single duty slot as completed.
+ * Only allowed if the duty date has passed (is before today).
+ */
+export function markDutyAsCompleted(slotId: string): { success: boolean; error?: string } {
+  const today = getTodayString();
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  const slot = slots.find(s => s.id === slotId);
+
+  if (!slot) {
+    return { success: false, error: "Duty slot not found" };
+  }
+
+  // Only allow completion if date has passed
+  if (slot.date_assigned >= today) {
+    return { success: false, error: "Cannot mark future or current day duties as completed" };
+  }
+
+  // Only allow completion of scheduled or approved duties
+  if (slot.status !== 'scheduled' && slot.status !== 'approved') {
+    return { success: false, error: `Duty is already ${slot.status}` };
+  }
+
+  const updated = updateDutySlot(slotId, { status: 'completed' });
+  if (updated) {
+    return { success: true };
+  }
+  return { success: false, error: "Failed to update duty slot" };
+}
+
+/**
+ * Auto-complete all past duties that are still scheduled or approved.
+ * Called when data is loaded to ensure past duties are marked completed.
+ * Returns the number of duties that were marked as completed.
+ */
+export function autoCompletePastDuties(): number {
+  const today = getTodayString();
+  const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
+
+  let completedCount = 0;
+  const updatedSlots = slots.map(slot => {
+    // Only auto-complete if:
+    // 1. Date is in the past (before today)
+    // 2. Status is 'scheduled' or 'approved'
+    // 3. Slot has a personnel assigned
+    if (
+      slot.date_assigned < today &&
+      (slot.status === 'scheduled' || slot.status === 'approved') &&
+      slot.personnel_id
+    ) {
+      completedCount++;
+      return { ...slot, status: 'completed' as const, updated_at: new Date() };
+    }
+    return slot;
+  });
+
+  if (completedCount > 0) {
+    saveToStorage(KEYS.dutySlots, updatedSlots);
+    console.log(`[AutoComplete] Marked ${completedCount} past duties as completed`);
+
+    // Sync completed status to Supabase for each updated slot
+    updatedSlots
+      .filter(slot => slot.date_assigned < today && slot.status === 'completed')
+      .forEach(slot => {
+        syncToSupabase(
+          () => supabaseUpdateDutySlot(slot.id, { status: 'completed' }),
+          "autoCompleteDuty"
+        );
+      });
+  }
+
+  return completedCount;
+}
+
 export function deleteDutySlot(id: string): boolean {
   const slots = getFromStorage<DutySlot>(KEYS.dutySlots);
 

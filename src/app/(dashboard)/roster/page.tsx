@@ -34,6 +34,7 @@ import {
   clearDutySlotsByDutyType,
   buildUserAssignedByInfo,
   calculateDutyScoreFromSlots,
+  markDutyAsCompleted,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -2076,6 +2077,27 @@ export default function RosterPage() {
               )}
             </div>
             <div className="p-4 border-t border-border flex justify-end gap-2">
+              {/* Show Mark Complete button for past duties that are still scheduled/approved */}
+              {selectedSlot.date_assigned < getTodayString() &&
+                (selectedSlot.status === 'scheduled' || selectedSlot.status === 'approved') &&
+                selectedSlot.personnel_id &&
+                isManager && (
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      const result = markDutyAsCompleted(selectedSlot.id);
+                      if (result.success) {
+                        toast.success("Duty marked as completed");
+                        setSelectedSlot(null);
+                        fetchData(); // Refresh data
+                      } else {
+                        toast.error(result.error || "Failed to mark duty as completed");
+                      }
+                    }}
+                  >
+                    Mark Complete
+                  </Button>
+                )}
               {/* Show Request Swap button if roster is approved and user can request */}
               {rosterApproval && selectedSlot.personnel_id && (
                 (selectedSlot.personnel_id === currentUserPersonnel?.id || isManager) && (
