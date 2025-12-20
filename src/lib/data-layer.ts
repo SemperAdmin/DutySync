@@ -212,15 +212,84 @@ export async function getOrganizationById(id: string): Promise<Organization | nu
   return supabase.getOrganizationById(id);
 }
 
-// Helper to get organization by either ID (UUID) or RUC code
+// Helper to get organization by ID (UUID), unit ID, or RUC code
+// The scope_unit_id can be stored as:
+// 1. An organization UUID
+// 2. A unit_sections UUID (need to look up the unit's organization)
+// 3. A RUC code string
 export async function getOrganizationByIdOrRuc(idOrRuc: string): Promise<Organization | null> {
   // Check if it looks like a UUID (contains hyphens in UUID format)
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrRuc);
 
   if (isUuid) {
-    return supabase.getOrganizationById(idOrRuc);
+    // First try as organization ID
+    const org = await supabase.getOrganizationById(idOrRuc);
+    if (org) return org;
+
+    // If not found, try to find a unit with this ID and get its organization
+    const unit = await supabase.getUnitById(idOrRuc);
+    if (unit && unit.organization_id) {
+      return supabase.getOrganizationById(unit.organization_id);
+    }
+
+    return null;
   } else {
     return supabase.getOrganizationByRuc(idOrRuc);
+  }
+}
+
+// Helper to resolve the scope unit for a Unit Admin
+// Returns { organization, scopeUnit } where scopeUnit is the unit to use for scoping
+// If scope_unit_id is a unit ID, use that unit directly
+// If scope_unit_id is an org ID or RUC, use the top-level unit
+export async function resolveUnitAdminScope(scopeId: string): Promise<{
+  organization: Organization | null;
+  scopeUnit: UnitSection | null;
+  rucDisplay: string;
+}> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scopeId);
+
+  if (isUuid) {
+    // First check if it's a unit ID
+    const unit = await supabase.getUnitById(scopeId);
+    if (unit) {
+      // It's a unit ID - use this unit as the scope
+      const org = unit.organization_id ? await supabase.getOrganizationById(unit.organization_id) : null;
+      const rucDisplay = org ? (org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code) : "N/A";
+      return {
+        organization: org,
+        scopeUnit: convertUnit(unit, org?.ruc_code),
+        rucDisplay,
+      };
+    }
+
+    // Try as organization ID
+    const org = await supabase.getOrganizationById(scopeId);
+    if (org) {
+      const topUnit = await supabase.getTopLevelUnitForOrganization(org.id);
+      const rucDisplay = org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code;
+      return {
+        organization: org,
+        scopeUnit: topUnit ? convertUnit(topUnit, org.ruc_code) : null,
+        rucDisplay,
+      };
+    }
+
+    return { organization: null, scopeUnit: null, rucDisplay: "N/A" };
+  } else {
+    // Try as RUC code
+    const org = await supabase.getOrganizationByRuc(scopeId);
+    if (org) {
+      const topUnit = await supabase.getTopLevelUnitForOrganization(org.id);
+      const rucDisplay = org.name ? `${org.ruc_code} - ${org.name}` : org.ruc_code;
+      return {
+        organization: org,
+        scopeUnit: topUnit ? convertUnit(topUnit, org.ruc_code) : null,
+        rucDisplay,
+      };
+    }
+
+    return { organization: null, scopeUnit: null, rucDisplay: getRucDisplayName(scopeId) };
   }
 }
 
