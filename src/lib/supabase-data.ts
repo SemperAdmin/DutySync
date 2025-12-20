@@ -69,6 +69,23 @@ export async function getOrganizationByRuc(rucCode: string): Promise<Organizatio
   return data;
 }
 
+export async function getOrganizationById(id: string): Promise<Organization | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching organization by ID:", error);
+    return null;
+  }
+  return data;
+}
+
 export async function createOrganization(rucCode: string, name: string, description?: string): Promise<Organization | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();

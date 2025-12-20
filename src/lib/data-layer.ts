@@ -208,6 +208,22 @@ export async function getOrganizationByRuc(rucCode: string): Promise<Organizatio
   return supabase.getOrganizationByRuc(rucCode);
 }
 
+export async function getOrganizationById(id: string): Promise<Organization | null> {
+  return supabase.getOrganizationById(id);
+}
+
+// Helper to get organization by either ID (UUID) or RUC code
+export async function getOrganizationByIdOrRuc(idOrRuc: string): Promise<Organization | null> {
+  // Check if it looks like a UUID (contains hyphens in UUID format)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrRuc);
+
+  if (isUuid) {
+    return supabase.getOrganizationById(idOrRuc);
+  } else {
+    return supabase.getOrganizationByRuc(idOrRuc);
+  }
+}
+
 // ============================================================================
 // UNITS
 // ============================================================================
