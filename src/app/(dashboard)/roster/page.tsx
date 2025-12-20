@@ -670,12 +670,6 @@ export default function RosterPage() {
     return date.toLocaleDateString("en-US", { weekday: format });
   }
 
-  // Get formatted date from DateString (for display purposes)
-  function getFormattedDate(dateStr: DateString): string {
-    const date = parseLocalDate(dateStr);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }
-
   function getStatusColor(status: string, isDuplicate: boolean = false): string {
     switch (status) {
       case "completed":
@@ -1187,7 +1181,7 @@ export default function RosterPage() {
                 const isTodayDate = isToday(dateStr);
                 const libertyDay = getLibertyDay(dateStr);
                 const dayName = getDayName(dateStr);
-                const formattedDate = getFormattedDate(dateStr);
+                const formattedDate = formatDateForDisplay(dateStr, 'short');
 
                 let rowClass = "";
                 if (libertyDay?.type === "liberty") rowClass = "liberty";

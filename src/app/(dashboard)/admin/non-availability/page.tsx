@@ -233,7 +233,7 @@ export default function NonAvailabilityAdminPage() {
     try {
       updateNonAvailability(requestId, {
         status: newStatus,
-        approved_by: newStatus === "approved" ? (user?.id || "admin") : null,
+        approved_by: newStatus === "approved" ? (user?.id || null) : null,
       });
       fetchData();
     } catch (err) {
@@ -306,7 +306,7 @@ export default function NonAvailabilityAdminPage() {
         submitted_by: user?.id || null, // Track who submitted the request
         recommended_by: null, // New requests are not recommended yet
         recommended_at: null,
-        approved_by: shouldApprove ? (user?.id || "admin") : null,
+        approved_by: shouldApprove ? (user?.id || null) : null,
         created_at: new Date(),
       };
 
