@@ -10,6 +10,8 @@ import type { User, Personnel, Unit } from "@/types/supabase";
 interface SignupResult {
   success: boolean;
   error?: string;
+  autoAssignedUnitAdmin?: boolean;
+  organizationName?: string;
 }
 
 interface AuthContextType {
@@ -260,13 +262,49 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Failed to create account" };
       }
 
-      // Add default Standard User role
+      // Check if this user's organization needs a Unit Admin
+      let autoAssignedUnitAdmin = false;
+      let organizationName: string | undefined;
+
+      if (personnel?.unit_id) {
+        // Get the unit to find the organization
+        const unit = await supabaseData.getUnitById(personnel.unit_id);
+        if (unit?.organization_id) {
+          // Check if organization already has a Unit Admin
+          const hasAdmin = await supabaseData.organizationHasUnitAdmin(unit.organization_id);
+
+          if (!hasAdmin) {
+            // Get the Unit Admin role
+            const unitAdminRole = await supabaseData.getRoleByName(ROLE_NAMES.UNIT_ADMIN);
+            // Get the top-level unit for proper scoping
+            const topLevelUnit = await supabaseData.getTopLevelUnitForOrganization(unit.organization_id);
+
+            if (unitAdminRole && topLevelUnit) {
+              // Auto-assign this user as Unit Admin
+              await supabaseData.addUserRole(newUser.id, unitAdminRole.id, topLevelUnit.id);
+              autoAssignedUnitAdmin = true;
+
+              // Get organization name for the notification
+              const org = await supabaseData.getOrganizationById(unit.organization_id);
+              organizationName = org?.name || org?.ruc_code || undefined;
+
+              console.log(`[Auth] Auto-assigned ${edipi} as Unit Admin for ${organizationName || unit.organization_id}`);
+            }
+          }
+        }
+      }
+
+      // Add default Standard User role (in addition to Unit Admin if assigned)
       const standardRole = await supabaseData.getRoleByName(ROLE_NAMES.STANDARD_USER);
       if (standardRole) {
         await supabaseData.addUserRole(newUser.id, standardRole.id);
       }
 
-      return { success: true };
+      return {
+        success: true,
+        autoAssignedUnitAdmin,
+        organizationName
+      };
     } catch (error) {
       console.error("Signup failed:", error);
       return { success: false, error: "An unexpected error occurred" };
