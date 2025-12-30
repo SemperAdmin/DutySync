@@ -975,6 +975,45 @@ export async function getRoleByName(name: RoleName): Promise<Role | null> {
   return data;
 }
 
+/**
+ * Check if an organization has a Unit Admin assigned.
+ * Returns true if there is at least one user with the Unit Admin role
+ * scoped to the top-level unit of the organization.
+ */
+export async function organizationHasUnitAdmin(organizationId: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  // Get the Unit Admin role
+  const unitAdminRole = await getRoleByName("Unit Admin");
+  if (!unitAdminRole) {
+    console.error("Unit Admin role not found");
+    return false;
+  }
+
+  // Get the top-level unit for this organization
+  const topLevelUnit = await getTopLevelUnitForOrganization(organizationId);
+  if (!topLevelUnit) {
+    // No unit exists yet, so no admin
+    return false;
+  }
+
+  // Check if any user has Unit Admin role scoped to this unit
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("id")
+    .eq("role_id", unitAdminRole.id)
+    .eq("scope_unit_id", topLevelUnit.id)
+    .limit(1);
+
+  if (error) {
+    console.error("Error checking for unit admin:", error);
+    return false;
+  }
+
+  return (data && data.length > 0);
+}
+
 export async function getUserRoles(userId: string): Promise<(UserRole & { role: Role })[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = getSupabase();
