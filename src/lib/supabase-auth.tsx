@@ -291,6 +291,8 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
                 autoAssignedUnitAdmin = true;
                 organizationName = org?.name || org?.ruc_code || undefined;
                 console.log(`[Auth] Auto-assigned ${edipi} as Unit Admin for ${organizationName || unit.organization_id}`);
+              } else {
+                console.warn(`[Auth] Failed to auto-assign ${edipi} as Unit Admin for organization ${unit.organization_id}`);
               }
             }
           }
