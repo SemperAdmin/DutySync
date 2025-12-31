@@ -282,14 +282,16 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
             if (unitAdminRole && topLevelUnit) {
               // Auto-assign user as Unit Admin and get organization name in parallel
-              const [, org] = await Promise.all([
+              const [addUserRoleResult, org] = await Promise.all([
                 supabaseData.addUserRole(newUser.id, unitAdminRole.id, topLevelUnit.id),
                 supabaseData.getOrganizationById(unit.organization_id),
               ]);
-              autoAssignedUnitAdmin = true;
-              organizationName = org?.name || org?.ruc_code || undefined;
 
-              console.log(`[Auth] Auto-assigned ${edipi} as Unit Admin for ${organizationName || unit.organization_id}`);
+              if (addUserRoleResult) {
+                autoAssignedUnitAdmin = true;
+                organizationName = org?.name || org?.ruc_code || undefined;
+                console.log(`[Auth] Auto-assigned ${edipi} as Unit Admin for ${organizationName || unit.organization_id}`);
+              }
             }
           }
         }
