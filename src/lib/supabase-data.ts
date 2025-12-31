@@ -984,15 +984,17 @@ export async function organizationHasUnitAdmin(organizationId: string): Promise<
   if (!isSupabaseConfigured()) return false;
   const supabase = getSupabase();
 
-  // Get the Unit Admin role
-  const unitAdminRole = await getRoleByName("Unit Admin");
+  // Fetch role and top-level unit in parallel for better performance
+  const [unitAdminRole, topLevelUnit] = await Promise.all([
+    getRoleByName("Unit Admin"),
+    getTopLevelUnitForOrganization(organizationId),
+  ]);
+
   if (!unitAdminRole) {
     console.error("Unit Admin role not found");
     return false;
   }
 
-  // Get the top-level unit for this organization
-  const topLevelUnit = await getTopLevelUnitForOrganization(organizationId);
   if (!topLevelUnit) {
     // No unit exists yet, so no admin
     return false;
