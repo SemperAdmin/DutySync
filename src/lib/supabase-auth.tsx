@@ -274,18 +274,19 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
           const hasAdmin = await supabaseData.organizationHasUnitAdmin(unit.organization_id);
 
           if (!hasAdmin) {
-            // Get the Unit Admin role
-            const unitAdminRole = await supabaseData.getRoleByName(ROLE_NAMES.UNIT_ADMIN);
-            // Get the top-level unit for proper scoping
-            const topLevelUnit = await supabaseData.getTopLevelUnitForOrganization(unit.organization_id);
+            // Get the Unit Admin role and top-level unit in parallel
+            const [unitAdminRole, topLevelUnit] = await Promise.all([
+              supabaseData.getRoleByName(ROLE_NAMES.UNIT_ADMIN),
+              supabaseData.getTopLevelUnitForOrganization(unit.organization_id),
+            ]);
 
             if (unitAdminRole && topLevelUnit) {
-              // Auto-assign this user as Unit Admin
-              await supabaseData.addUserRole(newUser.id, unitAdminRole.id, topLevelUnit.id);
+              // Auto-assign user as Unit Admin and get organization name in parallel
+              const [, org] = await Promise.all([
+                supabaseData.addUserRole(newUser.id, unitAdminRole.id, topLevelUnit.id),
+                supabaseData.getOrganizationById(unit.organization_id),
+              ]);
               autoAssignedUnitAdmin = true;
-
-              // Get organization name for the notification
-              const org = await supabaseData.getOrganizationById(unit.organization_id);
               organizationName = org?.name || org?.ruc_code || undefined;
 
               console.log(`[Auth] Auto-assigned ${edipi} as Unit Admin for ${organizationName || unit.organization_id}`);
