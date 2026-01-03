@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/supabase-auth";
 import { ToastProvider } from "@/components/ui/Toast";
+import FeedbackButton from "@/components/ui/FeedbackButton";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -36,6 +37,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ToastProvider>{children}</ToastProvider>
+          <FeedbackButton />
         </AuthProvider>
       </body>
     </html>
