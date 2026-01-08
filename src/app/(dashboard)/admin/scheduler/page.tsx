@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Button from "@/components/ui/Button";
-import type { UnitSection } from "@/types";
+import type { UnitSection, RoleName } from "@/types";
 import {
   getUnitSections,
+  getUnitSectionById,
   getDutyTypeById,
   getPersonnelById,
   type EnrichedSlot,
@@ -14,6 +15,10 @@ import type { DutySlot } from "@/types";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 import { parseLocalDate, formatDateToString } from "@/lib/date-utils";
+import { useAuth } from "@/lib/supabase-auth";
+
+// Roles that have organization-wide scope
+const ORG_SCOPED_ROLES: RoleName[] = ["Unit Admin", "App Admin"];
 
 interface ScheduleResult {
   success: boolean;
@@ -26,6 +31,7 @@ interface ScheduleResult {
 }
 
 export default function SchedulerPage() {
+  const { user } = useAuth();
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -43,16 +49,38 @@ export default function SchedulerPage() {
   // Store preview slots so we can apply the exact same schedule
   const [previewSlots, setPreviewSlots] = useState<DutySlot[]>([]);
 
+  // Get the user's organization scope from their role
+  const userOrganizationId = useMemo(() => {
+    if (!user?.roles) return null;
+
+    // Check if user is App Admin (no scope restriction)
+    const isAppAdmin = user.roles.some(r => r.role_name === "App Admin");
+    if (isAppAdmin) return null; // No filtering for App Admin
+
+    // Find the user's organization-scoped role (Unit Admin preferred)
+    const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
+    if (!scopedRole?.scope_unit_id) return null;
+
+    // Get the unit to find its organization
+    const scopeUnit = getUnitSectionById(scopedRole.scope_unit_id);
+    return scopeUnit?.organization_id || null;
+  }, [user?.roles]);
+
   const fetchUnits = useCallback(() => {
     try {
-      const data = getUnitSections();
+      let data = getUnitSections();
+
+      // Filter units by user's organization (RUC)
+      if (userOrganizationId) {
+        data = data.filter(u => u.organization_id === userOrganizationId);
+      }
       setUnits(data);
     } catch (err) {
       console.error("Error fetching units:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userOrganizationId]);
 
   useEffect(() => {
     fetchUnits();
