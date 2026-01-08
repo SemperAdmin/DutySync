@@ -63,6 +63,9 @@ const MANAGER_ROLES: RoleName[] = [
 // Unit Admin can mark liberty days
 const UNIT_ADMIN_ROLES: RoleName[] = ["Unit Admin"];
 
+// Roles that have organization-wide scope
+const ORG_SCOPED_ROLES: RoleName[] = ["Unit Admin", "App Admin"];
+
 // Liberty day storage key
 const LIBERTY_DAYS_KEY = "duty-sync-liberty-days";
 
@@ -188,6 +191,22 @@ export default function RosterPage() {
 
   // Effective App Admin status (App Admin in Admin view)
   const effectiveIsAppAdmin = isAppAdmin && isAdminView;
+
+  // Get the user's organization scope from their role (for RUC filtering)
+  const userOrganizationId = useMemo(() => {
+    if (!user?.roles) return null;
+
+    // App Admin in Admin view has no scope restriction
+    if (isAppAdmin && isAdminView) return null;
+
+    // Find the user's organization-scoped role (Unit Admin preferred)
+    const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
+    if (!scopedRole?.scope_unit_id) return null;
+
+    // Get the unit to find its organization
+    const scopeUnit = getUnitSectionById(scopedRole.scope_unit_id);
+    return scopeUnit?.organization_id || null;
+  }, [user?.roles, isAppAdmin, isAdminView]);
 
   // Check if user has manager role
   const hasManagerRole = useMemo(() => {
@@ -361,31 +380,35 @@ export default function RosterPage() {
     loadLibertyDays();
   }, [loadLibertyDays]);
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedUnit, startDate, endDate]);
-
-  // Listen for sync updates and refresh automatically
-  useSyncRefresh(["personnel", "units", "dutySlots", "nonAvailability", "dutyTypes"], fetchData);
-
-  function fetchData() {
+  const fetchData = useCallback(() => {
     try {
       setLoading(true);
 
-      // Fetch units
-      const unitsData = getUnitSections();
+      // Fetch units and filter by user's organization (RUC)
+      let unitsData = getUnitSections();
+      if (userOrganizationId) {
+        unitsData = unitsData.filter(u => u.organization_id === userOrganizationId);
+      }
       setUnits(unitsData);
 
-      // Fetch all duty types
-      const dutyTypesData = getAllDutyTypes();
+      // Fetch duty types and filter by user's organization (RUC)
+      let dutyTypesData = getAllDutyTypes();
+      if (userOrganizationId) {
+        const orgUnitIds = new Set(unitsData.map(u => u.id));
+        dutyTypesData = dutyTypesData.filter(dt => orgUnitIds.has(dt.unit_section_id));
+      }
       setDutyTypes(dutyTypesData);
 
       // Fetch duty slots for the date range
       const slotsData = getEnrichedSlots(startDate, endDate, selectedUnit || undefined);
       setSlots(slotsData);
 
-      // Fetch blocked duties
-      const blockedData = getAllBlockedDuties();
+      // Fetch blocked duties and filter by user's organization (RUC)
+      let blockedData = getAllBlockedDuties();
+      if (userOrganizationId) {
+        const orgUnitIds = new Set(unitsData.map(u => u.id));
+        blockedData = blockedData.filter(bd => orgUnitIds.has(bd.unit_section_id));
+      }
       setBlockedDuties(blockedData);
 
       // Check roster approval status (only if a unit is selected or user is Unit Admin)
@@ -405,7 +428,14 @@ export default function RosterPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [startDate, endDate, selectedUnit, unitAdminUnitId, currentDate, userOrganizationId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Listen for sync updates and refresh automatically
+  useSyncRefresh(["personnel", "units", "dutySlots", "nonAvailability", "dutyTypes"], fetchData);
 
   // Handle roster approval
   async function handleApproveRoster() {
