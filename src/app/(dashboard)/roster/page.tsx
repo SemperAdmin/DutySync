@@ -808,8 +808,14 @@ export default function RosterPage() {
   // For regular users: only themselves
   // For managers: personnel within their scope
   function getEligiblePersonnel(dutyType: DutyType, dateStr: DateString): Personnel[] {
-    const allPersonnel = getAllPersonnel();
+    let allPersonnel = getAllPersonnel();
     const requirements = getDutyRequirements(dutyType.id);
+
+    // Filter personnel by user's organization (RUC) first
+    if (userOrganizationId) {
+      const orgUnitIds = new Set(units.map(u => u.id));
+      allPersonnel = allPersonnel.filter(p => orgUnitIds.has(p.unit_section_id));
+    }
 
     return allPersonnel.filter(person => {
       // Regular users can only assign themselves
