@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
-import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty } from "@/types";
+import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty, RoleName } from "@/types";
 import {
   getUnitSections,
+  getUnitSectionById,
   getEnrichedDutyTypes,
   createDutyType,
   updateDutyType,
@@ -23,6 +24,9 @@ import {
 import { useAuth } from "@/lib/supabase-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
+
+// Roles that have organization-wide scope
+const ORG_SCOPED_ROLES: RoleName[] = ["Unit Admin", "App Admin"];
 
 // USMC rank order for sorting (E1-E9, W1-W5, O1-O10)
 const RANK_ORDER = [
@@ -72,6 +76,23 @@ export default function DutyTypesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedUnitFilter, setSelectedUnitFilter] = useState<string>("");
 
+  // Get the user's organization scope from their role
+  const userOrganizationId = useMemo(() => {
+    if (!user?.roles) return null;
+
+    // Check if user is App Admin (no scope restriction)
+    const isAppAdmin = user.roles.some(r => r.role_name === "App Admin");
+    if (isAppAdmin) return null; // No filtering for App Admin
+
+    // Find the user's organization-scoped role (Unit Admin preferred)
+    const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
+    if (!scopedRole?.scope_unit_id) return null;
+
+    // Get the unit to find its organization
+    const scopeUnit = getUnitSectionById(scopedRole.scope_unit_id);
+    return scopeUnit?.organization_id || null;
+  }, [user?.roles]);
+
   // Selection for blocking
   const [selectedDutyIds, setSelectedDutyIds] = useState<Set<string>>(new Set());
 
@@ -113,13 +134,28 @@ export default function DutyTypesPage() {
   const fetchData = useCallback(() => {
     try {
       setLoading(true);
-      const unitsData = getUnitSections();
+      let unitsData = getUnitSections();
+
+      // Filter units by user's organization (RUC)
+      if (userOrganizationId) {
+        unitsData = unitsData.filter(u => u.organization_id === userOrganizationId);
+      }
       setUnits(unitsData);
 
-      const personnelData = getAllPersonnel();
+      let personnelData = getAllPersonnel();
+      // Filter personnel by user's organization (RUC)
+      if (userOrganizationId) {
+        const orgUnitIds = new Set(unitsData.map(u => u.id));
+        personnelData = personnelData.filter(p => orgUnitIds.has(p.unit_section_id));
+      }
       setPersonnel(personnelData);
 
-      const dutyTypesData = getEnrichedDutyTypes(selectedUnitFilter || undefined);
+      let dutyTypesData = getEnrichedDutyTypes(selectedUnitFilter || undefined);
+      // Filter duty types by user's organization (RUC)
+      if (userOrganizationId) {
+        const orgUnitIds = new Set(unitsData.map(u => u.id));
+        dutyTypesData = dutyTypesData.filter(dt => orgUnitIds.has(dt.unit_section_id));
+      }
       // Enrich with active blocks
       const enrichedWithBlocks: DutyTypeWithBlocks[] = dutyTypesData.map((dt) => ({
         ...dt,
@@ -131,7 +167,7 @@ export default function DutyTypesPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedUnitFilter]);
+  }, [selectedUnitFilter, userOrganizationId]);
 
   useEffect(() => {
     fetchData();
