@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
-import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty, RoleName } from "@/types";
+import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty, RoleName, NonAvailability } from "@/types";
 import {
   getUnitSections,
   getUnitSectionById,
@@ -19,6 +19,7 @@ import {
   getActiveBlocksForDutyType,
   createBlockedDuty,
   deleteBlockedDuty,
+  getAllNonAvailability,
   type EnrichedDutyType,
 } from "@/lib/client-stores";
 import { useAuth } from "@/lib/supabase-auth";
@@ -73,6 +74,7 @@ export default function DutyTypesPage() {
   const [dutyTypes, setDutyTypes] = useState<DutyTypeWithBlocks[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
+  const [nonAvailability, setNonAvailability] = useState<NonAvailability[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUnitFilter, setSelectedUnitFilter] = useState<string>("");
 
@@ -162,6 +164,15 @@ export default function DutyTypesPage() {
         activeBlocks: getActiveBlocksForDutyType(dt.id),
       }));
       setDutyTypes(enrichedWithBlocks);
+
+      // Fetch non-availability (exemptions) and filter by organization
+      let nonAvailData = getAllNonAvailability();
+      if (userOrganizationId) {
+        const orgUnitIds = new Set(unitsData.map(u => u.id));
+        const orgPersonnelIds = new Set(personnelData.map(p => p.id));
+        nonAvailData = nonAvailData.filter(na => orgPersonnelIds.has(na.personnel_id));
+      }
+      setNonAvailability(nonAvailData);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -174,7 +185,7 @@ export default function DutyTypesPage() {
   }, [fetchData]);
 
   // Listen for sync updates and refresh automatically
-  useSyncRefresh(["units", "dutyTypes", "personnel"], fetchData);
+  useSyncRefresh(["units", "dutyTypes", "personnel", "nonAvailability"], fetchData);
 
   // Build hierarchical unit options for dropdowns
   const hierarchicalUnits = useMemo(() => {
@@ -227,6 +238,46 @@ export default function DutyTypesPage() {
 
     return getDescendants(formData.unit_section_id);
   }, [formData.unit_section_id, units]);
+
+  // Get active/upcoming exemptions for personnel in the selected unit
+  const unitExemptions = useMemo(() => {
+    if (!formData.unit_section_id) return [];
+
+    // Get all descendant unit IDs
+    const getDescendantIds = (unitId: string): string[] => {
+      const children = getChildUnits(unitId);
+      const childIds = children.map(c => c.id);
+      const descendantIds = children.flatMap(c => getDescendantIds(c.id));
+      return [unitId, ...childIds, ...descendantIds];
+    };
+
+    const unitIds = new Set(getDescendantIds(formData.unit_section_id));
+
+    // Get personnel in these units
+    const unitPersonnelIds = new Set(
+      personnel.filter(p => unitIds.has(p.unit_section_id)).map(p => p.id)
+    );
+
+    // Get today's date string for comparison
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get active/upcoming exemptions (approved or pending, not ended)
+    return nonAvailability
+      .filter(na => {
+        if (!unitPersonnelIds.has(na.personnel_id)) return false;
+        // Include if end date is today or in the future, and status is approved/pending/recommended
+        if (na.end_date < today) return false;
+        return ['approved', 'pending', 'recommended'].includes(na.status);
+      })
+      .map(na => {
+        const person = personnel.find(p => p.id === na.personnel_id);
+        return {
+          ...na,
+          personnel: person,
+        };
+      })
+      .sort((a, b) => a.start_date.localeCompare(b.start_date));
+  }, [formData.unit_section_id, personnel, nonAvailability]);
 
   function resetForm() {
     setFormData({
@@ -961,6 +1012,47 @@ export default function DutyTypesPage() {
                 </div>
               )}
 
+              {/* Personnel Exemptions */}
+              {formData.unit_section_id && unitExemptions.length > 0 && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="text-sm font-medium text-foreground mb-2">
+                    Active/Upcoming Exemptions ({unitExemptions.length})
+                  </h3>
+                  <p className="text-xs text-foreground-muted mb-3">
+                    Personnel in this unit with non-availability
+                  </p>
+                  <div className="max-h-40 overflow-y-auto space-y-2 bg-surface-elevated rounded-lg p-2">
+                    {unitExemptions.map((exemption) => (
+                      <div
+                        key={exemption.id}
+                        className="flex items-center justify-between text-xs p-2 bg-background rounded border border-border"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                            exemption.status === 'approved'
+                              ? 'bg-green-500/20 text-green-400'
+                              : exemption.status === 'recommended'
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : 'bg-yellow-500/20 text-yellow-400'
+                          }`}>
+                            {exemption.status}
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {exemption.personnel?.rank} {exemption.personnel?.last_name}, {exemption.personnel?.first_name}
+                          </span>
+                        </div>
+                        <div className="text-foreground-muted">
+                          {exemption.start_date} - {exemption.end_date}
+                          {exemption.reason && (
+                            <span className="ml-2 italic">({exemption.reason})</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Point Values */}
               <div className="border-t border-border pt-4">
                 <h3 className="text-sm font-medium text-foreground mb-3">Point Values</h3>
@@ -1224,6 +1316,47 @@ export default function DutyTypesPage() {
                       </div>
                     </>
                   )}
+                </div>
+              )}
+
+              {/* Personnel Exemptions */}
+              {formData.unit_section_id && unitExemptions.length > 0 && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="text-sm font-medium text-foreground mb-2">
+                    Active/Upcoming Exemptions ({unitExemptions.length})
+                  </h3>
+                  <p className="text-xs text-foreground-muted mb-3">
+                    Personnel in this unit with non-availability
+                  </p>
+                  <div className="max-h-40 overflow-y-auto space-y-2 bg-surface-elevated rounded-lg p-2">
+                    {unitExemptions.map((exemption) => (
+                      <div
+                        key={exemption.id}
+                        className="flex items-center justify-between text-xs p-2 bg-background rounded border border-border"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                            exemption.status === 'approved'
+                              ? 'bg-green-500/20 text-green-400'
+                              : exemption.status === 'recommended'
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : 'bg-yellow-500/20 text-yellow-400'
+                          }`}>
+                            {exemption.status}
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {exemption.personnel?.rank} {exemption.personnel?.last_name}, {exemption.personnel?.first_name}
+                          </span>
+                        </div>
+                        <div className="text-foreground-muted">
+                          {exemption.start_date} - {exemption.end_date}
+                          {exemption.reason && (
+                            <span className="ml-2 italic">({exemption.reason})</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
