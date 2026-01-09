@@ -154,7 +154,7 @@ export default function ProfilePage() {
 
   // Submit password change
   async function submitPasswordChange() {
-    if (!newPassword || !confirmPassword) {
+    if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error("Please fill in all password fields");
       return;
     }

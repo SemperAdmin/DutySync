@@ -989,10 +989,18 @@ export async function changeUserPassword(
   if (isBcryptHash) {
     isValidPassword = await bcrypt.compare(currentPassword, typedUser.password_hash);
   } else {
-    // Legacy base64 check
+    // Legacy base64 check with constant-time comparison to prevent timing attacks
     try {
       const legacyHash = btoa(currentPassword);
-      isValidPassword = legacyHash === typedUser.password_hash;
+      if (legacyHash.length !== typedUser.password_hash.length) {
+        isValidPassword = false;
+      } else {
+        let diff = 0;
+        for (let i = 0; i < legacyHash.length; i++) {
+          diff |= legacyHash.charCodeAt(i) ^ typedUser.password_hash.charCodeAt(i);
+        }
+        isValidPassword = diff === 0;
+      }
     } catch {
       isValidPassword = false;
     }

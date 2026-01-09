@@ -645,6 +645,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isValid) {
           return { success: false, error: "Current password is incorrect" };
         }
+      } else if (currentPassword) {
+        // User entered a password but account has no password set
+        return { success: false, error: "No password is set. The current password field should be empty." };
       }
 
       // Validate new password
