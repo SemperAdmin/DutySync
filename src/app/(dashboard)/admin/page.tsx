@@ -27,6 +27,8 @@ import {
   getRucDisplayName,
   resolveUnitAdminScope,
   canManageUser,
+  isAppAdmin,
+  getUserOrganizationId,
   type RucEntry,
 } from "@/lib/data-layer";
 
@@ -1105,16 +1107,35 @@ function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSucces
 
   const isUserAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
-  // Check authorization on mount
+  // Track current user's organization ID for filtering
+  const [currentUserOrgId, setCurrentUserOrgId] = useState<string | null>(null);
+
+  // Check authorization on mount and get current user's organization
   useEffect(() => {
     async function checkAuth() {
       const authCheck = await canManageUser(currentUser, user.id);
       if (!authCheck.allowed) {
         setAuthError(authCheck.reason || "You are not authorized to manage this user");
       }
+      // Get current user's organization for RUC filtering
+      const orgId = await getUserOrganizationId(currentUser);
+      setCurrentUserOrgId(orgId);
     }
     checkAuth();
   }, [currentUser, user.id]);
+
+  // Filter RUCs based on current user's organization (Unit Admins only see their own RUC)
+  const filteredRucs = useMemo(() => {
+    // App Admin can see all RUCs
+    if (isAppAdmin(currentUser)) {
+      return rucs;
+    }
+    // Unit Admin can only see their organization's RUC
+    if (currentUserOrgId) {
+      return rucs.filter(r => r.id === currentUserOrgId);
+    }
+    return rucs;
+  }, [rucs, currentUser, currentUserOrgId]);
 
   // Check if role requires a unit scope
   const roleRequiresScope = (role: string) => {
@@ -1406,7 +1427,7 @@ function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSucces
                   <label className="block text-sm font-medium text-foreground mb-1.5">Unit Scope (RUC)</label>
                   <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedRuc} onChange={(e) => setSelectedRuc(e.target.value)} disabled={isSubmitting}>
                     <option value="">Select a RUC...</option>
-                    {rucs.map((ruc) => <option key={ruc.ruc} value={ruc.ruc}>{ruc.ruc}{ruc.name ? ` - ${ruc.name}` : ""}</option>)}
+                    {filteredRucs.map((ruc) => <option key={ruc.ruc} value={ruc.ruc}>{ruc.ruc}{ruc.name ? ` - ${ruc.name}` : ""}</option>)}
                   </select>
                 </div>
               )}
