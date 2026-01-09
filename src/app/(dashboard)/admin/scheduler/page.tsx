@@ -122,6 +122,13 @@ export default function SchedulerPage() {
     return buildHierarchicalUnitOptions(units);
   }, [units]);
 
+  // Get the organization ID for the selected unit (for supernumerary)
+  const selectedUnitOrganizationId = useMemo(() => {
+    if (!selectedUnit) return null;
+    const unit = units.find(u => u.id === selectedUnit);
+    return unit?.organization_id || selectedRucOrganizationId || null;
+  }, [selectedUnit, units, selectedRucOrganizationId]);
+
   // Helper to enrich slots with duty type and personnel info
   function enrichSlots(slots: DutySlot[]): EnrichedSlot[] {
     return slots.map((slot) => {
@@ -186,10 +193,10 @@ export default function SchedulerPage() {
         assignments: [],
         warnings: [],
       };
-      if (selectedRucOrganizationId) {
+      if (selectedUnitOrganizationId) {
         supernumeraryResult = previewSupernumeraryAssignments(
           selectedUnit,
-          selectedRucOrganizationId,
+          selectedUnitOrganizationId,
           startDate,
           endDate
         );
