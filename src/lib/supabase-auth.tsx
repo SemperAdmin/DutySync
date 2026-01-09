@@ -14,6 +14,13 @@ interface SignupResult {
   organizationName?: string;
 }
 
+// RUC option for the selector dropdown
+export interface RucOption {
+  ruc: string;
+  name: string | null;
+  organizationId: string;
+}
+
 interface AuthContextType {
   user: SessionUser | null;
   isLoading: boolean;
@@ -21,6 +28,10 @@ interface AuthContextType {
   logout: () => void;
   signup: (edipi: string, email: string, password: string) => Promise<SignupResult>;
   refreshSession: () => Promise<void>;
+  // Multi-RUC support
+  selectedRuc: string | null;
+  availableRucs: RucOption[];
+  setSelectedRuc: (ruc: string | null) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -96,6 +107,54 @@ async function getUserOrganizationRuc(sessionUser: SessionUser): Promise<string 
 
   console.log(`[Auth] User organization scope: ${org.ruc_code} (${org.name || 'unnamed'})`);
   return org.ruc_code;
+}
+
+/**
+ * Get all available RUCs for a user (from their Unit Admin roles).
+ * Returns empty array for App Admins (they have access to all) or users with no Unit Admin roles.
+ */
+async function getUserAvailableRucs(sessionUser: SessionUser): Promise<RucOption[]> {
+  // App Admin has access to all RUCs - return empty to signal "all access"
+  if (sessionUser.roles.some(r => r.role_name === ROLE_NAMES.APP_ADMIN)) {
+    console.log("[Auth] User is App Admin - has access to all RUCs");
+    return [];
+  }
+
+  // Find all Unit Admin roles (user could have multiple)
+  const unitAdminRoles = sessionUser.roles.filter(r =>
+    r.role_name === "Unit Admin" && r.scope_unit_id
+  );
+
+  if (unitAdminRoles.length === 0) {
+    console.log("[Auth] User has no Unit Admin roles");
+    return [];
+  }
+
+  const rucs: RucOption[] = [];
+  const seenOrgIds = new Set<string>();
+
+  for (const role of unitAdminRoles) {
+    if (!role.scope_unit_id) continue;
+
+    // Get the unit to find its organization
+    const unit = await supabaseData.getUnitById(role.scope_unit_id);
+    if (!unit?.organization_id || seenOrgIds.has(unit.organization_id)) continue;
+
+    seenOrgIds.add(unit.organization_id);
+
+    // Get the organization to get the RUC code
+    const org = await supabaseData.getOrganizationById(unit.organization_id);
+    if (org) {
+      rucs.push({
+        ruc: org.ruc_code,
+        name: org.name,
+        organizationId: org.id,
+      });
+    }
+  }
+
+  console.log(`[Auth] User has access to ${rucs.length} RUC(s):`, rucs.map(r => r.ruc).join(", "));
+  return rucs;
 }
 
 /**
@@ -200,9 +259,14 @@ async function buildSessionUser(
   };
 }
 
+// localStorage key for selected RUC
+const SELECTED_RUC_KEY = "dutysync_selected_ruc";
+
 export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedRuc, setSelectedRucState] = useState<string | null>(null);
+  const [availableRucs, setAvailableRucs] = useState<RucOption[]>([]);
 
   // Initialize auth state
   useEffect(() => {
@@ -230,21 +294,43 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
             setUser(refreshedUser);
             localStorage.setItem("dutysync_user", JSON.stringify(refreshedUser));
 
-            // Determine user's organization from their roles
-            const userRuc = await getUserOrganizationRuc(refreshedUser);
+            // Get available RUCs for this user
+            const rucs = await getUserAvailableRucs(refreshedUser);
+            setAvailableRucs(rucs);
+
+            // Restore selected RUC from localStorage, or use first available
+            const storedRuc = localStorage.getItem(SELECTED_RUC_KEY);
+            let rucToUse: string | null = null;
+
+            if (rucs.length > 0) {
+              // Check if stored RUC is still valid for this user
+              if (storedRuc && rucs.some(r => r.ruc === storedRuc)) {
+                rucToUse = storedRuc;
+              } else {
+                rucToUse = rucs[0].ruc;
+              }
+              setSelectedRucState(rucToUse);
+              localStorage.setItem(SELECTED_RUC_KEY, rucToUse);
+            } else {
+              // App Admin or no Unit Admin roles - use stored or null
+              const userRuc = await getUserOrganizationRuc(refreshedUser);
+              rucToUse = userRuc;
+              setSelectedRucState(rucToUse);
+            }
 
             // Load all data from Supabase into the data layer cache
-            // Pass the user's RUC to load only their organization's data
             console.log("[Auth] Restoring session - loading data from Supabase...");
-            await dataLayer.loadAllData(userRuc || undefined);
-            console.log("[Auth] Data loaded successfully" + (userRuc ? ` for RUC: ${userRuc}` : " (all organizations)"));
+            await dataLayer.loadAllData(rucToUse || undefined);
+            console.log("[Auth] Data loaded successfully" + (rucToUse ? ` for RUC: ${rucToUse}` : " (all organizations)"));
           } else {
             // User no longer exists in database
             localStorage.removeItem("dutysync_user");
+            localStorage.removeItem(SELECTED_RUC_KEY);
           }
         } catch (error) {
           console.error("Failed to restore session:", error);
           localStorage.removeItem("dutysync_user");
+          localStorage.removeItem(SELECTED_RUC_KEY);
         }
       }
 
@@ -275,14 +361,34 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       setUser(sessionUser);
       localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
 
-      // Determine user's organization from their roles
-      const userRuc = await getUserOrganizationRuc(sessionUser);
+      // Get available RUCs for this user
+      const rucs = await getUserAvailableRucs(sessionUser);
+      setAvailableRucs(rucs);
+
+      // Determine which RUC to use
+      let rucToUse: string | null = null;
+
+      if (rucs.length > 0) {
+        // Check for previously stored selection
+        const storedRuc = localStorage.getItem(SELECTED_RUC_KEY);
+        if (storedRuc && rucs.some(r => r.ruc === storedRuc)) {
+          rucToUse = storedRuc;
+        } else {
+          rucToUse = rucs[0].ruc;
+        }
+        setSelectedRucState(rucToUse);
+        localStorage.setItem(SELECTED_RUC_KEY, rucToUse);
+      } else {
+        // App Admin or no Unit Admin roles
+        const userRuc = await getUserOrganizationRuc(sessionUser);
+        rucToUse = userRuc;
+        setSelectedRucState(rucToUse);
+      }
 
       // Load all data from Supabase into the data layer cache
-      // Pass the user's RUC to load only their organization's data
       console.log("[Auth] Loading data from Supabase...");
-      await dataLayer.loadAllData(userRuc || undefined);
-      console.log("[Auth] Data loaded successfully" + (userRuc ? ` for RUC: ${userRuc}` : " (all organizations)"));
+      await dataLayer.loadAllData(rucToUse || undefined);
+      console.log("[Auth] Data loaded successfully" + (rucToUse ? ` for RUC: ${rucToUse}` : " (all organizations)"));
 
       return true;
     } catch (error) {
@@ -381,7 +487,10 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
+    setSelectedRucState(null);
+    setAvailableRucs([]);
     localStorage.removeItem("dutysync_user");
+    localStorage.removeItem(SELECTED_RUC_KEY);
 
     // Clear old cached data from localStorage
     const keysToRemove = [
@@ -418,13 +527,53 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       const refreshedUser = await buildSessionUser(dbUser, personnel, unit);
       setUser(refreshedUser);
       localStorage.setItem("dutysync_user", JSON.stringify(refreshedUser));
+
+      // Refresh available RUCs
+      const rucs = await getUserAvailableRucs(refreshedUser);
+      setAvailableRucs(rucs);
+
+      // Validate selected RUC is still valid
+      if (selectedRuc && rucs.length > 0 && !rucs.some(r => r.ruc === selectedRuc)) {
+        // Selected RUC no longer valid, switch to first available
+        setSelectedRucState(rucs[0].ruc);
+        localStorage.setItem(SELECTED_RUC_KEY, rucs[0].ruc);
+      }
     } catch (error) {
       console.error("Failed to refresh session:", error);
     }
   };
 
+  // Switch to a different RUC and reload data
+  const setSelectedRuc = async (ruc: string | null): Promise<void> => {
+    if (ruc === selectedRuc) return; // No change
+
+    console.log(`[Auth] Switching RUC from ${selectedRuc} to ${ruc}`);
+    setSelectedRucState(ruc);
+
+    if (ruc) {
+      localStorage.setItem(SELECTED_RUC_KEY, ruc);
+    } else {
+      localStorage.removeItem(SELECTED_RUC_KEY);
+    }
+
+    // Reload data for the new RUC
+    console.log("[Auth] Reloading data for new RUC...");
+    await dataLayer.loadAllData(ruc || undefined);
+    console.log("[Auth] Data reloaded successfully" + (ruc ? ` for RUC: ${ruc}` : " (all organizations)"));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, signup, refreshSession }}>
+    <AuthContext.Provider value={{
+      user,
+      isLoading,
+      login,
+      logout,
+      signup,
+      refreshSession,
+      selectedRuc,
+      availableRucs,
+      setSelectedRuc,
+    }}>
       {children}
     </AuthContext.Provider>
   );
