@@ -16,19 +16,20 @@ import {
   exportUnitStructure,
   exportUnitMembers,
   createPersonnel,
-  calculateDutyScoreFromSlots,
 } from "@/lib/client-stores";
 import {
   getAllPersonnel,
   getUnitSections,
   loadPersonnel,
   loadUnits,
+  loadDutySlots,
   getOrganizationByRuc,
   importManpowerToSupabase,
   getPersonnelByEdipi,
   invalidateCache,
   type ManpowerRecord,
 } from "@/lib/data-layer";
+import type { DutySlot } from "@/types";
 import { useSyncRefresh } from "@/hooks/useSync";
 import {
   isGitHubConfigured,
@@ -45,24 +46,23 @@ import {
   VIEW_MODE_UNIT_ADMIN,
   VIEW_MODE_USER,
   type ViewMode,
+  MANAGER_ROLES,
+  ADMIN_ROLES,
+  hasAnyRole,
+  isAppAdmin as checkIsAppAdmin,
+  isUnitAdmin as checkIsUnitAdmin,
+  isManager as checkIsManager,
 } from "@/lib/constants";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 
-// Manager role names - defines who can see personnel within their scope
-const MANAGER_ROLES: RoleName[] = [
-  "Unit Manager",
-  "Company Manager",
-  "Section Manager",
-  "Work Section Manager",
-];
-
-// Admin roles that can see all personnel
-const ADMIN_ROLES: RoleName[] = ["App Admin", "Unit Admin"];
+// Pagination constants
+const ITEMS_PER_PAGE = 50;
 
 export default function PersonnelPage() {
   const { user } = useAuth();
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
+  const [dutySlots, setDutySlots] = useState<DutySlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -71,17 +71,20 @@ export default function PersonnelPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"self" | "scope">("scope"); // Default to scope for managers/admins
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = useCallback(async () => {
     try {
-      // Load data from Supabase
-      const [personnelData, unitsData] = await Promise.all([
+      // Load data from Supabase in parallel
+      const [personnelData, unitsData, slotsData] = await Promise.all([
         loadPersonnel(),
         loadUnits(),
+        loadDutySlots(),
       ]);
 
       setPersonnel(personnelData);
       setUnits(unitsData);
+      setDutySlots(slotsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -181,6 +184,29 @@ export default function PersonnelPage() {
 
     return map;
   }, [units, unitMap]);
+
+  // Pre-compute duty scores for all personnel (O(1) lookup instead of O(n) per row)
+  // This is a MAJOR performance optimization - reduces O(n*m) to O(n+m)
+  const dutyScoreMap = useMemo(() => {
+    const scores = new Map<string, number>();
+
+    // Initialize all personnel with 0
+    personnel.forEach(p => scores.set(p.id, 0));
+
+    // Aggregate scores from duty slots
+    dutySlots
+      .filter(slot =>
+        slot.status === "scheduled" ||
+        slot.status === "approved" ||
+        slot.status === "completed"
+      )
+      .forEach(slot => {
+        const currentScore = scores.get(slot.personnel_id) || 0;
+        scores.set(slot.personnel_id, currentScore + (slot.points || 0));
+      });
+
+    return scores;
+  }, [personnel, dutySlots]);
 
   // Get the current user's personnel record
   const currentUserPersonnel = useMemo(() => {
@@ -409,6 +435,18 @@ export default function PersonnelPage() {
     });
   }, [personnel, viewMode, currentUserPersonnel, effectiveIsAppAdmin, scopeUnitIds, filterUnit, searchTerm, isUnitInFilterPath]);
 
+  // Pagination: compute total pages and current page items
+  const totalPages = Math.ceil(filteredPersonnel.length / ITEMS_PER_PAGE);
+  const paginatedPersonnel = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredPersonnel.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredPersonnel, currentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterUnit, searchTerm, viewMode]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -621,6 +659,7 @@ export default function PersonnelPage() {
               <p className="text-foreground-muted">No personnel match your search criteria</p>
             </div>
           ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -646,7 +685,7 @@ export default function PersonnelPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPersonnel.map((person) => {
+                  {paginatedPersonnel.map((person) => {
                     // Use pre-computed hierarchy (O(1) lookup instead of tree traversal)
                     const hierarchy = unitHierarchyMap.get(person.unit_section_id);
                     return (
@@ -673,7 +712,7 @@ export default function PersonnelPage() {
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-highlight font-medium">
-                            {calculateDutyScoreFromSlots(person.id).toFixed(1)}
+                            {(dutyScoreMap.get(person.id) || 0).toFixed(1)}
                           </span>
                         </td>
                       </tr>
@@ -682,6 +721,55 @@ export default function PersonnelPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                <div className="text-sm text-foreground-muted">
+                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to{" "}
+                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredPersonnel.length)} of{" "}
+                  {filteredPersonnel.length} personnel
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="px-3 py-1 text-sm text-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Last
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
           )}
         </CardContent>
       </Card>
