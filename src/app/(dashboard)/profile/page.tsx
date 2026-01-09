@@ -98,6 +98,8 @@ export default function ProfilePage() {
 
       if (updated) {
         setPersonnel(updated);
+        // Reload profile data to ensure we have latest from storage
+        loadProfileData();
         toast.success("Profile updated successfully");
         setIsEditing(false);
       } else {
@@ -127,7 +129,7 @@ export default function ProfilePage() {
             <CardTitle>Account Information</CardTitle>
             {personnel && !isEditing && (
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 onClick={startEditing}
                 aria-label="Edit profile"
@@ -135,8 +137,11 @@ export default function ProfilePage() {
                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
-                Edit
+                Edit Profile
               </Button>
+            )}
+            {isEditing && (
+              <span className="text-sm text-primary font-medium">Editing...</span>
             )}
           </CardHeader>
           <CardContent className="space-y-4">
