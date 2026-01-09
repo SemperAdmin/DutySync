@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Button from "@/components/ui/Button";
-import type { UnitSection, RoleName } from "@/types";
+import type { UnitSection } from "@/types";
 import {
   getUnitSections,
-  getUnitSectionById,
   getDutyTypeById,
   getPersonnelById,
   type EnrichedSlot,
@@ -16,9 +15,8 @@ import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 import { parseLocalDate, formatDateToString } from "@/lib/date-utils";
 import { useAuth } from "@/lib/supabase-auth";
-
-// Roles that have organization-wide scope
-const ORG_SCOPED_ROLES: RoleName[] = ["Unit Admin", "App Admin"];
+import { ORG_SCOPED_ROLES } from "@/lib/constants";
+import type { RoleName } from "@/types";
 
 interface ScheduleResult {
   success: boolean;
@@ -49,27 +47,25 @@ export default function SchedulerPage() {
   // Store preview slots so we can apply the exact same schedule
   const [previewSlots, setPreviewSlots] = useState<DutySlot[]>([]);
 
-  // Get the user's organization scope from their role
-  const userOrganizationId = useMemo(() => {
-    if (!user?.roles) return null;
-
-    // Check if user is App Admin (no scope restriction)
-    const isAppAdmin = user.roles.some(r => r.role_name === "App Admin");
-    if (isAppAdmin) return null; // No filtering for App Admin
-
-    // Find the user's organization-scoped role (Unit Admin preferred)
-    const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
-    if (!scopedRole?.scope_unit_id) return null;
-
-    // Get the unit to find its organization
-    const scopeUnit = getUnitSectionById(scopedRole.scope_unit_id);
-    return scopeUnit?.organization_id || null;
-  }, [user?.roles]);
-
   const fetchUnits = useCallback(() => {
     try {
-      let data = getUnitSections();
+      setLoading(true);
+      const allUnitsData = getUnitSections();
 
+      // Derive organization ID here now that units are loaded
+      let userOrganizationId: string | null = null;
+      if (user?.roles) {
+        const isAppAdmin = user.roles.some(r => r.role_name === "App Admin");
+        if (!isAppAdmin) {
+          const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
+          if (scopedRole?.scope_unit_id) {
+            const scopeUnit = allUnitsData.find(u => u.id === scopedRole.scope_unit_id);
+            userOrganizationId = scopeUnit?.organization_id || null;
+          }
+        }
+      }
+
+      let data = allUnitsData;
       // Filter units by user's organization (RUC)
       if (userOrganizationId) {
         data = data.filter(u => u.organization_id === userOrganizationId);
@@ -80,7 +76,7 @@ export default function SchedulerPage() {
     } finally {
       setLoading(false);
     }
-  }, [userOrganizationId]);
+  }, [user?.roles]);
 
   useEffect(() => {
     fetchUnits();

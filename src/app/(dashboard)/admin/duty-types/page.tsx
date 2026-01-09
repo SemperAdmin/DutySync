@@ -5,7 +5,6 @@ import Button from "@/components/ui/Button";
 import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty, RoleName, NonAvailability } from "@/types";
 import {
   getUnitSections,
-  getUnitSectionById,
   getEnrichedDutyTypes,
   createDutyType,
   updateDutyType,
@@ -26,9 +25,8 @@ import { getTopLevelUnitForOrganization } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
-
-// Roles that have organization-wide scope
-const ORG_SCOPED_ROLES: RoleName[] = ["Unit Admin", "App Admin"];
+import { ORG_SCOPED_ROLES } from "@/lib/constants";
+import PersonnelExemptionsDisplay from "@/components/PersonnelExemptionsDisplay";
 
 // USMC rank order for sorting (E1-E9, W1-W5, O1-O10)
 const RANK_ORDER = [
@@ -79,35 +77,22 @@ export default function DutyTypesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedUnitFilter, setSelectedUnitFilter] = useState<string>("");
 
-  // Get the user's organization scope from their role
-  const userOrganizationId = useMemo(() => {
+  // Helper function to derive organization ID from user roles and units
+  const deriveUserOrganizationId = useCallback((allUnits: UnitSection[]): string | null => {
     if (!user?.roles) return null;
 
     // Check if user is App Admin (no scope restriction)
     const isAppAdmin = user.roles.some(r => r.role_name === "App Admin");
-    if (isAppAdmin) return null; // No filtering for App Admin
+    if (isAppAdmin) return null;
 
     // Find the user's organization-scoped role (Unit Admin preferred)
     const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
     if (!scopedRole?.scope_unit_id) return null;
 
-    // Get the unit to find its organization
-    const scopeUnit = getUnitSectionById(scopedRole.scope_unit_id);
+    // Find the unit in the loaded data to get its organization
+    const scopeUnit = allUnits.find(u => u.id === scopedRole.scope_unit_id);
     return scopeUnit?.organization_id || null;
   }, [user?.roles]);
-
-  // Set default filter to the user's RUC (top-level unit) for non-App Admins
-  useEffect(() => {
-    async function setDefaultFilter() {
-      if (userOrganizationId && !selectedUnitFilter) {
-        const topLevelUnit = await getTopLevelUnitForOrganization(userOrganizationId);
-        if (topLevelUnit) {
-          setSelectedUnitFilter(topLevelUnit.id);
-        }
-      }
-    }
-    setDefaultFilter();
-  }, [userOrganizationId]); // Only run when organization changes, not on filter change
 
   // Selection for blocking
   const [selectedDutyIds, setSelectedDutyIds] = useState<Set<string>>(new Set());
@@ -147,29 +132,42 @@ export default function DutyTypesPage() {
     reason: "",
   });
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      let unitsData = getUnitSections();
+      const allUnitsData = getUnitSections();
+
+      // Derive organization ID from loaded data
+      const userOrganizationId = deriveUserOrganizationId(allUnitsData);
 
       // Filter units by user's organization (RUC)
+      let unitsData = allUnitsData;
       if (userOrganizationId) {
         unitsData = unitsData.filter(u => u.organization_id === userOrganizationId);
+
+        // Set default filter to top-level unit on first load
+        if (!selectedUnitFilter) {
+          const topLevelUnit = await getTopLevelUnitForOrganization(userOrganizationId);
+          if (topLevelUnit) {
+            setSelectedUnitFilter(topLevelUnit.id);
+          }
+        }
       }
       setUnits(unitsData);
 
+      // Get org unit IDs for filtering (computed once)
+      const orgUnitIds = userOrganizationId ? new Set(unitsData.map(u => u.id)) : null;
+
       let personnelData = getAllPersonnel();
       // Filter personnel by user's organization (RUC)
-      if (userOrganizationId) {
-        const orgUnitIds = new Set(unitsData.map(u => u.id));
+      if (orgUnitIds) {
         personnelData = personnelData.filter(p => orgUnitIds.has(p.unit_section_id));
       }
       setPersonnel(personnelData);
 
       let dutyTypesData = getEnrichedDutyTypes(selectedUnitFilter || undefined);
       // Filter duty types by user's organization (RUC)
-      if (userOrganizationId) {
-        const orgUnitIds = new Set(unitsData.map(u => u.id));
+      if (orgUnitIds) {
         dutyTypesData = dutyTypesData.filter(dt => orgUnitIds.has(dt.unit_section_id));
       }
       // Enrich with active blocks
@@ -181,8 +179,7 @@ export default function DutyTypesPage() {
 
       // Fetch non-availability (exemptions) and filter by organization
       let nonAvailData = getAllNonAvailability();
-      if (userOrganizationId) {
-        const orgUnitIds = new Set(unitsData.map(u => u.id));
+      if (orgUnitIds) {
         const orgPersonnelIds = new Set(personnelData.map(p => p.id));
         nonAvailData = nonAvailData.filter(na => orgPersonnelIds.has(na.personnel_id));
       }
@@ -192,7 +189,7 @@ export default function DutyTypesPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedUnitFilter, userOrganizationId]);
+  }, [selectedUnitFilter, deriveUserOrganizationId]);
 
   useEffect(() => {
     fetchData();
@@ -272,6 +269,9 @@ export default function DutyTypesPage() {
       personnel.filter(p => unitIds.has(p.unit_section_id)).map(p => p.id)
     );
 
+    // Create a map for efficient personnel lookup (O(1) instead of O(n))
+    const personnelById = new Map(personnel.map(p => [p.id, p]));
+
     // Get today's date string for comparison
     const today = new Date().toISOString().split('T')[0];
 
@@ -284,14 +284,14 @@ export default function DutyTypesPage() {
         return ['approved', 'pending', 'recommended'].includes(na.status);
       })
       .map(na => {
-        const person = personnel.find(p => p.id === na.personnel_id);
+        const person = personnelById.get(na.personnel_id);
         return {
           ...na,
           personnel: person,
         };
       })
       .sort((a, b) => a.start_date.localeCompare(b.start_date));
-  }, [formData.unit_section_id, personnel, nonAvailability]);
+  }, [formData.unit_section_id, personnel, nonAvailability, getChildUnits]);
 
   function resetForm() {
     setFormData({
@@ -1027,44 +1027,8 @@ export default function DutyTypesPage() {
               )}
 
               {/* Personnel Exemptions */}
-              {formData.unit_section_id && unitExemptions.length > 0 && (
-                <div className="border-t border-border pt-4">
-                  <h3 className="text-sm font-medium text-foreground mb-2">
-                    Active/Upcoming Exemptions ({unitExemptions.length})
-                  </h3>
-                  <p className="text-xs text-foreground-muted mb-3">
-                    Personnel in this unit with non-availability
-                  </p>
-                  <div className="max-h-40 overflow-y-auto space-y-2 bg-surface-elevated rounded-lg p-2">
-                    {unitExemptions.map((exemption) => (
-                      <div
-                        key={exemption.id}
-                        className="flex items-center justify-between text-xs p-2 bg-background rounded border border-border"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                            exemption.status === 'approved'
-                              ? 'bg-green-500/20 text-green-400'
-                              : exemption.status === 'recommended'
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : 'bg-yellow-500/20 text-yellow-400'
-                          }`}>
-                            {exemption.status}
-                          </span>
-                          <span className="font-medium text-foreground">
-                            {exemption.personnel?.rank} {exemption.personnel?.last_name}, {exemption.personnel?.first_name}
-                          </span>
-                        </div>
-                        <div className="text-foreground-muted">
-                          {exemption.start_date} - {exemption.end_date}
-                          {exemption.reason && (
-                            <span className="ml-2 italic">({exemption.reason})</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {formData.unit_section_id && (
+                <PersonnelExemptionsDisplay exemptions={unitExemptions} />
               )}
 
               {/* Point Values */}
@@ -1334,44 +1298,8 @@ export default function DutyTypesPage() {
               )}
 
               {/* Personnel Exemptions */}
-              {formData.unit_section_id && unitExemptions.length > 0 && (
-                <div className="border-t border-border pt-4">
-                  <h3 className="text-sm font-medium text-foreground mb-2">
-                    Active/Upcoming Exemptions ({unitExemptions.length})
-                  </h3>
-                  <p className="text-xs text-foreground-muted mb-3">
-                    Personnel in this unit with non-availability
-                  </p>
-                  <div className="max-h-40 overflow-y-auto space-y-2 bg-surface-elevated rounded-lg p-2">
-                    {unitExemptions.map((exemption) => (
-                      <div
-                        key={exemption.id}
-                        className="flex items-center justify-between text-xs p-2 bg-background rounded border border-border"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                            exemption.status === 'approved'
-                              ? 'bg-green-500/20 text-green-400'
-                              : exemption.status === 'recommended'
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : 'bg-yellow-500/20 text-yellow-400'
-                          }`}>
-                            {exemption.status}
-                          </span>
-                          <span className="font-medium text-foreground">
-                            {exemption.personnel?.rank} {exemption.personnel?.last_name}, {exemption.personnel?.first_name}
-                          </span>
-                        </div>
-                        <div className="text-foreground-muted">
-                          {exemption.start_date} - {exemption.end_date}
-                          {exemption.reason && (
-                            <span className="ml-2 italic">({exemption.reason})</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {formData.unit_section_id && (
+                <PersonnelExemptionsDisplay exemptions={unitExemptions} />
               )}
 
               {/* Point Values */}
