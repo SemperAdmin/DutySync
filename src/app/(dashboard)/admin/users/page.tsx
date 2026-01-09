@@ -182,23 +182,46 @@ export default function UsersPage() {
     loadScopeUnitIds();
   }, [effectiveIsAppAdmin, effectiveIsUnitAdmin, unitAdminScopeId]);
 
+  // Get organization ID for the current user's Unit Admin scope
+  const scopeOrganizationId = useMemo(() => {
+    if (!unitAdminScopeId) return null;
+    const scopeUnit = units.find(u => u.id === unitAdminScopeId);
+    return scopeUnit?.organization_id || null;
+  }, [unitAdminScopeId, units]);
+
   // Filter users based on scope - Unit Admins only see users in their RUC/unit hierarchy
   const filteredUsers = useMemo(() => {
     // In App Admin view, show all users
     if (effectiveIsAppAdmin || !scopeUnitIds) {
       return users;
     }
-    // In Unit Admin view: filter to users whose linked personnel is in their scope
+    // In Unit Admin view: filter to users who are either:
+    // 1. Linked to personnel in a unit within scope, OR
+    // 2. Have any role scoped to a unit within scope (Unit Admin, Manager roles)
     return users.filter(user => {
+      // Check if user's personnel is in scope
       const person = personnelByEdipi.get(user.edipi);
-      if (!person) {
-        // User not linked to personnel - don't show to Unit Admins
-        return false;
+      if (person && scopeUnitIds.has(person.unit_section_id)) {
+        return true;
       }
-      // Check if personnel's unit is within scope
-      return scopeUnitIds.has(person.unit_section_id);
+
+      // Check if user has any role scoped to a unit in scope
+      // This includes Unit Admin or Manager roles for units in this organization
+      const hasRoleInScope = user.roles.some(role => {
+        if (!role.scope_unit_id) return false;
+        // Check if the role's scope unit is in our scope
+        if (scopeUnitIds.has(role.scope_unit_id)) return true;
+        // Also check if the role's scope unit is in the same organization
+        if (scopeOrganizationId) {
+          const roleUnit = units.find(u => u.id === role.scope_unit_id);
+          if (roleUnit?.organization_id === scopeOrganizationId) return true;
+        }
+        return false;
+      });
+
+      return hasRoleInScope;
     });
-  }, [users, effectiveIsAppAdmin, scopeUnitIds, personnelByEdipi]);
+  }, [users, effectiveIsAppAdmin, scopeUnitIds, personnelByEdipi, scopeOrganizationId, units]);
 
   const getPersonnelInfo = (edipi: string) => {
     return personnelByEdipi.get(edipi);
