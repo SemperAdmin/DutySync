@@ -1101,12 +1101,13 @@ function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSucces
   // Determine which form to show based on current VIEW MODE (not just user's roles)
   // A user may have both App Admin and Unit Admin roles, but should see the form
   // appropriate for their current view mode
-  const [viewMode, setViewMode] = useState<string>("admin");
-
-  useEffect(() => {
-    const stored = localStorage.getItem(VIEW_MODE_KEY);
-    setViewMode(stored || "admin");
-  }, []);
+  const [viewMode, setViewMode] = useState<string>(() => {
+    // Read from localStorage during initialization to avoid flash
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(VIEW_MODE_KEY) || "admin";
+    }
+    return "admin";
+  });
 
   // Show App Admin form only when in "admin" view mode AND user has App Admin role
   const hasAppAdminRole = currentUser?.roles?.some(r => r.role_name === "App Admin") ?? false;
