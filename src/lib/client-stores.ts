@@ -76,6 +76,12 @@ import {
   deleteDutySlotsByDutyTypeWithMapping as supabaseDeleteDutySlotsByDutyTypeWithMapping,
   createDutyScoreEventsWithMapping as supabaseCreateDutyScoreEventsWithMapping,
   updateDutySlotsStatusWithMapping as supabaseUpdateDutySlotsStatusWithMapping,
+  // Supernumerary assignments
+  createSupernumeraryAssignment as supabaseCreateSupernumeraryAssignment,
+  updateSupernumeraryAssignment as supabaseUpdateSupernumeraryAssignment,
+  deleteSupernumeraryAssignment as supabaseDeleteSupernumeraryAssignment,
+  deleteSupernumeraryAssignmentsByDutyType as supabaseDeleteSupernumeraryAssignmentsByDutyType,
+  incrementSupernumeraryActivation as supabaseIncrementSupernumeraryActivation,
 } from "@/lib/supabase-data";
 
 // Import sync status tracking
@@ -2208,7 +2214,15 @@ export function createSupernumeraryAssignment(assignment: SupernumeraryAssignmen
   saveToStorage(KEYS.supernumeraryAssignments, assignments);
   triggerAutoSave('supernumeraryAssignments');
 
-  // TODO: Add Supabase sync when supernumerary_assignments table is created in database
+  // Sync to Supabase (fire-and-forget)
+  supabaseCreateSupernumeraryAssignment(
+    assignment.organization_id,
+    assignment.duty_type_id,
+    assignment.personnel_id,
+    assignment.period_start,
+    assignment.period_end,
+    assignment.id
+  ).catch((err) => console.error("Failed to sync supernumerary to Supabase:", err));
 
   return assignment;
 }
@@ -2226,7 +2240,9 @@ export function updateSupernumeraryAssignment(
   saveToStorage(KEYS.supernumeraryAssignments, assignments);
   triggerAutoSave('supernumeraryAssignments');
 
-  // TODO: Add Supabase sync when supernumerary_assignments table is created in database
+  // Sync to Supabase (fire-and-forget)
+  supabaseUpdateSupernumeraryAssignment(id, updates)
+    .catch((err) => console.error("Failed to sync supernumerary update to Supabase:", err));
 
   return updated;
 }
@@ -2239,7 +2255,9 @@ export function deleteSupernumeraryAssignment(id: string): boolean {
   saveToStorage(KEYS.supernumeraryAssignments, filtered);
   triggerAutoSave('supernumeraryAssignments');
 
-  // TODO: Add Supabase sync when supernumerary_assignments table is created in database
+  // Sync to Supabase (fire-and-forget)
+  supabaseDeleteSupernumeraryAssignment(id)
+    .catch((err) => console.error("Failed to sync supernumerary delete to Supabase:", err));
 
   return true;
 }
@@ -2274,6 +2292,10 @@ export function clearSupernumeraryAssignmentsByDutyType(
   if (count > 0) {
     saveToStorage(KEYS.supernumeraryAssignments, filtered);
     triggerAutoSave('supernumeraryAssignments');
+
+    // Sync to Supabase (fire-and-forget)
+    supabaseDeleteSupernumeraryAssignmentsByDutyType(dutyTypeId, startDate, endDate)
+      .catch((err) => console.error("Failed to sync supernumerary bulk delete to Supabase:", err));
   }
 
   return count;

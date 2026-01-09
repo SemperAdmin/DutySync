@@ -26,6 +26,7 @@ import type {
   SwapRecommendation,
   SwapApprovalInsert,
   SwapRecommendationInsert,
+  SupernumeraryAssignment,
 } from "@/types/supabase";
 
 // Type assertion helper for Supabase operations
@@ -3397,6 +3398,173 @@ export async function calculatePersonnelScoreFromEvents(
   }
 
   return (data || []).reduce((sum, event) => sum + (event.points || 0), 0);
+}
+
+// ============================================================================
+// SUPERNUMERARY ASSIGNMENTS
+// ============================================================================
+
+export async function getSupernumeraryAssignments(
+  organizationId?: string,
+  dutyTypeId?: string,
+  startDate?: string,
+  endDate?: string
+): Promise<SupernumeraryAssignment[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getSupabase();
+
+  let query = supabase.from("supernumerary_assignments").select("*").order("period_start");
+
+  if (organizationId) {
+    query = query.eq("organization_id", organizationId);
+  }
+  if (dutyTypeId) {
+    query = query.eq("duty_type_id", dutyTypeId);
+  }
+  if (startDate) {
+    query = query.gte("period_end", startDate);
+  }
+  if (endDate) {
+    query = query.lte("period_start", endDate);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching supernumerary assignments:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getSupernumeraryAssignmentById(id: string): Promise<SupernumeraryAssignment | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("supernumerary_assignments")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching supernumerary assignment:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function createSupernumeraryAssignment(
+  organizationId: string,
+  dutyTypeId: string,
+  personnelId: string,
+  periodStart: string,
+  periodEnd: string,
+  id?: string
+): Promise<SupernumeraryAssignment | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  // Use upsert to handle both create and update cases
+  const { data, error } = await supabase
+    .from("supernumerary_assignments")
+    .upsert({
+      id: id,
+      organization_id: organizationId,
+      duty_type_id: dutyTypeId,
+      personnel_id: personnelId,
+      period_start: periodStart,
+      period_end: periodEnd,
+      activation_count: 0,
+    } as never, { onConflict: 'id' })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating supernumerary assignment:", error);
+    return null;
+  }
+  return data as SupernumeraryAssignment;
+}
+
+export async function updateSupernumeraryAssignment(
+  id: string,
+  updates: Partial<SupernumeraryAssignment>
+): Promise<SupernumeraryAssignment | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("supernumerary_assignments")
+    .update(updates as never)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating supernumerary assignment:", error);
+    return null;
+  }
+  return data as SupernumeraryAssignment;
+}
+
+export async function deleteSupernumeraryAssignment(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("supernumerary_assignments")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error deleting supernumerary assignment:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function deleteSupernumeraryAssignmentsByDutyType(
+  dutyTypeId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const supabase = getSupabase();
+
+  let query = supabase
+    .from("supernumerary_assignments")
+    .delete()
+    .eq("duty_type_id", dutyTypeId);
+
+  // Only delete assignments that overlap with the date range
+  if (startDate) {
+    query = query.gte("period_end", startDate);
+  }
+  if (endDate) {
+    query = query.lte("period_start", endDate);
+  }
+
+  const { error, count } = await query.select("id");
+
+  if (error) {
+    console.error("Error deleting supernumerary assignments:", error);
+    return 0;
+  }
+  return count || 0;
+}
+
+export async function incrementSupernumeraryActivation(id: string): Promise<SupernumeraryAssignment | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = getSupabase();
+
+  // First get the current activation count
+  const current = await getSupernumeraryAssignmentById(id);
+  if (!current) return null;
+
+  return updateSupernumeraryAssignment(id, {
+    activation_count: current.activation_count + 1,
+  });
 }
 
 // ============================================================================
