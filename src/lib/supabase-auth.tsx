@@ -60,7 +60,6 @@ function isAppAdminByEdipi(edipi: string | null | undefined): boolean {
 async function getUserOrganizationRuc(sessionUser: SessionUser): Promise<string | null> {
   // App Admin doesn't have organization scope
   if (sessionUser.roles.some(r => r.role_name === ROLE_NAMES.APP_ADMIN)) {
-    console.log("[Auth] User is App Admin - no organization scope restriction");
     return null;
   }
 
@@ -82,12 +81,10 @@ async function getUserOrganizationRuc(sessionUser: SessionUser): Promise<string 
       if (unit?.organization_id) {
         const org = await supabaseData.getOrganizationById(unit.organization_id);
         if (org) {
-          console.log(`[Auth] User organization determined from personnel unit: ${org.ruc_code}`);
           return org.ruc_code;
         }
       }
     }
-    console.log("[Auth] User has no scoped role - no organization scope restriction");
     return null;
   }
 
@@ -105,7 +102,6 @@ async function getUserOrganizationRuc(sessionUser: SessionUser): Promise<string 
     return null;
   }
 
-  console.log(`[Auth] User organization scope: ${org.ruc_code} (${org.name || 'unnamed'})`);
   return org.ruc_code;
 }
 
@@ -116,7 +112,6 @@ async function getUserOrganizationRuc(sessionUser: SessionUser): Promise<string 
 async function getUserAvailableRucs(sessionUser: SessionUser): Promise<RucOption[]> {
   // App Admin has access to all RUCs - return empty to signal "all access"
   if (sessionUser.roles.some(r => r.role_name === ROLE_NAMES.APP_ADMIN)) {
-    console.log("[Auth] User is App Admin - has access to all RUCs");
     return [];
   }
 
@@ -126,7 +121,6 @@ async function getUserAvailableRucs(sessionUser: SessionUser): Promise<RucOption
   );
 
   if (unitAdminRoles.length === 0) {
-    console.log("[Auth] User has no Unit Admin roles");
     return [];
   }
 
@@ -153,7 +147,6 @@ async function getUserAvailableRucs(sessionUser: SessionUser): Promise<RucOption
     }
   }
 
-  console.log(`[Auth] User has access to ${rucs.length} RUC(s):`, rucs.map(r => r.ruc).join(", "));
   return rucs;
 }
 
@@ -162,29 +155,23 @@ async function getUserAvailableRucs(sessionUser: SessionUser): Promise<RucOption
  * This handles the case where personnel were imported after user was created.
  */
 async function fetchPersonnelAndUnit(
-  dbUser: User,
-  logPrefix: string = "[Auth]"
+  dbUser: User
 ): Promise<{ personnel: Personnel | null; unit: Unit | null }> {
   let personnel: Personnel | null = null;
   let unit: Unit | null = null;
 
   if (dbUser.personnel_id) {
-    console.log(`${logPrefix} User has personnel_id:`, dbUser.personnel_id);
     personnel = await supabaseData.getPersonnelById(dbUser.personnel_id);
     if (personnel) {
       unit = await supabaseData.getUnitById(personnel.unit_id);
     }
   } else {
     // Try to find personnel by service_id (EDIPI)
-    console.log(`${logPrefix} Looking up personnel by EDIPI:`, dbUser.edipi);
     personnel = await supabaseData.getPersonnelByServiceId(dbUser.edipi);
     if (personnel) {
-      console.log(`${logPrefix} Found personnel:`, personnel.rank, personnel.last_name, "- linking to user");
       unit = await supabaseData.getUnitById(personnel.unit_id);
       // Link personnel to user for future sessions
       await supabaseData.updateUser(dbUser.id, { personnel_id: personnel.id });
-    } else {
-      console.log(`${logPrefix} No personnel found with EDIPI:`, dbUser.edipi);
     }
   }
 
@@ -287,7 +274,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
           const dbUser = await supabaseData.getUserByEdipi(sessionUser.edipi);
           if (dbUser) {
             // Get personnel and unit info using shared helper
-            const { personnel, unit } = await fetchPersonnelAndUnit(dbUser, "[Auth] Session restore -");
+            const { personnel, unit } = await fetchPersonnelAndUnit(dbUser);
 
             // Rebuild session with fresh data
             const refreshedUser = await buildSessionUser(dbUser, personnel, unit);
@@ -319,9 +306,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
             }
 
             // Load all data from Supabase into the data layer cache
-            console.log("[Auth] Restoring session - loading data from Supabase...");
             await dataLayer.loadAllData(rucToUse || undefined);
-            console.log("[Auth] Data loaded successfully" + (rucToUse ? ` for RUC: ${rucToUse}` : " (all organizations)"));
           } else {
             // User no longer exists in database
             localStorage.removeItem("dutysync_user");
@@ -386,9 +371,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Load all data from Supabase into the data layer cache
-      console.log("[Auth] Loading data from Supabase...");
       await dataLayer.loadAllData(rucToUse || undefined);
-      console.log("[Auth] Data loaded successfully" + (rucToUse ? ` for RUC: ${rucToUse}` : " (all organizations)"));
 
       return true;
     } catch (error) {
@@ -461,7 +444,6 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
               if (addUserRoleResult) {
                 autoAssignedUnitAdmin = true;
                 organizationName = org?.name || org?.ruc_code || undefined;
-                console.log(`[Auth] Auto-assigned ${edipi} as Unit Admin for ${organizationName || unit.organization_id}`);
               }
             }
           }
@@ -522,7 +504,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       if (!dbUser) return;
 
       // Get personnel and unit info using shared helper
-      const { personnel, unit } = await fetchPersonnelAndUnit(dbUser, "[Auth] Refresh -");
+      const { personnel, unit } = await fetchPersonnelAndUnit(dbUser);
 
       const refreshedUser = await buildSessionUser(dbUser, personnel, unit);
       setUser(refreshedUser);
@@ -547,7 +529,6 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const setSelectedRuc = async (ruc: string | null): Promise<void> => {
     if (ruc === selectedRuc) return; // No change
 
-    console.log(`[Auth] Switching RUC from ${selectedRuc} to ${ruc}`);
     setSelectedRucState(ruc);
 
     if (ruc) {
@@ -557,9 +538,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Reload data for the new RUC
-    console.log("[Auth] Reloading data for new RUC...");
     await dataLayer.loadAllData(ruc || undefined);
-    console.log("[Auth] Data reloaded successfully" + (ruc ? ` for RUC: ${ruc}` : " (all organizations)"));
   };
 
   return (

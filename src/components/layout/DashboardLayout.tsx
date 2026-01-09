@@ -16,6 +16,7 @@ import {
 } from "@/lib/constants";
 import AutoSaveStatus from "@/components/AutoSaveStatus";
 import SyncIndicator from "@/components/ui/SyncIndicator";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import type { SessionUser, RoleName } from "@/types";
 
 interface DashboardLayoutProps {
@@ -665,7 +666,9 @@ export default function DashboardLayout({
 
         {/* Page content */}
         <main id="main-content" className="p-6" tabIndex={-1}>
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
     </div>
