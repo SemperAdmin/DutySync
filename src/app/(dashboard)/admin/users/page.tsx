@@ -27,6 +27,13 @@ import {
 } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
+import {
+  VIEW_MODE_KEY,
+  VIEW_MODE_CHANGE_EVENT,
+  VIEW_MODE_ADMIN,
+  VIEW_MODE_UNIT_ADMIN,
+  type ViewMode,
+} from "@/lib/constants";
 
 interface UserRole {
   id?: string;
@@ -52,11 +59,56 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode | null>(null);
 
-  // Check if user is App Admin (can see all users) or Unit Admin (limited scope)
-  const isAppAdmin = currentUser?.roles?.some(r => r.role_name === "App Admin") ?? false;
+  // Check actual role presence (not affected by view mode)
+  const actuallyIsAppAdmin = currentUser?.roles?.some(r => r.role_name === "App Admin") ?? false;
+  const actuallyIsUnitAdmin = currentUser?.roles?.some(r => r.role_name === "Unit Admin") ?? false;
   const unitAdminRole = currentUser?.roles?.find(r => r.role_name === "Unit Admin");
   const unitAdminScopeId = unitAdminRole?.scope_unit_id ?? null;
+
+  // Effective admin status based on view mode
+  // User must have the role AND be in the appropriate view mode
+  const effectiveIsAppAdmin = actuallyIsAppAdmin && viewMode === VIEW_MODE_ADMIN;
+  const effectiveIsUnitAdmin = (actuallyIsUnitAdmin && viewMode === VIEW_MODE_UNIT_ADMIN) ||
+    // If user is only Unit Admin (not App Admin), treat them as Unit Admin in admin view too
+    (actuallyIsUnitAdmin && !actuallyIsAppAdmin && viewMode === VIEW_MODE_ADMIN);
+
+  // Load and listen for view mode changes
+  useEffect(() => {
+    const loadViewMode = () => {
+      const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+      if (stored && [VIEW_MODE_ADMIN, VIEW_MODE_UNIT_ADMIN, "user"].includes(stored)) {
+        setViewMode(stored);
+      } else {
+        // Default based on roles
+        if (actuallyIsAppAdmin) {
+          setViewMode(VIEW_MODE_ADMIN);
+        } else if (actuallyIsUnitAdmin) {
+          setViewMode(VIEW_MODE_UNIT_ADMIN);
+        } else {
+          setViewMode("user");
+        }
+      }
+    };
+
+    loadViewMode();
+
+    // Listen for view mode changes from DashboardLayout
+    const handleViewModeChange = () => {
+      loadViewMode();
+    };
+
+    window.addEventListener(VIEW_MODE_CHANGE_EVENT, handleViewModeChange);
+    // Also listen for storage events (changes from other tabs)
+    window.addEventListener("storage", (e) => {
+      if (e.key === VIEW_MODE_KEY) loadViewMode();
+    });
+
+    return () => {
+      window.removeEventListener(VIEW_MODE_CHANGE_EVENT, handleViewModeChange);
+    };
+  }, [actuallyIsAppAdmin, actuallyIsUnitAdmin]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -114,24 +166,29 @@ export default function UsersPage() {
 
   useEffect(() => {
     async function loadScopeUnitIds() {
-      if (isAppAdmin || !unitAdminScopeId) {
+      // In App Admin view, no scope filtering needed
+      if (effectiveIsAppAdmin || !unitAdminScopeId) {
         setScopeUnitIds(null);
         return;
       }
-      // Get all descendant unit IDs recursively (includes the scope unit itself)
-      const allDescendantIds = await getAllDescendantUnitIds(unitAdminScopeId);
-      setScopeUnitIds(new Set<string>(allDescendantIds));
+      // In Unit Admin view or for Unit Admin only users, apply scope filtering
+      if (effectiveIsUnitAdmin && unitAdminScopeId) {
+        const allDescendantIds = await getAllDescendantUnitIds(unitAdminScopeId);
+        setScopeUnitIds(new Set<string>(allDescendantIds));
+      } else {
+        setScopeUnitIds(null);
+      }
     }
     loadScopeUnitIds();
-  }, [isAppAdmin, unitAdminScopeId]);
+  }, [effectiveIsAppAdmin, effectiveIsUnitAdmin, unitAdminScopeId]);
 
   // Filter users based on scope - Unit Admins only see users in their RUC/unit hierarchy
   const filteredUsers = useMemo(() => {
-    if (isAppAdmin || !scopeUnitIds) {
-      // App Admin sees all users
+    // In App Admin view, show all users
+    if (effectiveIsAppAdmin || !scopeUnitIds) {
       return users;
     }
-    // Unit Admin: filter to users whose linked personnel is in their scope
+    // In Unit Admin view: filter to users whose linked personnel is in their scope
     return users.filter(user => {
       const person = personnelByEdipi.get(user.edipi);
       if (!person) {
@@ -141,7 +198,7 @@ export default function UsersPage() {
       // Check if personnel's unit is within scope
       return scopeUnitIds.has(person.unit_section_id);
     });
-  }, [users, isAppAdmin, scopeUnitIds, personnelByEdipi]);
+  }, [users, effectiveIsAppAdmin, scopeUnitIds, personnelByEdipi]);
 
   const getPersonnelInfo = (edipi: string) => {
     return personnelByEdipi.get(edipi);
@@ -235,6 +292,7 @@ export default function UsersPage() {
           units={units}
           rucs={rucs}
           getUnitName={getUnitName}
+          effectiveIsAppAdmin={effectiveIsAppAdmin}
           onClose={() => setEditingUser(null)}
           onSuccess={() => {
             setEditingUser(null);
@@ -249,7 +307,7 @@ export default function UsersPage() {
           <CardTitle>Registered Users</CardTitle>
           <CardDescription>
             {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""} registered
-            {!isAppAdmin && unitAdminScopeId && " (within your unit scope)"}
+            {!effectiveIsAppAdmin && effectiveIsUnitAdmin && unitAdminScopeId && " (within your unit scope)"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -390,6 +448,7 @@ function RoleAssignmentModal({
   units,
   rucs,
   getUnitName,
+  effectiveIsAppAdmin,
   onClose,
   onSuccess,
 }: {
@@ -398,6 +457,7 @@ function RoleAssignmentModal({
   units: UnitSection[];
   rucs: RucEntry[];
   getUnitName: (unitId: string | null) => string | null;
+  effectiveIsAppAdmin: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -407,8 +467,8 @@ function RoleAssignmentModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Check if current user is App Admin (determines which form to show)
-  const currentUserIsAppAdmin = currentUser?.roles?.some(r => r.role_name === "App Admin") ?? false;
+  // Use effective admin status passed from parent (respects view mode)
+  const currentUserIsAppAdmin = effectiveIsAppAdmin;
 
   // Check authorization on mount
   useEffect(() => {
