@@ -117,7 +117,7 @@ export default function DashboardLayout({
     if (newMode === VIEW_MODE_ADMIN || newMode === VIEW_MODE_UNIT_ADMIN) {
       router.push("/admin");
     } else {
-      router.push("/roster");
+      router.push("/profile");
     }
   };
 
