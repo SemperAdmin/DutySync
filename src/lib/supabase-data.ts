@@ -1040,7 +1040,7 @@ export async function addUserRole(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
-  // First check if this exact role already exists to avoid 409 conflict
+  // First check if this exact role already exists (same user, role, AND scope)
   const { data: existingRoles, error: fetchError } = await supabase
     .from("user_roles")
     .select("*")
@@ -1052,36 +1052,19 @@ export async function addUserRole(
     return null;
   }
 
-  // Check if we already have this role (with same or any scope)
+  // Check for exact match (same scope) - return existing if found
   const roles = existingRoles as UserRole[] | null;
   if (roles && roles.length > 0) {
-    // Find exact match (same scope)
     const exactMatch = roles.find(r => r.scope_unit_id === (scopeUnitId || null));
     if (exactMatch) {
       console.log("Role already exists with exact scope, returning existing");
       return exactMatch;
     }
-
-    // If there's a unique constraint on (user_id, role_id), we can't add another
-    // This handles cases where the constraint doesn't include scope_unit_id
-    console.log("Role exists with different scope, attempting to update scope");
-    // Update the existing role's scope instead of inserting
-    const existingRole = roles[0];
-    const { data: updated, error: updateError } = await supabase
-      .from("user_roles")
-      .update({ scope_unit_id: scopeUnitId || null } as never)
-      .eq("id", existingRole.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error("Error updating role scope:", updateError);
-      return null;
-    }
-    return updated as UserRole;
+    // Different scope - allow adding another role (e.g., Unit Admin for multiple RUCs)
+    console.log("Role exists with different scope, adding new role with different scope");
   }
 
-  // Insert new role
+  // Insert new role (allow multiple scoped roles like Unit Admin for different RUCs)
   const { data, error } = await supabase
     .from("user_roles")
     .insert({
@@ -1093,15 +1076,22 @@ export async function addUserRole(
     .single();
 
   if (error) {
-    // If we get a unique constraint violation (23505), try to fetch and return the existing role
+    // If we get a unique constraint violation, it might be on (user_id, role_id, scope_unit_id)
     if (error.code === "23505") {
       console.log("Insert conflict (unique constraint), fetching existing role");
-      const { data: existing } = await supabase
+      let query = supabase
         .from("user_roles")
         .select("*")
         .eq("user_id", userId)
-        .eq("role_id", roleId)
-        .maybeSingle();
+        .eq("role_id", roleId);
+
+      if (scopeUnitId) {
+        query = query.eq("scope_unit_id", scopeUnitId);
+      } else {
+        query = query.is("scope_unit_id", null);
+      }
+
+      const { data: existing } = await query.maybeSingle();
       if (existing) {
         return existing as UserRole;
       }
