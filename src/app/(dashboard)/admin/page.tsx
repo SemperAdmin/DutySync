@@ -5,7 +5,7 @@ import Link from "next/link";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { useAuth } from "@/lib/supabase-auth";
+import { useAuth, updateUserApprovalPermission } from "@/lib/supabase-auth";
 import type { UnitSection, HierarchyLevel, RoleName, Personnel, SessionUser } from "@/types";
 import {
   getUnitSections,
@@ -60,6 +60,7 @@ interface UserData {
   edipi: string;
   email: string;
   personnel_id: string | null;
+  can_approve_non_availability: boolean;
   roles: Array<{
     id?: string;
     role_name: RoleName;
@@ -343,6 +344,7 @@ function UnitsTab() {
         edipi: u.edipi,
         email: u.email,
         personnel_id: u.personnel_id || null,
+        can_approve_non_availability: u.can_approve_non_availability || false,
         roles: (u.roles || []).map(r => ({
           id: r.id,
           role_name: r.role_name as RoleName,
@@ -851,6 +853,7 @@ function UsersTab() {
         edipi: u.edipi,
         email: u.email,
         personnel_id: u.personnel_id || null,
+        can_approve_non_availability: u.can_approve_non_availability || false,
         roles: (u.roles || []).map(r => ({
           id: r.id,
           role_name: r.role_name as RoleName,
@@ -1199,6 +1202,9 @@ function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSucces
   const [managerRole, setManagerRole] = useState<RoleName | "">(currentManagerRole?.role_name || "");
   const [managerScope, setManagerScope] = useState(currentManagerRole?.scope_unit_id || "");
 
+  // Local state for non-availability approval permission
+  const [canApproveNA, setCanApproveNA] = useState(user.can_approve_non_availability || false);
+
   // ============================================================================
   // CHANGE DETECTION
   // ============================================================================
@@ -1215,14 +1221,16 @@ function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSucces
       }
       return false;
     } else {
-      // Unit Admin view: Check manager role changes
+      // Unit Admin view: Check manager role changes AND approval permission
       const originalManagerRole = currentManagerRole?.role_name || "";
+      const originalCanApproveNA = user.can_approve_non_availability || false;
+      if (canApproveNA !== originalCanApproveNA) return true;
       const originalManagerScope = currentManagerRole?.scope_unit_id || "";
       return managerRole !== originalManagerRole ||
         (managerRole && managerScope !== originalManagerScope);
     }
   }, [currentUserIsAppAdmin, selectedRucIds, currentUnitAdminOrgIds,
-      managerRole, managerScope, currentManagerRole]);
+      managerRole, managerScope, currentManagerRole, canApproveNA, user.can_approve_non_availability]);
 
   // ============================================================================
   // SAVE HANDLERS
@@ -1318,6 +1326,17 @@ function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSucces
           const result = await assignUserRole(currentUser, user.id, managerRole, managerScope);
           if (!result.success) {
             setError(result.error || "Failed to assign manager role");
+            setIsSaving(false);
+            return;
+          }
+        }
+
+        // Update non-availability approval permission if changed
+        const originalCanApproveNA = user.can_approve_non_availability || false;
+        if (canApproveNA !== originalCanApproveNA) {
+          const result = await updateUserApprovalPermission(user.id, canApproveNA);
+          if (!result.success) {
+            setError(result.error || "Failed to update approval permission");
             setIsSaving(false);
             return;
           }
@@ -1573,6 +1592,25 @@ function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSucces
                   )}
                 </p>
               )}
+
+              {/* Non-Availability Approval Permission */}
+              <div className="pt-4 border-t border-border">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={canApproveNA}
+                    onChange={(e) => setCanApproveNA(e.target.checked)}
+                    disabled={isSaving}
+                    className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <div>
+                    <span className="font-medium text-foreground">Can Approve Non-Availability</span>
+                    <p className="text-sm text-foreground-muted">
+                      Allow this user to approve non-availability requests
+                    </p>
+                  </div>
+                </label>
+              </div>
             </div>
           )}
 
