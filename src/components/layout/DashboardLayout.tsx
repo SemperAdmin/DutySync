@@ -106,12 +106,19 @@ export default function DashboardLayout({
     }
   }, [actuallyIsAppAdmin, actuallyIsUnitAdmin]);
 
-  // Change view mode
+  // Change view mode and redirect to appropriate dashboard
   const changeViewMode = (newMode: ViewMode) => {
     setViewMode(newMode);
     localStorage.setItem(VIEW_MODE_KEY, newMode);
     // Dispatch custom event for same-tab communication
     window.dispatchEvent(new CustomEvent(VIEW_MODE_CHANGE_EVENT));
+
+    // Redirect to appropriate dashboard based on new role
+    if (newMode === VIEW_MODE_ADMIN || newMode === VIEW_MODE_UNIT_ADMIN) {
+      router.push("/admin");
+    } else {
+      router.push("/roster");
+    }
   };
 
   const handleLogout = () => {
