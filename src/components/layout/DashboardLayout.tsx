@@ -664,7 +664,9 @@ export default function DashboardLayout({
         </header>
 
         {/* Page content */}
-        <main className="p-6">{children}</main>
+        <main id="main-content" className="p-6" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </div>
   );

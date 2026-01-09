@@ -2,6 +2,7 @@
 
 import { getSupabase, isSupabaseConfigured } from "./supabase";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "./constants";
+import bcrypt from "bcryptjs";
 import type {
   Organization,
   Unit,
@@ -858,10 +859,10 @@ export async function authenticateUser(edipi: string, password: string): Promise
     return null;
   }
 
-  // Check password (base64 encoded for now - should use bcrypt in production)
-  const passwordHash = btoa(password);
+  // Verify password using bcrypt
   const typedUser = user as User;
-  if (typedUser.password_hash !== passwordHash) {
+  const isValidPassword = await bcrypt.compare(password, typedUser.password_hash);
+  if (!isValidPassword) {
     return null;
   }
 
@@ -877,8 +878,8 @@ export async function createUser(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
-  // Hash password (base64 for now - should use bcrypt in production)
-  const passwordHash = btoa(password);
+  // Hash password using bcrypt with cost factor 12
+  const passwordHash = await bcrypt.hash(password, 12);
 
   const { data, error } = await supabase
     .from("users")

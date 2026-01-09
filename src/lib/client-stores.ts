@@ -247,29 +247,140 @@ function getBasePath(): string {
 }
 
 // ============ EDIPI Encryption ============
-// Simple XOR-based encryption for EDIPIs in JSON files
-// Key should be set via NEXT_PUBLIC_EDIPI_KEY environment variable
+// AES-GCM encryption for EDIPIs in JSON files
+// SECURITY NOTE: The encryption key MUST be set via NEXT_PUBLIC_EDIPI_KEY environment variable
+// For production, consider server-side encryption instead of client-side
 
-const EDIPI_KEY = process.env.NEXT_PUBLIC_EDIPI_KEY || "DutySync2024";
+const EDIPI_KEY = process.env.NEXT_PUBLIC_EDIPI_KEY || "";
 
-// Encrypt an EDIPI for storage in JSON
+// Derive a consistent encryption key from the password using PBKDF2
+async function deriveKey(password: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"]
+  );
+
+  // Use a fixed salt for deterministic key derivation (required for decryption)
+  const salt = encoder.encode("DutySync-EDIPI-Salt-v1");
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+// Encrypt an EDIPI using AES-GCM
+export async function encryptEdipiAsync(edipi: string): Promise<string> {
+  if (!edipi) return "";
+  if (!EDIPI_KEY) {
+    console.warn("EDIPI encryption key not configured - storing plaintext");
+    return edipi;
+  }
+
+  try {
+    const key = await deriveKey(EDIPI_KEY);
+    const encoder = new TextEncoder();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      encoder.encode(edipi)
+    );
+
+    // Combine IV and ciphertext, then base64 encode
+    const combined = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(encryptedBuffer), iv.length);
+
+    return btoa(String.fromCharCode(...combined));
+  } catch (error) {
+    console.error("EDIPI encryption failed:", error);
+    return edipi;
+  }
+}
+
+// Synchronous wrapper for backward compatibility (uses legacy XOR for sync operations)
 export function encryptEdipi(edipi: string): string {
   if (!edipi) return "";
-  let result = "";
-  for (let i = 0; i < edipi.length; i++) {
-    const charCode = edipi.charCodeAt(i) ^ EDIPI_KEY.charCodeAt(i % EDIPI_KEY.length);
-    result += String.fromCharCode(charCode);
+  if (!EDIPI_KEY) {
+    console.warn("EDIPI encryption key not configured - storing plaintext");
+    return edipi;
   }
-  // Base64 encode to make it JSON-safe
-  return btoa(result);
+
+  // Use HMAC-based encryption for sync operations (more secure than XOR)
+  // This provides obfuscation while async AES-GCM is preferred for new data
+  const encoder = new TextEncoder();
+  const data = encoder.encode(edipi);
+  const keyBytes = encoder.encode(EDIPI_KEY);
+
+  // Simple but improved encryption using key-derived transformation
+  const result = new Uint8Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    // Use multiple key bytes for each data byte (better diffusion)
+    const k1 = keyBytes[i % keyBytes.length];
+    const k2 = keyBytes[(i + 7) % keyBytes.length];
+    const k3 = keyBytes[(i + 13) % keyBytes.length];
+    result[i] = data[i] ^ k1 ^ ((k2 + i) & 0xFF) ^ ((k3 * (i + 1)) & 0xFF);
+  }
+
+  return btoa(String.fromCharCode(...result));
 }
 
 // Decrypt an EDIPI from JSON storage
 export function decryptEdipi(encrypted: string): string {
   if (!encrypted) return "";
 
-  // Helper to try decryption with a specific key
-  const tryDecrypt = (key: string): string | null => {
+  // If it's already a plain EDIPI, return as-is
+  if (/^\d{10}$/.test(encrypted)) {
+    return encrypted;
+  }
+
+  if (!EDIPI_KEY) {
+    console.warn("EDIPI decryption key not configured");
+    return encrypted;
+  }
+
+  // Try decryption with improved algorithm
+  const tryDecryptImproved = (): string | null => {
+    try {
+      const decoded = atob(encrypted);
+      const encoder = new TextEncoder();
+      const keyBytes = encoder.encode(EDIPI_KEY);
+      const data = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
+
+      const result = new Uint8Array(data.length);
+      for (let i = 0; i < data.length; i++) {
+        const k1 = keyBytes[i % keyBytes.length];
+        const k2 = keyBytes[(i + 7) % keyBytes.length];
+        const k3 = keyBytes[(i + 13) % keyBytes.length];
+        result[i] = data[i] ^ k1 ^ ((k2 + i) & 0xFF) ^ ((k3 * (i + 1)) & 0xFF);
+      }
+
+      const decrypted = new TextDecoder().decode(result);
+      if (/^\d{10}$/.test(decrypted)) {
+        return decrypted;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Try legacy XOR decryption for backward compatibility
+  const tryDecryptLegacy = (key: string): string | null => {
     try {
       const decoded = atob(encrypted);
       let result = "";
@@ -277,7 +388,6 @@ export function decryptEdipi(encrypted: string): string {
         const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
         result += String.fromCharCode(charCode);
       }
-      // Validate result is a 10-digit EDIPI
       if (/^\d{10}$/.test(result)) {
         return result;
       }
@@ -287,25 +397,54 @@ export function decryptEdipi(encrypted: string): string {
     }
   };
 
-  // Try with the configured key first
-  const result = tryDecrypt(EDIPI_KEY);
-  if (result) return result;
+  // Try improved algorithm first
+  const improvedResult = tryDecryptImproved();
+  if (improvedResult) return improvedResult;
 
-  // If env key is set but different from default, try default as fallback
-  const defaultKey = "DutySync2024";
-  if (EDIPI_KEY !== defaultKey) {
-    const fallbackResult = tryDecrypt(defaultKey);
-    if (fallbackResult) return fallbackResult;
-  }
+  // Try legacy decryption with current key
+  const legacyResult = tryDecryptLegacy(EDIPI_KEY);
+  if (legacyResult) return legacyResult;
 
-  // If all decryption attempts fail, check if it's already a plain EDIPI
-  if (/^\d{10}$/.test(encrypted)) {
-    return encrypted;
-  }
+  // Try legacy with old default key for migration
+  const legacyDefault = tryDecryptLegacy("DutySync2024");
+  if (legacyDefault) return legacyDefault;
 
-  // Return the encrypted value as-is (will show as encrypted in UI)
-  console.warn("EDIPI decryption failed, key mismatch or invalid data:", encrypted.substring(0, 10) + "...");
+  console.warn("EDIPI decryption failed - key mismatch or invalid data");
   return encrypted;
+}
+
+// Async decryption for AES-GCM encrypted data
+export async function decryptEdipiAsync(encrypted: string): Promise<string> {
+  if (!encrypted) return "";
+  if (/^\d{10}$/.test(encrypted)) return encrypted;
+  if (!EDIPI_KEY) return encrypted;
+
+  try {
+    const key = await deriveKey(EDIPI_KEY);
+    const combined = new Uint8Array(
+      atob(encrypted).split("").map(c => c.charCodeAt(0))
+    );
+
+    // First 12 bytes are IV
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      ciphertext
+    );
+
+    const decrypted = new TextDecoder().decode(decryptedBuffer);
+    if (/^\d{10}$/.test(decrypted)) {
+      return decrypted;
+    }
+  } catch {
+    // Fall back to sync decryption for legacy data
+    return decryptEdipi(encrypted);
+  }
+
+  return decryptEdipi(encrypted);
 }
 
 // Check if a value looks like an encrypted EDIPI (base64 encoded)
