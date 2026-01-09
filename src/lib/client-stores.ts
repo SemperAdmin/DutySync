@@ -2240,8 +2240,15 @@ export function updateSupernumeraryAssignment(
   saveToStorage(KEYS.supernumeraryAssignments, assignments);
   triggerAutoSave('supernumeraryAssignments');
 
-  // Sync to Supabase (fire-and-forget)
-  supabaseUpdateSupernumeraryAssignment(id, updates)
+  // Sync to Supabase (fire-and-forget) - convert Date to string for Supabase
+  const supabaseUpdates: Record<string, unknown> = { ...updates };
+  if (supabaseUpdates.created_at instanceof Date) {
+    supabaseUpdates.created_at = (supabaseUpdates.created_at as Date).toISOString();
+  }
+  if (supabaseUpdates.updated_at instanceof Date) {
+    supabaseUpdates.updated_at = (supabaseUpdates.updated_at as Date).toISOString();
+  }
+  supabaseUpdateSupernumeraryAssignment(id, supabaseUpdates)
     .catch((err) => console.error("Failed to sync supernumerary update to Supabase:", err));
 
   return updated;
