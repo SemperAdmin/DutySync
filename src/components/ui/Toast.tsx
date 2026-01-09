@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState, createContext, useContext, ReactNode } from "react";
+import { useEffect, useCallback, useState, createContext, useContext, ReactNode, memo } from "react";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
@@ -148,7 +148,7 @@ const typeStyles: Record<ToastType, { bg: string; icon: ReactNode }> = {
   },
 };
 
-function ToastItem({ toast, onClose }: ToastItemProps) {
+const ToastItem = memo(function ToastItem({ toast, onClose }: ToastItemProps) {
   const style = typeStyles[toast.type];
 
   useEffect(() => {
@@ -182,4 +182,4 @@ function ToastItem({ toast, onClose }: ToastItemProps) {
       </button>
     </div>
   );
-}
+});
