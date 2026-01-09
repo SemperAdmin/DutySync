@@ -132,6 +132,11 @@ export default function DutyTypesPage() {
     base_weight: "1.0",
     weekend_multiplier: "1.5",
     holiday_multiplier: "2.0",
+    // Supernumerary settings
+    requires_supernumerary: false,
+    supernumerary_count: "2",
+    supernumerary_period_days: "15",
+    supernumerary_value: "0.5",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -318,6 +323,10 @@ export default function DutyTypesPage() {
       base_weight: "1.0",
       weekend_multiplier: "1.5",
       holiday_multiplier: "2.0",
+      requires_supernumerary: false,
+      supernumerary_count: "2",
+      supernumerary_period_days: "15",
+      supernumerary_value: "0.5",
     });
     setError("");
   }
@@ -342,6 +351,10 @@ export default function DutyTypesPage() {
       base_weight: dutyType.duty_value?.base_weight.toString() || "1.0",
       weekend_multiplier: dutyType.duty_value?.weekend_multiplier.toString() || "1.5",
       holiday_multiplier: dutyType.duty_value?.holiday_multiplier.toString() || "2.0",
+      requires_supernumerary: dutyType.requires_supernumerary || false,
+      supernumerary_count: (dutyType.supernumerary_count || 2).toString(),
+      supernumerary_period_days: (dutyType.supernumerary_period_days || 15).toString(),
+      supernumerary_value: (dutyType.supernumerary_value || 0.5).toString(),
     });
     setError("");
     setIsEditModalOpen(true);
@@ -477,6 +490,10 @@ export default function DutyTypesPage() {
         section_filter_mode: formData.section_filter_values.length > 0 ? formData.section_filter_mode : null,
         section_filter_values: formData.section_filter_values.length > 0 ? formData.section_filter_values : null,
         is_active: true,
+        requires_supernumerary: formData.requires_supernumerary,
+        supernumerary_count: parseInt(formData.supernumerary_count),
+        supernumerary_period_days: parseInt(formData.supernumerary_period_days),
+        supernumerary_value: parseFloat(formData.supernumerary_value),
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -519,6 +536,10 @@ export default function DutyTypesPage() {
         rank_filter_values: formData.rank_filter_values.length > 0 ? formData.rank_filter_values : null,
         section_filter_mode: formData.section_filter_values.length > 0 ? formData.section_filter_mode : null,
         section_filter_values: formData.section_filter_values.length > 0 ? formData.section_filter_values : null,
+        requires_supernumerary: formData.requires_supernumerary,
+        supernumerary_count: parseInt(formData.supernumerary_count),
+        supernumerary_period_days: parseInt(formData.supernumerary_period_days),
+        supernumerary_value: parseFloat(formData.supernumerary_value),
       });
 
       // Update duty value
@@ -813,6 +834,28 @@ export default function DutyTypesPage() {
                   </div>
                 )}
 
+                {/* Supernumerary */}
+                {dutyType.requires_supernumerary && (
+                  <div className="pt-2 border-t border-border">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-highlight/20 text-highlight">
+                        Supernumerary
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-xs">
+                      <span className="text-foreground">
+                        Slots: {dutyType.supernumerary_count}/mo
+                      </span>
+                      <span className="text-foreground">
+                        Period: {dutyType.supernumerary_period_days}d
+                      </span>
+                      <span className="text-foreground">
+                        Value: {dutyType.supernumerary_value}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Notes */}
                 {dutyType.notes && (
                   <div className="pt-2 border-t border-border">
@@ -1094,6 +1137,71 @@ export default function DutyTypesPage() {
                 </div>
               </div>
 
+              {/* Supernumerary Configuration */}
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">Supernumerary Coverage</h3>
+                    <p className="text-xs text-foreground-muted">Configure standby personnel for this duty type</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.requires_supernumerary}
+                      onChange={(e) => setFormData({ ...formData, requires_supernumerary: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-surface-elevated peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground-muted after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-white"></div>
+                  </label>
+                </div>
+                {formData.requires_supernumerary && (
+                  <div className="grid gap-4 md:grid-cols-3 p-3 bg-surface-elevated rounded-lg border border-border">
+                    <div>
+                      <label className="block text-sm text-foreground-muted mb-1">
+                        Supernumerary Slots
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.supernumerary_count}
+                        onChange={(e) => setFormData({ ...formData, supernumerary_count: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <p className="text-xs text-foreground-muted mt-1">Per month (e.g., 2)</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-foreground-muted mb-1">
+                        Period (Days)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={formData.supernumerary_period_days}
+                        onChange={(e) => setFormData({ ...formData, supernumerary_period_days: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <p className="text-xs text-foreground-muted mt-1">15 = half-month</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-foreground-muted mb-1">
+                        Standby Value
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={formData.supernumerary_value}
+                        onChange={(e) => setFormData({ ...formData, supernumerary_value: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <p className="text-xs text-foreground-muted mt-1">Score if not activated</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Duty Type Notes */}
               <div className="border-t border-border pt-4">
                 <label className="block text-sm font-medium text-foreground mb-1">
@@ -1363,6 +1471,71 @@ export default function DutyTypesPage() {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Supernumerary Configuration */}
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">Supernumerary Coverage</h3>
+                    <p className="text-xs text-foreground-muted">Configure standby personnel for this duty type</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.requires_supernumerary}
+                      onChange={(e) => setFormData({ ...formData, requires_supernumerary: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-surface-elevated peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground-muted after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-white"></div>
+                  </label>
+                </div>
+                {formData.requires_supernumerary && (
+                  <div className="grid gap-4 md:grid-cols-3 p-3 bg-surface-elevated rounded-lg border border-border">
+                    <div>
+                      <label className="block text-sm text-foreground-muted mb-1">
+                        Supernumerary Slots
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.supernumerary_count}
+                        onChange={(e) => setFormData({ ...formData, supernumerary_count: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <p className="text-xs text-foreground-muted mt-1">Per month (e.g., 2)</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-foreground-muted mb-1">
+                        Period (Days)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={formData.supernumerary_period_days}
+                        onChange={(e) => setFormData({ ...formData, supernumerary_period_days: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <p className="text-xs text-foreground-muted mt-1">15 = half-month</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-foreground-muted mb-1">
+                        Standby Value
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={formData.supernumerary_value}
+                        onChange={(e) => setFormData({ ...formData, supernumerary_value: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <p className="text-xs text-foreground-muted mt-1">Score if not activated</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Duty Type Notes */}
