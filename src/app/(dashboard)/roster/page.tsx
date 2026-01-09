@@ -46,6 +46,7 @@ import {
   VIEW_MODE_UNIT_ADMIN,
   VIEW_MODE_USER,
   type ViewMode,
+  ORG_SCOPED_ROLES,
 } from "@/lib/constants";
 import { matchesFilter, calculateDutyPoints } from "@/lib/duty-thruster";
 import { useSyncRefresh } from "@/hooks/useSync";
@@ -62,9 +63,6 @@ const MANAGER_ROLES: RoleName[] = [
 
 // Unit Admin can mark liberty days
 const UNIT_ADMIN_ROLES: RoleName[] = ["Unit Admin"];
-
-// Roles that have organization-wide scope
-const ORG_SCOPED_ROLES: RoleName[] = ["Unit Admin", "App Admin"];
 
 // Liberty day storage key
 const LIBERTY_DAYS_KEY = "duty-sync-liberty-days";
@@ -384,31 +382,26 @@ export default function RosterPage() {
     try {
       setLoading(true);
 
-      // Fetch units and filter by user's organization (RUC)
+      // Fetch all data first
       let unitsData = getUnitSections();
+      let dutyTypesData = getAllDutyTypes();
+      let blockedData = getAllBlockedDuties();
+
+      // Apply organization filtering in one pass
       if (userOrganizationId) {
         unitsData = unitsData.filter(u => u.organization_id === userOrganizationId);
-      }
-      setUnits(unitsData);
-
-      // Fetch duty types and filter by user's organization (RUC)
-      let dutyTypesData = getAllDutyTypes();
-      if (userOrganizationId) {
         const orgUnitIds = new Set(unitsData.map(u => u.id));
         dutyTypesData = dutyTypesData.filter(dt => orgUnitIds.has(dt.unit_section_id));
+        blockedData = blockedData.filter(bd => orgUnitIds.has(bd.unit_section_id));
       }
+
+      setUnits(unitsData);
       setDutyTypes(dutyTypesData);
 
       // Fetch duty slots for the date range
       const slotsData = getEnrichedSlots(startDate, endDate, selectedUnit || undefined);
       setSlots(slotsData);
 
-      // Fetch blocked duties and filter by user's organization (RUC)
-      let blockedData = getAllBlockedDuties();
-      if (userOrganizationId) {
-        const orgUnitIds = new Set(unitsData.map(u => u.id));
-        blockedData = blockedData.filter(bd => orgUnitIds.has(bd.unit_section_id));
-      }
       setBlockedDuties(blockedData);
 
       // Check roster approval status (only if a unit is selected or user is Unit Admin)

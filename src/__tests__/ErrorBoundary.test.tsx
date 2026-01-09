@@ -99,9 +99,8 @@ describe("ErrorBoundary", () => {
   });
 
   it("shows error message in development mode", () => {
-    const originalEnv = process.env.NODE_ENV;
-    // Note: This test assumes NODE_ENV is 'test' which is similar to 'development'
-
+    // Note: NODE_ENV is 'test' during testing, but the component shows error
+    // message when NODE_ENV === 'development'. We test the general error UI here.
     render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
@@ -110,5 +109,23 @@ describe("ErrorBoundary", () => {
 
     // The error message should be visible in the UI
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByText(/An error occurred while rendering this component/i)).toBeInTheDocument();
+  });
+
+  it("displays actual error message when in development environment", async () => {
+    // Use vi.stubEnv to mock NODE_ENV
+    vi.stubEnv("NODE_ENV", "development");
+
+    render(
+      <ErrorBoundary>
+        <ThrowError shouldThrow={true} />
+      </ErrorBoundary>
+    );
+
+    // In development mode, the actual error message "Test error" should be displayed
+    expect(screen.getByText("Test error")).toBeInTheDocument();
+
+    // Restore original NODE_ENV
+    vi.unstubAllEnvs();
   });
 });

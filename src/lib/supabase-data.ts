@@ -872,18 +872,32 @@ export async function authenticateUser(edipi: string, password: string): Promise
     // Legacy: verify using base64 comparison (atob/btoa)
     try {
       const legacyHash = btoa(password);
-      isValidPassword = legacyHash === typedUser.password_hash;
 
-      // If legacy password is valid, migrate to bcrypt
+      // Use constant-time comparison to prevent timing attacks
+      const a = legacyHash;
+      const b = typedUser.password_hash;
+      let diff = a.length ^ b.length;
+      for (let i = 0; i < a.length && i < b.length; i++) {
+        diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+      }
+      isValidPassword = diff === 0;
+
+      // If legacy password is valid, attempt to migrate to bcrypt
       if (isValidPassword) {
-        const newHash = await bcrypt.hash(password, 12);
-        await supabase
-          .from("users")
-          .update({ password_hash: newHash, updated_at: new Date().toISOString() } as never)
-          .eq("id", typedUser.id);
+        // Use separate try-catch for migration so it doesn't block login on failure
+        try {
+          const newHash = await bcrypt.hash(password, 12);
+          await supabase
+            .from("users")
+            .update({ password_hash: newHash, updated_at: new Date().toISOString() } as never)
+            .eq("id", typedUser.id);
+        } catch (migrationError) {
+          // Log migration failure but don't prevent login
+          console.error("Failed to migrate legacy password to bcrypt:", migrationError);
+        }
       }
     } catch {
-      // If base64 decode fails, password is invalid
+      // If btoa fails (e.g., invalid characters), password is invalid
       isValidPassword = false;
     }
   }
