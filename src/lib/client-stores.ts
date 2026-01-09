@@ -4900,6 +4900,22 @@ export function getUserById(id: string): StoredUser | undefined {
   return getAllUsers().find((u) => u.id === id);
 }
 
+export function updateUser(userId: string, updates: { email?: string }): StoredUser | null {
+  // Find user in the seed cache
+  const user = seedUsersCache.find((u) => u.id === userId);
+  if (!user) return null;
+
+  // Apply updates directly to the cached user
+  if (updates.email !== undefined) {
+    user.email = updates.email;
+  }
+
+  return {
+    ...user,
+    edipi: isEncryptedEdipi(user.edipi) ? decryptEdipi(user.edipi) : user.edipi,
+  };
+}
+
 export function deleteUser(userId: string): boolean {
   // Note: This only removes from memory cache. To persist, update seed data files.
   const idx = seedUsersCache.findIndex((u) => u.id === userId);
