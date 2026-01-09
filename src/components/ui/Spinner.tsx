@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 interface SpinnerProps {
   size?: "sm" | "md" | "lg";
   className?: string;
@@ -13,7 +15,7 @@ const sizeClasses = {
   lg: "h-8 w-8 border-4",
 };
 
-export default function Spinner({
+const Spinner = memo(function Spinner({
   size = "md",
   className = "",
   label = "Loading",
@@ -30,19 +32,21 @@ export default function Spinner({
       <span className="sr-only">{label}</span>
     </div>
   );
-}
+});
+
+export default Spinner;
 
 /** Full page loading spinner with centered layout */
-export function PageSpinner({ label = "Loading page" }: { label?: string }) {
+export const PageSpinner = memo(function PageSpinner({ label = "Loading page" }: { label?: string }) {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
       <Spinner size="lg" label={label} />
     </div>
   );
-}
+});
 
 /** Inline spinner with optional text */
-export function InlineSpinner({
+export const InlineSpinner = memo(function InlineSpinner({
   text,
   size = "sm",
 }: {
@@ -55,4 +59,4 @@ export function InlineSpinner({
       {text && <span className="text-muted">{text}</span>}
     </span>
   );
-}
+});

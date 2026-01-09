@@ -7,6 +7,7 @@
 
 import { getGitHubSettings } from "./github-api";
 import { invalidateCache } from "./client-stores";
+import { syncLogger } from "./debug";
 
 // Sync configuration
 const DEFAULT_SYNC_INTERVAL = 30000; // 30 seconds
@@ -536,7 +537,7 @@ export function startSyncPolling(intervalMs: number = DEFAULT_SYNC_INTERVAL): vo
     }
   }, intervalMs);
 
-  console.log(`[SyncService] Started polling every ${intervalMs / 1000}s`);
+  syncLogger.info(`Started polling every ${intervalMs / 1000}s`);
 }
 
 /**
@@ -546,7 +547,7 @@ export function stopSyncPolling(): void {
   if (syncInterval) {
     clearInterval(syncInterval);
     syncInterval = null;
-    console.log("[SyncService] Stopped polling");
+    syncLogger.info("Stopped polling");
   }
 }
 
@@ -604,6 +605,6 @@ export function onSyncStatusChanged(
  */
 export function notifyDataChanged(dataTypes: SyncDataType[]): void {
   if (dataTypes.length === 0) return;
-  console.log("[Sync Service] Manual data change notification:", dataTypes.join(", "));
+  syncLogger.debug("Manual data change notification", dataTypes.join(", "));
   dispatchSyncEvent(SYNC_EVENTS.DATA_CHANGED, { dataTypesUpdated: dataTypes });
 }
