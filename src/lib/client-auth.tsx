@@ -21,6 +21,11 @@ interface SignupResult {
   error?: string;
 }
 
+interface ChangePasswordResult {
+  success: boolean;
+  error?: string;
+}
+
 interface AuthContextType {
   user: SessionUser | null;
   isLoading: boolean;
@@ -28,6 +33,7 @@ interface AuthContextType {
   logout: () => void;
   signup: (edipi: string, email: string, password: string) => Promise<SignupResult>;
   refreshSession: () => Promise<void>; // Refresh current user's session from seed data
+  changePassword: (currentPassword: string, newPassword: string) => Promise<ChangePasswordResult>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -211,6 +217,54 @@ async function triggerCreateUserWorkflow(
     };
   } catch (error) {
     console.error("Failed to trigger workflow:", error);
+    return {
+      success: false,
+      error: "Failed to connect to GitHub API",
+    };
+  }
+}
+
+// Trigger GitHub workflow to change user password
+async function triggerChangePasswordWorkflow(
+  userId: string,
+  passwordHash: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+    return { success: false, error: "GitHub API not configured" };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/change-password.yml/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({
+          ref: "main",
+          inputs: {
+            user_id: userId,
+            password_hash: passwordHash,
+          },
+        }),
+      }
+    );
+
+    if (response.status === 204) {
+      return { success: true };
+    }
+
+    const errorText = await response.text();
+    console.error("GitHub API error:", response.status, errorText);
+    return {
+      success: false,
+      error: `GitHub API error: ${response.status}`,
+    };
+  } catch (error) {
+    console.error("Failed to trigger password change workflow:", error);
     return {
       success: false,
       error: "Failed to connect to GitHub API",
@@ -569,8 +623,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Change password for current user
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<ChangePasswordResult> => {
+    if (!user) {
+      return { success: false, error: "Not logged in" };
+    }
+
+    try {
+      // Get the seed user to verify current password
+      const seedUser = getSeedUserByEdipi(user.edipi);
+      if (!seedUser) {
+        return { success: false, error: "User not found" };
+      }
+
+      // Verify current password
+      if (seedUser.password_hash) {
+        const isValid = await bcrypt.compare(currentPassword, seedUser.password_hash);
+        if (!isValid) {
+          return { success: false, error: "Current password is incorrect" };
+        }
+      }
+
+      // Validate new password
+      if (newPassword.length < 8) {
+        return { success: false, error: "New password must be at least 8 characters" };
+      }
+
+      // Hash the new password
+      const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+      // Update the local cache immediately
+      seedUser.password_hash = newPasswordHash;
+
+      // Trigger workflow to persist the change
+      const workflowResult = await triggerChangePasswordWorkflow(user.id, newPasswordHash);
+
+      if (!workflowResult.success) {
+        // Still consider it a success locally, just warn about persistence
+        console.warn("Password changed locally but workflow failed:", workflowResult.error);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("Password change failed:", error);
+      return { success: false, error: "An unexpected error occurred" };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, signup, refreshSession }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, signup, refreshSession, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

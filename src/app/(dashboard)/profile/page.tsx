@@ -11,7 +11,7 @@ import Input from "@/components/ui/Input";
 import type { UnitSection, Personnel } from "@/types";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, changePassword } = useAuth();
   const toast = useToast();
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [fullUnitPath, setFullUnitPath] = useState<string>("");
@@ -22,6 +22,13 @@ export default function ProfilePage() {
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Password change state
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false);
 
   const loadProfileData = useCallback(() => {
     const allUnits = getUnitSections();
@@ -126,6 +133,56 @@ export default function ProfilePage() {
       toast.error("Error updating profile");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  // Start password change
+  function startPasswordChange() {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setIsChangingPassword(true);
+  }
+
+  // Cancel password change
+  function cancelPasswordChange() {
+    setIsChangingPassword(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  }
+
+  // Submit password change
+  async function submitPasswordChange() {
+    if (!newPassword || !confirmPassword) {
+      toast.error("Please fill in all password fields");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+
+    setIsPasswordSaving(true);
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      if (result.success) {
+        toast.success("Password changed successfully");
+        cancelPasswordChange();
+      } else {
+        toast.error(result.error || "Failed to change password");
+      }
+    } catch (err) {
+      console.error("Error changing password:", err);
+      toast.error("Error changing password");
+    } finally {
+      setIsPasswordSaving(false);
     }
   }
 
@@ -326,6 +383,77 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Password Change */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Security</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!isChangingPassword ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-foreground">Password</p>
+                <p className="text-sm text-foreground-muted">
+                  Change your account password
+                </p>
+              </div>
+              <Button variant="secondary" onClick={startPasswordChange}>
+                Change Password
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-foreground-muted">Current Password</label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-foreground-muted">New Password</label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password (min 8 characters)"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-foreground-muted">Confirm New Password</label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="primary"
+                  onClick={submitPasswordChange}
+                  disabled={isPasswordSaving}
+                >
+                  {isPasswordSaving ? "Saving..." : "Update Password"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={cancelPasswordChange}
+                  disabled={isPasswordSaving}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Duty Score */}
       <Card>
