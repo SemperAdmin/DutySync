@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/supabase-auth";
-import { getUnitSections, getPersonnelByEdipi } from "@/lib/data-layer";
-import { updatePersonnel, updateUser } from "@/lib/client-stores";
+import { getUnitSections } from "@/lib/data-layer";
+import { updatePersonnel, updateUser, getPersonnelByEdipi } from "@/lib/client-stores";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
