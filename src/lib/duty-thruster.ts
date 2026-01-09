@@ -13,7 +13,7 @@
  * - Uses Map structures for efficient membership checks
  */
 
-import type { DutySlot, DutyType, Personnel, DutyValue, DateString } from "@/types";
+import type { DutySlot, DutyType, Personnel, DutyValue, DateString, SupernumeraryAssignment } from "@/types";
 import {
   getDutyTypesByUnitWithDescendants,
   getPersonnelByUnitWithDescendants,
@@ -26,6 +26,9 @@ import {
   createDutySlot,
   updatePersonnel,
   clearDutySlotsInRange,
+  createSupernumeraryAssignment,
+  clearSupernumeraryAssignmentsByDutyType,
+  getActiveSupernumeraryForDutyType,
 } from "./client-stores";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
 import {
@@ -186,6 +189,8 @@ export interface ScheduleResult {
   errors: string[];
   warnings: string[];
   slots: DutySlot[];
+  // Supernumerary assignments generated
+  supernumeraryAssignments: SupernumeraryAssignment[];
 }
 
 interface EligiblePersonnel {
@@ -404,6 +409,7 @@ export function generateSchedule(request: ScheduleRequest): ScheduleResult {
     errors: [],
     warnings: [],
     slots: [],
+    supernumeraryAssignments: [],
   };
 
   // Clear existing slots if requested
@@ -522,6 +528,7 @@ export function previewSchedule(request: ScheduleRequest): ScheduleResult {
     errors: [],
     warnings: [],
     slots: [],
+    supernumeraryAssignments: [],
   };
 
   // Get all active duty types for this unit
@@ -663,6 +670,7 @@ export function applyPreviewedSlots(
     errors: [],
     warnings: [],
     slots: [],
+    supernumeraryAssignments: [],
   };
 
   // Optionally clear existing slots in the date range
@@ -716,4 +724,244 @@ export function getDayType(dateStr: DateString): "weekday" | "weekend" | "holida
   if (isHolidayStr(dateStr)) return "holiday";
   if (isWeekendStr(dateStr)) return "weekend";
   return "weekday";
+}
+
+// ============ Supernumerary Scheduling ============
+
+/**
+ * Generate supernumerary periods based on configuration
+ * Splits the date range into periods of supernumerary_period_days length
+ */
+function generateSupernumeraryPeriods(
+  startDate: DateString,
+  endDate: DateString,
+  periodDays: number
+): Array<{ start: DateString; end: DateString }> {
+  const periods: Array<{ start: DateString; end: DateString }> = [];
+  let periodStart = startDate;
+
+  while (periodStart <= endDate) {
+    // Calculate period end (periodDays - 1 because start day counts as day 1)
+    let periodEnd = addDaysToDateString(periodStart, periodDays - 1);
+
+    // Don't exceed the overall end date
+    if (periodEnd > endDate) {
+      periodEnd = endDate;
+    }
+
+    periods.push({ start: periodStart, end: periodEnd });
+
+    // Move to next period
+    periodStart = addDaysToDateString(periodEnd, 1);
+  }
+
+  return periods;
+}
+
+/**
+ * Get eligible personnel for supernumerary duty
+ * Similar to regular duty eligibility but doesn't require them to be available
+ * on every day of the period - they just need to meet qualification/filter requirements
+ */
+function getEligibleSupernumeraryPersonnel(
+  dutyType: DutyType,
+  alreadyAssignedIds: Set<string>
+): EligiblePersonnel[] {
+  // Get personnel from the duty type's unit and all its child units
+  const personnel = getPersonnelByUnitWithDescendants(dutyType.unit_section_id);
+
+  const eligible: EligiblePersonnel[] = [];
+
+  for (const person of personnel) {
+    // Skip if already assigned as supernumerary for this period
+    if (alreadyAssignedIds.has(person.id)) {
+      continue;
+    }
+
+    // Check requirements (qualifications)
+    if (!meetsRequirements(person.id, dutyType.id)) {
+      continue;
+    }
+
+    // Check rank filter criteria from duty type
+    if (!matchesFilter(dutyType.rank_filter_mode, dutyType.rank_filter_values, person.rank)) {
+      continue;
+    }
+
+    // Check section filter criteria from duty type
+    if (!matchesFilter(dutyType.section_filter_mode, dutyType.section_filter_values, person.unit_section_id)) {
+      continue;
+    }
+
+    eligible.push({
+      personnel: person,
+      score: person.current_duty_score,
+      recentDutyCount: 0, // Not used for supernumerary selection
+    });
+  }
+
+  // Sort by duty score (lowest first) for fairness
+  eligible.sort((a, b) => {
+    if (a.score !== b.score) {
+      return a.score - b.score;
+    }
+    return Math.random() - 0.5;
+  });
+
+  return eligible;
+}
+
+/**
+ * Generate supernumerary assignments for duty types that require them
+ */
+export function generateSupernumeraryAssignments(
+  unitId: string,
+  organizationId: string,
+  startDate: DateString,
+  endDate: DateString,
+  clearExisting: boolean = false
+): {
+  assignments: SupernumeraryAssignment[];
+  warnings: string[];
+} {
+  const assignments: SupernumeraryAssignment[] = [];
+  const warnings: string[] = [];
+
+  // Get all duty types that require supernumerary
+  const dutyTypes = getDutyTypesByUnitWithDescendants(unitId)
+    .filter(dt => dt.is_active && dt.requires_supernumerary);
+
+  if (dutyTypes.length === 0) {
+    return { assignments, warnings };
+  }
+
+  for (const dutyType of dutyTypes) {
+    // Clear existing supernumerary for this duty type if requested
+    if (clearExisting) {
+      const cleared = clearSupernumeraryAssignmentsByDutyType(dutyType.id, startDate, endDate);
+      if (cleared > 0) {
+        warnings.push(`Cleared ${cleared} existing supernumerary assignments for ${dutyType.duty_name}`);
+      }
+    }
+
+    // Generate periods based on duty type configuration
+    const periods = generateSupernumeraryPeriods(
+      startDate,
+      endDate,
+      dutyType.supernumerary_period_days
+    );
+
+    // Track already assigned personnel across all periods for this duty type
+    const alreadyAssignedForDutyType = new Set<string>();
+
+    for (const period of periods) {
+      // Check existing supernumerary for this period
+      const existingAssignments = getActiveSupernumeraryForDutyType(dutyType.id, period.start);
+      const existingCount = existingAssignments.length;
+
+      // Add existing to tracked set
+      existingAssignments.forEach(a => alreadyAssignedForDutyType.add(a.personnel_id));
+
+      const toAssign = dutyType.supernumerary_count - existingCount;
+
+      if (toAssign <= 0) {
+        continue; // Already have enough supernumerary for this period
+      }
+
+      // Get eligible personnel
+      const eligible = getEligibleSupernumeraryPersonnel(dutyType, alreadyAssignedForDutyType);
+
+      if (eligible.length < toAssign) {
+        warnings.push(
+          `Only ${eligible.length} eligible personnel for ${dutyType.duty_name} supernumerary (need ${toAssign}) for period ${period.start} - ${period.end}`
+        );
+      }
+
+      // Assign supernumerary personnel
+      const now = new Date();
+      for (let i = 0; i < Math.min(toAssign, eligible.length); i++) {
+        const selected = eligible[i];
+        const assignment: SupernumeraryAssignment = {
+          id: crypto.randomUUID(),
+          duty_type_id: dutyType.id,
+          personnel_id: selected.personnel.id,
+          organization_id: organizationId,
+          period_start: period.start,
+          period_end: period.end,
+          activation_count: 0,
+          created_at: now,
+          updated_at: now,
+        };
+
+        assignments.push(assignment);
+        alreadyAssignedForDutyType.add(selected.personnel.id);
+      }
+    }
+  }
+
+  return { assignments, warnings };
+}
+
+/**
+ * Preview supernumerary assignments (same logic, just doesn't save)
+ */
+export function previewSupernumeraryAssignments(
+  unitId: string,
+  organizationId: string,
+  startDate: DateString,
+  endDate: DateString
+): {
+  assignments: SupernumeraryAssignment[];
+  warnings: string[];
+} {
+  // Preview uses the same logic but with clearExisting=false
+  // since we don't want to clear anything in preview mode
+  return generateSupernumeraryAssignments(unitId, organizationId, startDate, endDate, false);
+}
+
+/**
+ * Apply supernumerary assignments (save to storage)
+ */
+export function applySupernumeraryAssignments(
+  assignments: SupernumeraryAssignment[],
+  clearExisting: boolean = false,
+  startDate?: DateString,
+  endDate?: DateString,
+  unitId?: string
+): {
+  created: number;
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  let created = 0;
+
+  // Clear existing if requested
+  if (clearExisting && startDate && endDate && unitId) {
+    const dutyTypes = getDutyTypesByUnitWithDescendants(unitId)
+      .filter(dt => dt.is_active && dt.requires_supernumerary);
+
+    for (const dt of dutyTypes) {
+      const cleared = clearSupernumeraryAssignmentsByDutyType(dt.id, startDate, endDate);
+      if (cleared > 0) {
+        warnings.push(`Cleared ${cleared} existing supernumerary assignments for ${dt.duty_name}`);
+      }
+    }
+  }
+
+  // Create the assignments
+  for (const assignment of assignments) {
+    // Generate real ID (preview IDs might start with "preview-")
+    const now = new Date();
+    const realAssignment: SupernumeraryAssignment = {
+      ...assignment,
+      id: assignment.id.startsWith("preview-") ? crypto.randomUUID() : assignment.id,
+      created_at: now,
+      updated_at: now,
+    };
+
+    createSupernumeraryAssignment(realAssignment);
+    created++;
+  }
+
+  return { created, warnings };
 }

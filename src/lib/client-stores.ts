@@ -16,6 +16,7 @@ import type {
   SwapRecommendation,
   SwapPair,
   DutyChangeRequestWithApprovals,
+  SupernumeraryAssignment,
 } from "@/types";
 import { getLevelOrder } from "@/lib/unit-constants";
 import { DEFAULT_WEEKEND_MULTIPLIER, DEFAULT_HOLIDAY_MULTIPLIER } from "@/lib/constants";
@@ -472,6 +473,7 @@ const KEYS = {
   seedDataLoaded: "dutysync_seed_loaded",
   approvedRosters: "dutysync_approved_rosters",
   dutyScoreEvents: "dutysync_duty_score_events",
+  supernumeraryAssignments: "dutysync_supernumerary_assignments",
 };
 
 // Duty slot retention period (in months)
@@ -1590,6 +1592,10 @@ export function createDutyType(dutyType: DutyType): DutyType {
         rankFilterValues: dutyType.rank_filter_values,
         sectionFilterMode: dutyType.section_filter_mode || "none",
         sectionFilterValues: dutyType.section_filter_values,
+        requiresSupernumerary: dutyType.requires_supernumerary,
+        supernumeraryCount: dutyType.supernumerary_count,
+        supernumeraryPeriodDays: dutyType.supernumerary_period_days,
+        supernumeraryValue: dutyType.supernumerary_value,
       }),
       "createDutyType"
     );
@@ -1620,6 +1626,10 @@ export function updateDutyType(id: string, updates: Partial<DutyType>): DutyType
         rankFilterValues: updatedType.rank_filter_values,
         sectionFilterMode: updatedType.section_filter_mode === null ? "none" : updatedType.section_filter_mode,
         sectionFilterValues: updatedType.section_filter_values,
+        requiresSupernumerary: updatedType.requires_supernumerary,
+        supernumeraryCount: updatedType.supernumerary_count,
+        supernumeraryPeriodDays: updatedType.supernumerary_period_days,
+        supernumeraryValue: updatedType.supernumerary_value,
       }),
       "updateDutyType"
     );
@@ -2147,6 +2157,123 @@ export function clearDutySlotsByDutyType(dutyTypeId: string, startDate: DateStri
     } else {
       console.error(`[clearDutySlotsByDutyType] Could not sync deletion to Supabase: Duty type ${dutyTypeId} not found`);
     }
+  }
+
+  return count;
+}
+
+// ============================================================================
+// SUPERNUMERARY ASSIGNMENTS
+// ============================================================================
+
+export function getAllSupernumeraryAssignments(): SupernumeraryAssignment[] {
+  return getFromStorage<SupernumeraryAssignment>(KEYS.supernumeraryAssignments);
+}
+
+export function getSupernumeraryAssignmentById(id: string): SupernumeraryAssignment | undefined {
+  return getAllSupernumeraryAssignments().find((sa) => sa.id === id);
+}
+
+export function getSupernumeraryAssignmentsByDutyType(dutyTypeId: string): SupernumeraryAssignment[] {
+  return getAllSupernumeraryAssignments().filter((sa) => sa.duty_type_id === dutyTypeId);
+}
+
+export function getSupernumeraryAssignmentsByOrganization(organizationId: string): SupernumeraryAssignment[] {
+  return getAllSupernumeraryAssignments().filter((sa) => sa.organization_id === organizationId);
+}
+
+export function getSupernumeraryAssignmentsByPersonnel(personnelId: string): SupernumeraryAssignment[] {
+  return getAllSupernumeraryAssignments().filter((sa) => sa.personnel_id === personnelId);
+}
+
+// Get active supernumerary assignments for a date (within period_start and period_end)
+export function getActiveSupernumeraryAssignments(dateStr: DateString): SupernumeraryAssignment[] {
+  return getAllSupernumeraryAssignments().filter((sa) =>
+    sa.period_start <= dateStr && sa.period_end >= dateStr
+  );
+}
+
+// Get active supernumerary for a specific duty type on a date
+export function getActiveSupernumeraryForDutyType(dutyTypeId: string, dateStr: DateString): SupernumeraryAssignment[] {
+  return getAllSupernumeraryAssignments().filter((sa) =>
+    sa.duty_type_id === dutyTypeId &&
+    sa.period_start <= dateStr &&
+    sa.period_end >= dateStr
+  );
+}
+
+export function createSupernumeraryAssignment(assignment: SupernumeraryAssignment): SupernumeraryAssignment {
+  const assignments = getAllSupernumeraryAssignments();
+  assignments.push(assignment);
+  saveToStorage(KEYS.supernumeraryAssignments, assignments);
+  triggerAutoSave('supernumeraryAssignments');
+
+  // TODO: Add Supabase sync when supernumerary_assignments table is created in database
+
+  return assignment;
+}
+
+export function updateSupernumeraryAssignment(
+  id: string,
+  updates: Partial<SupernumeraryAssignment>
+): SupernumeraryAssignment | null {
+  const assignments = getAllSupernumeraryAssignments();
+  const idx = assignments.findIndex((sa) => sa.id === id);
+  if (idx === -1) return null;
+
+  const updated = { ...assignments[idx], ...updates, updated_at: new Date() };
+  assignments[idx] = updated;
+  saveToStorage(KEYS.supernumeraryAssignments, assignments);
+  triggerAutoSave('supernumeraryAssignments');
+
+  // TODO: Add Supabase sync when supernumerary_assignments table is created in database
+
+  return updated;
+}
+
+export function deleteSupernumeraryAssignment(id: string): boolean {
+  const assignments = getAllSupernumeraryAssignments();
+  const filtered = assignments.filter((sa) => sa.id !== id);
+  if (filtered.length === assignments.length) return false;
+
+  saveToStorage(KEYS.supernumeraryAssignments, filtered);
+  triggerAutoSave('supernumeraryAssignments');
+
+  // TODO: Add Supabase sync when supernumerary_assignments table is created in database
+
+  return true;
+}
+
+// Increment activation count when supernumerary is activated for a duty
+export function incrementSupernumeraryActivation(id: string): SupernumeraryAssignment | null {
+  const assignment = getSupernumeraryAssignmentById(id);
+  if (!assignment) return null;
+
+  return updateSupernumeraryAssignment(id, {
+    activation_count: assignment.activation_count + 1,
+  });
+}
+
+// Clear supernumerary assignments for a date range and duty type
+export function clearSupernumeraryAssignmentsByDutyType(
+  dutyTypeId: string,
+  startDate: DateString,
+  endDate: DateString
+): number {
+  const assignments = getAllSupernumeraryAssignments();
+  let count = 0;
+  const filtered = assignments.filter((sa) => {
+    if (sa.duty_type_id !== dutyTypeId) return true;
+    // Check if period overlaps with the date range
+    const overlaps = sa.period_start <= endDate && sa.period_end >= startDate;
+    if (!overlaps) return true;
+    count++;
+    return false;
+  });
+
+  if (count > 0) {
+    saveToStorage(KEYS.supernumeraryAssignments, filtered);
+    triggerAutoSave('supernumeraryAssignments');
   }
 
   return count;

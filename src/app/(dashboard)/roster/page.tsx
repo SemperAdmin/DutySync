@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { PageSpinner } from "@/components/ui/Spinner";
-import type { UnitSection, DutyType, Personnel, RoleName, BlockedDuty, DateString } from "@/types";
+import type { UnitSection, DutyType, Personnel, RoleName, BlockedDuty, DateString, SupernumeraryAssignment } from "@/types";
 import {
   getUnitSections,
   getUnitSectionById,
@@ -35,6 +35,10 @@ import {
   buildUserAssignedByInfo,
   calculateDutyScoreFromSlots,
   markDutyAsCompleted,
+  getActiveSupernumeraryAssignments,
+  getActiveSupernumeraryForDutyType,
+  incrementSupernumeraryActivation,
+  getDutyTypeById,
   type EnrichedSlot,
   type ApprovedRoster,
 } from "@/lib/client-stores";
@@ -1064,6 +1068,93 @@ export default function RosterPage() {
     }
   }
 
+  // Handle activating a supernumerary for a duty slot
+  function handleActivateSupernumerary(supernumeraryAssignmentId: string, personnelId: string) {
+    const { date, dutyType, existingSlots } = assignmentModal;
+    if (!date || !dutyType || !user) return;
+
+    setAssigning(true);
+
+    try {
+      const slotsNeeded = dutyType.slots_needed || 1;
+
+      // Re-check actual slot count from localStorage before creating (prevents over-assignment)
+      const actualSlots = getDutySlotsByDateAndType(date, dutyType.id);
+      const actualFilled = actualSlots.filter(s => s.personnel_id).length;
+
+      if (actualFilled >= slotsNeeded) {
+        toast.warning(`All ${slotsNeeded} slots are already filled for this duty.`);
+        fetchData();
+        setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
+        return;
+      }
+
+      // Check if person is already assigned
+      if (actualSlots.some(s => s.personnel_id === personnelId)) {
+        toast.info("This person is already assigned to this duty on this date.");
+        return;
+      }
+
+      // Calculate points using centralized function
+      const dutyValue = getDutyValueByDutyType(dutyType.id);
+      const calculatedPoints = calculateDutyPoints(date, dutyValue);
+
+      // Create new slot (same as regular assignment)
+      const newSlot = {
+        id: crypto.randomUUID(),
+        duty_type_id: dutyType.id,
+        personnel_id: personnelId,
+        date_assigned: date,
+        assigned_by: user.id,
+        points: calculatedPoints,
+        status: "scheduled" as const,
+        swapped_at: null,
+        swapped_from_personnel_id: null,
+        swap_pair_id: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      createDutySlot(newSlot);
+
+      // Increment supernumerary activation count
+      incrementSupernumeraryActivation(supernumeraryAssignmentId);
+      toast.success("Supernumerary activated for duty");
+
+      // Optimistically update UI
+      const allPersonnelData = getAllPersonnel();
+      const assignedPerson = allPersonnelData.find(p => p.id === personnelId);
+
+      // Build assigned_by_info using current user's personnel record
+      const assigned_by_info = buildUserAssignedByInfo(currentUserPersonnel);
+
+      const newEnrichedSlot: EnrichedSlot = {
+        ...newSlot,
+        duty_type: { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id },
+        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank, unit_section_id: assignedPerson.unit_section_id } : null,
+        assigned_by_info,
+      };
+
+      const updatedSlots = [...existingSlots, newEnrichedSlot];
+      const filledCount = updatedSlots.filter(s => s.personnel_id).length;
+
+      if (filledCount >= slotsNeeded) {
+        // All slots filled, close modal
+        setAssignmentModal({ isOpen: false, date: null, dutyType: null, existingSlots: [] });
+      } else {
+        // More slots available - update modal state optimistically
+        setAssignmentModal(prev => ({ ...prev, existingSlots: updatedSlots }));
+      }
+
+      // Fetch in background to sync with source of truth
+      fetchData();
+    } catch (err) {
+      console.error("Error activating supernumerary:", err);
+      toast.error("Failed to activate supernumerary");
+    } finally {
+      setAssigning(false);
+    }
+  }
+
   // Open swap request modal
   function openSwapModal(slot: EnrichedSlot) {
     setSwapModal({
@@ -1414,6 +1505,35 @@ export default function RosterPage() {
       totalAssigned: assignedPersonnelIds.size,
     };
   }, [slots, unitMap, filteredDutyTypes]);
+
+  // Get active supernumerary assignments for the current month
+  // Enriched with duty type name and personnel info
+  interface EnrichedSupernumerary extends SupernumeraryAssignment {
+    dutyTypeName: string;
+    personnelName: string;
+    personnelRank: string;
+  }
+  const activeSupernumerary: EnrichedSupernumerary[] = useMemo(() => {
+    // Get assignments active during the current month
+    const midMonthDate = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 15));
+    const assignments = getActiveSupernumeraryAssignments(midMonthDate);
+
+    // Enrich with names
+    return assignments.map(assignment => {
+      const dutyType = getDutyTypeById(assignment.duty_type_id);
+      const personnel = getPersonnelById(assignment.personnel_id);
+      return {
+        ...assignment,
+        dutyTypeName: dutyType?.duty_name || 'Unknown Duty',
+        personnelName: personnel ? `${personnel.last_name}, ${personnel.first_name}` : 'Unknown',
+        personnelRank: personnel?.rank || '',
+      };
+    }).filter(a => {
+      // Only show supernumerary for duty types visible in current filter
+      if (dutyTypeFilter.size === 0) return true;
+      return dutyTypeFilter.has(a.duty_type_id);
+    });
+  }, [currentDate, dutyTypeFilter]);
 
   return (
     <div className="space-y-6">
@@ -2028,6 +2148,59 @@ export default function RosterPage() {
         </div>
       </div>
 
+      {/* Supernumerary Assignments (Standby Personnel) */}
+      {activeSupernumerary.length > 0 && (
+        <div className="bg-surface rounded-lg border border-border">
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <h3 className="text-lg font-semibold text-foreground">Supernumerary (Standby Personnel)</h3>
+              </div>
+              <span className="text-sm text-foreground-muted">
+                {activeSupernumerary.length} active
+              </span>
+            </div>
+            <p className="text-sm text-foreground-muted mt-1">
+              Personnel on standby who can be activated if regular duty personnel are unavailable.
+            </p>
+          </div>
+          <div className="p-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {activeSupernumerary.map((assignment) => (
+                <div
+                  key={assignment.id}
+                  className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-3"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-blue-400">
+                        {assignment.dutyTypeName}
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground mt-1">
+                      {assignment.personnelRank} {assignment.personnelName}
+                    </p>
+                    <p className="text-xs text-foreground-muted mt-1">
+                      {formatDateForDisplay(assignment.period_start)} - {formatDateForDisplay(assignment.period_end)}
+                    </p>
+                  </div>
+                  {assignment.activation_count > 0 && (
+                    <div className="text-right">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                        {assignment.activation_count}x activated
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Slot Detail Modal (read-only) */}
       {selectedSlot && !assignmentModal.isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -2422,6 +2595,56 @@ export default function RosterPage() {
                     )}
                   </div>
                 )}
+
+                {/* Available Supernumerary Section */}
+                {canAddMore && isManager && (() => {
+                  // Get active supernumerary for this duty type on this date
+                  const activeSuper = assignmentModal.date
+                    ? getActiveSupernumeraryForDutyType(assignmentModal.dutyType!.id, assignmentModal.date)
+                    : [];
+                  // Filter out already assigned personnel
+                  const availableSuper = activeSuper.filter(s => !assignedPersonnelIds.has(s.personnel_id));
+
+                  if (availableSuper.length === 0) return null;
+
+                  return (
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      <p className="text-sm text-foreground-muted flex items-center gap-2">
+                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <span className="text-blue-400 font-medium">Supernumerary on standby ({availableSuper.length}):</span>
+                      </p>
+                      <div className="max-h-32 overflow-y-auto space-y-1 border border-blue-500/30 rounded-lg p-2 bg-blue-500/5">
+                        {availableSuper.map((assignment) => {
+                          const person = getPersonnelById(assignment.personnel_id);
+                          if (!person) return null;
+                          return (
+                            <button
+                              key={assignment.id}
+                              onClick={() => handleActivateSupernumerary(assignment.id, assignment.personnel_id)}
+                              disabled={assigning}
+                              className="w-full text-left px-3 py-2 rounded-lg transition-colors bg-blue-500/10 hover:bg-blue-500/20 text-foreground border border-blue-500/20"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium">{person.rank} {person.last_name}, {person.first_name}</span>
+                                  <span className="text-xs text-foreground-muted ml-2">
+                                    {assignment.activation_count > 0 ? `${assignment.activation_count}x activated` : 'Not yet activated'}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-blue-400 font-medium">Activate</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-foreground-muted">
+                        Activating supernumerary assigns them to this duty and records the activation.
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 {/* All slots filled message */}
                 {!canAddMore && filledSlots.length > 0 && (
