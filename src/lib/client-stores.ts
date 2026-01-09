@@ -2343,31 +2343,6 @@ export async function approveRoster(
   // Get all duty type IDs that exist in localStorage (for matching slots)
   const allDutyTypeIds = new Set(dutyTypes.map((dt) => dt.id));
 
-  // ============ DIAGNOSTIC LOGGING FOR APPROVAL FLOW ============
-  console.group("🔍 [approveRoster] DIAGNOSTIC LOG");
-  console.log("📅 Input Parameters:", { unitId, year, month: month + 1, approvedBy });
-  console.log("📅 Date Range:", { startDateStr, endDateStr });
-  console.log("📦 Total slots in localStorage:", allSlots.length);
-  console.log("📋 Total duty types:", dutyTypes.length);
-  console.log("📋 Duty types available:", dutyTypes.map(dt => ({
-    id: dt.id,
-    name: dt.duty_name,
-    unit_section_id: dt.unit_section_id
-  })));
-
-  // Log first few slots to see their structure
-  if (allSlots.length > 0) {
-    console.log("📦 Sample slots (first 5):", allSlots.slice(0, 5).map(s => ({
-      id: s.id,
-      duty_type_id: s.duty_type_id,
-      personnel_id: s.personnel_id,
-      date_assigned: s.date_assigned,
-      status: s.status,
-      dutyTypeName: dutyTypesById.get(s.duty_type_id)?.duty_name || "NOT FOUND",
-      dutyTypeExists: allDutyTypeIds.has(s.duty_type_id) ? "✅ YES" : "❌ NO"
-    })));
-  }
-  // ============ END DIAGNOSTIC LOGGING ============
 
   // Filter slots by date range AND by whether their duty type exists in localStorage
   const monthSlots = allSlots.filter((slot) => {
@@ -2385,24 +2360,6 @@ export async function approveRoster(
     );
   });
 
-  // Continue diagnostic logging after filter
-  console.log("✅ Filtered monthSlots (in date range with valid duty type):", monthSlots.length);
-  if (monthSlots.length === 0) {
-    console.warn("⚠️ NO SLOTS FOUND! This is why 0 scores will be applied.");
-    console.warn("⚠️ Possible causes:");
-    console.warn("   1. No slots exist in localStorage for this date range");
-    console.warn("   2. Slots exist but their duty_type_id doesn't match any loaded duty type");
-    console.warn("   3. Data not loaded from Supabase (try refreshing the page)");
-  } else {
-    console.log("✅ Sample matched slots:", monthSlots.slice(0, 3).map(s => ({
-      id: s.id,
-      duty_type_id: s.duty_type_id,
-      personnel_id: s.personnel_id,
-      date_assigned: s.date_assigned,
-      status: s.status
-    })));
-  }
-  console.groupEnd();
 
   // Create duty score events and calculate personnel totals
   const personnelScores = new Map<string, number>();
@@ -2475,14 +2432,8 @@ export async function approveRoster(
   // Get RUC from unit hierarchy first, fallback to session RUC
   const rucCode = getRucCodeFromUnitHierarchy(unitId) || validateRucForSync("approveRoster-slots", monthSlots.length);
 
-  // ============ DIAGNOSTIC LOGGING FOR SUPABASE SYNC ============
-  console.group("🔄 [approveRoster] SUPABASE SYNC LOG");
-  console.log("🏷️ RUC Code resolved:", rucCode || "❌ NONE (sync will be skipped!)");
-  console.log("📊 monthSlots to sync:", monthSlots.length);
-
   if (rucCode) {
     const personnelById = new Map(getAllPersonnel().map(p => [p.id, p]));
-    console.log("👥 Personnel in localStorage:", personnelById.size);
 
     const slotsToUpdate = monthSlots
       .filter(slot => slot.personnel_id)
@@ -2492,39 +2443,20 @@ export async function approveRoster(
         return {
           dutyTypeName: dutyType?.duty_name || "",
           personnelServiceId: person?.service_id || "",
-          dateAssigned: slot.date_assigned, // Already a DateString
+          dateAssigned: slot.date_assigned,
         };
       })
       .filter(s => s.dutyTypeName && s.personnelServiceId);
 
-    console.log("📤 Slots prepared for Supabase update:", slotsToUpdate.length);
     if (slotsToUpdate.length > 0) {
-      console.log("📤 Sample slots to update:", slotsToUpdate.slice(0, 3));
-    }
-
-    if (slotsToUpdate.length > 0) {
-      // Await the slot status sync and capture results
       try {
-        console.log("⏳ Calling supabaseUpdateDutySlotsStatusWithMapping...");
         const result = await supabaseUpdateDutySlotsStatusWithMapping(rucCode, slotsToUpdate, "approved");
         syncStatus.slotsUpdated = result.updated;
         syncStatus.slotsNotFound = result.notFound;
         syncStatus.slotErrors = result.errors;
 
-        console.log("📊 Supabase sync result:", {
-          updated: result.updated,
-          notFound: result.notFound,
-          errors: result.errors.length
-        });
-
         if (result.errors.length > 0 || result.updated < slotsToUpdate.length) {
           syncStatus.allSynced = false;
-          console.warn(`⚠️ Slot sync incomplete: ${result.updated}/${slotsToUpdate.length} updated, ${result.notFound} not found`);
-          if (result.errors.length > 0) {
-            console.warn("⚠️ Sync errors:", result.errors.slice(0, 5));
-          }
-        } else {
-          console.log("✅ All slots synced successfully!");
         }
         logSyncOperation("SYNC", "approveSlotStatuses", result.errors.length === 0 && result.notFound === 0, `${result.updated}/${slotsToUpdate.length} slots${result.notFound > 0 ? `, ${result.notFound} not found` : ''}`);
       } catch (err) {
@@ -2532,20 +2464,12 @@ export async function approveRoster(
         syncStatus.slotErrors.push(`Sync failed: ${errorMsg}`);
         syncStatus.allSynced = false;
         recordSyncError(`approveSlotStatuses: ${errorMsg}`);
-        console.error("❌ Slot sync failed:", err);
       }
-    } else {
-      console.warn("⚠️ No slots to update (all filtered out during mapping)");
     }
-  } else {
-    // No RUC code available, mark as not synced
-    console.error("❌ No RUC code available - Supabase sync SKIPPED");
-    if (isSupabaseConfigured()) {
-      syncStatus.allSynced = false;
-      syncStatus.slotErrors.push("No RUC code available for sync");
-    }
+  } else if (isSupabaseConfigured()) {
+    syncStatus.allSynced = false;
+    syncStatus.slotErrors.push("No RUC code available for sync");
   }
-  console.groupEnd();
 
   // Update cached scores on personnel records (for quick lookups)
   // This recalculates the entire score from events for accuracy
