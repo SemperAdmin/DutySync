@@ -5610,11 +5610,13 @@ export function exportDutyTypes(unitId?: string): {
 // Export duty roster in seed file format (for public/data/unit/{ruc}/duty-roster.json)
 export function exportDutyRoster(unitId?: string): {
   dutySlots: DutySlot[];
+  supernumeraryAssignments: SupernumeraryAssignment[];
   exportedAt: string;
   version: string;
   description: string;
 } {
   let dutySlots = getFromStorage<DutySlot>(KEYS.dutySlots);
+  let supernumeraryAssignments = getFromStorage<SupernumeraryAssignment>(KEYS.supernumeraryAssignments);
 
   // Filter by unit if specified (via duty type's unit_section_id)
   if (unitId) {
@@ -5622,13 +5624,15 @@ export function exportDutyRoster(unitId?: string): {
       .filter(dt => dt.unit_section_id === unitId);
     const unitDutyTypeIds = new Set(unitDutyTypes.map(dt => dt.id));
     dutySlots = dutySlots.filter(ds => unitDutyTypeIds.has(ds.duty_type_id));
+    supernumeraryAssignments = supernumeraryAssignments.filter(sa => unitDutyTypeIds.has(sa.duty_type_id));
   }
 
   return {
     dutySlots,
+    supernumeraryAssignments,
     exportedAt: new Date().toISOString(),
-    version: "1.0",
-    description: "Scheduled duty assignments for this unit",
+    version: "1.1",
+    description: "Scheduled duty assignments and supernumerary (standby) personnel for this unit",
   };
 }
 

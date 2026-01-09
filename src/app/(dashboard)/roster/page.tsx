@@ -2150,7 +2150,19 @@ export default function RosterPage() {
 
       {/* Supernumerary Assignments (Standby Personnel) */}
       {activeSupernumerary.length > 0 && (
-        <div className="bg-surface rounded-lg border border-border">
+        <>
+        {/* Visual separator between main roster and supernumerary */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t-2 border-dashed border-blue-500/30"></div>
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-background px-4 text-sm font-medium text-blue-400">
+              STANDBY PERSONNEL
+            </span>
+          </div>
+        </div>
+        <div className="bg-surface rounded-lg border border-border border-blue-500/30">
           <div className="p-4 border-b border-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2199,6 +2211,7 @@ export default function RosterPage() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* Slot Detail Modal (read-only) */}
