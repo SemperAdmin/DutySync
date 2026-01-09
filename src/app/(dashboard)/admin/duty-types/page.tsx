@@ -69,7 +69,7 @@ interface DutyTypeWithBlocks extends EnrichedDutyType {
 }
 
 export default function DutyTypesPage() {
-  const { user } = useAuth();
+  const { user, selectedRuc, availableRucs } = useAuth();
   const [dutyTypes, setDutyTypes] = useState<DutyTypeWithBlocks[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
@@ -77,7 +77,15 @@ export default function DutyTypesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedUnitFilter, setSelectedUnitFilter] = useState<string>("");
 
+  // Get the organization ID for the currently selected RUC
+  const selectedRucOrganizationId = useMemo(() => {
+    if (!selectedRuc || availableRucs.length === 0) return null;
+    const rucInfo = availableRucs.find(r => r.ruc === selectedRuc);
+    return rucInfo?.organizationId || null;
+  }, [selectedRuc, availableRucs]);
+
   // Helper function to derive organization ID from user roles and units
+  // Prioritizes selected RUC when available
   const deriveUserOrganizationId = useCallback((allUnits: UnitSection[]): string | null => {
     if (!user?.roles) return null;
 
@@ -85,14 +93,17 @@ export default function DutyTypesPage() {
     const isAppAdmin = user.roles.some(r => r.role_name === "App Admin");
     if (isAppAdmin) return null;
 
-    // Find the user's organization-scoped role (Unit Admin preferred)
+    // If we have a selected RUC organization ID, use it
+    if (selectedRucOrganizationId) return selectedRucOrganizationId;
+
+    // Fallback: Find the user's organization-scoped role (Unit Admin preferred)
     const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
     if (!scopedRole?.scope_unit_id) return null;
 
     // Find the unit in the loaded data to get its organization
     const scopeUnit = allUnits.find(u => u.id === scopedRole.scope_unit_id);
     return scopeUnit?.organization_id || null;
-  }, [user?.roles]);
+  }, [user?.roles, selectedRucOrganizationId]);
 
   // Selection for blocking
   const [selectedDutyIds, setSelectedDutyIds] = useState<Set<string>>(new Set());

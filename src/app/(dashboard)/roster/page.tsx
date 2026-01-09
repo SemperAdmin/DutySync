@@ -83,7 +83,7 @@ interface SelectedCell {
 }
 
 export default function RosterPage() {
-  const { user } = useAuth();
+  const { user, selectedRuc, availableRucs } = useAuth();
   const toast = useToast();
   const [slots, setSlots] = useState<EnrichedSlot[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
@@ -190,21 +190,32 @@ export default function RosterPage() {
   // Effective App Admin status (App Admin in Admin view)
   const effectiveIsAppAdmin = isAppAdmin && isAdminView;
 
+  // Get the organization ID for the currently selected RUC
+  const selectedRucOrganizationId = useMemo(() => {
+    if (!selectedRuc || availableRucs.length === 0) return null;
+    const rucInfo = availableRucs.find(r => r.ruc === selectedRuc);
+    return rucInfo?.organizationId || null;
+  }, [selectedRuc, availableRucs]);
+
   // Get the user's organization scope from their role (for RUC filtering)
+  // Uses the selected RUC when available
   const userOrganizationId = useMemo(() => {
     if (!user?.roles) return null;
 
     // App Admin in Admin view has no scope restriction
     if (isAppAdmin && isAdminView) return null;
 
-    // Find the user's organization-scoped role (Unit Admin preferred)
+    // If we have a selected RUC organization ID, use it
+    if (selectedRucOrganizationId) return selectedRucOrganizationId;
+
+    // Fallback: Find the user's organization-scoped role (Unit Admin preferred)
     const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
     if (!scopedRole?.scope_unit_id) return null;
 
     // Get the unit to find its organization
     const scopeUnit = getUnitSectionById(scopedRole.scope_unit_id);
     return scopeUnit?.organization_id || null;
-  }, [user?.roles, isAppAdmin, isAdminView]);
+  }, [user?.roles, isAppAdmin, isAdminView, selectedRucOrganizationId]);
 
   // Check if user has manager role
   const hasManagerRole = useMemo(() => {

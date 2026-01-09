@@ -59,7 +59,7 @@ import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-
 const ITEMS_PER_PAGE = 50;
 
 export default function PersonnelPage() {
-  const { user } = useAuth();
+  const { user, selectedRuc, availableRucs } = useAuth();
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [dutySlots, setDutySlots] = useState<DutySlot[]>([]);
@@ -232,12 +232,19 @@ export default function PersonnelPage() {
   const effectiveIsAppAdmin = isAppAdmin && isAdminView;
   const effectiveIsUnitAdmin = hasUnitAdminRole && isUnitAdminView;
 
-  // Get the user's scope unit ID based on their role and view mode
+  // Get the organization ID for the currently selected RUC
+  const selectedRucOrganizationId = useMemo(() => {
+    if (!selectedRuc || availableRucs.length === 0) return null;
+    const rucInfo = availableRucs.find(r => r.ruc === selectedRuc);
+    return rucInfo?.organizationId || null;
+  }, [selectedRuc, availableRucs]);
+
+  // Get the user's scope unit ID based on their role, view mode, and selected RUC
   const userScopeUnitId = useMemo(() => {
     if (!user?.roles) return null;
 
     // Find both types of scoped roles
-    const unitAdminRole = user.roles.find(r =>
+    const unitAdminRoles = user.roles.filter(r =>
       r.role_name === "Unit Admin" && r.scope_unit_id
     );
     const managerRole = user.roles.find(r =>
@@ -245,9 +252,20 @@ export default function PersonnelPage() {
     );
 
     // In Admin View, App Admin sees everything (handled by effectiveIsAppAdmin)
-    // In Unit Admin View, use Unit Admin scope
-    if (isUnitAdminView && unitAdminRole?.scope_unit_id) {
-      return unitAdminRole.scope_unit_id;
+    // In Unit Admin View, use Unit Admin scope for the selected RUC
+    if (isUnitAdminView && unitAdminRoles.length > 0) {
+      // If we have a selected RUC organization ID, find the matching Unit Admin role
+      if (selectedRucOrganizationId) {
+        for (const role of unitAdminRoles) {
+          if (!role.scope_unit_id) continue;
+          const scopeUnit = units.find(u => u.id === role.scope_unit_id);
+          if (scopeUnit?.organization_id === selectedRucOrganizationId) {
+            return role.scope_unit_id;
+          }
+        }
+      }
+      // Fallback to first Unit Admin role
+      return unitAdminRoles[0]?.scope_unit_id || null;
     }
 
     // In User View, prioritize manager role scope for user experience
@@ -256,11 +274,23 @@ export default function PersonnelPage() {
     }
 
     // Fall back: Unit Admin scope if in Admin View with Unit Admin role
-    if (isAdminView && unitAdminRole?.scope_unit_id) return unitAdminRole.scope_unit_id;
+    if (isAdminView && unitAdminRoles.length > 0) {
+      // If we have a selected RUC organization ID, find the matching Unit Admin role
+      if (selectedRucOrganizationId) {
+        for (const role of unitAdminRoles) {
+          if (!role.scope_unit_id) continue;
+          const scopeUnit = units.find(u => u.id === role.scope_unit_id);
+          if (scopeUnit?.organization_id === selectedRucOrganizationId) {
+            return role.scope_unit_id;
+          }
+        }
+      }
+      return unitAdminRoles[0]?.scope_unit_id || null;
+    }
 
     // Final fall back to manager role scope
     return managerRole?.scope_unit_id || null;
-  }, [user?.roles, isAdminView, isUnitAdminView]);
+  }, [user?.roles, isAdminView, isUnitAdminView, selectedRucOrganizationId, units]);
 
   // Determine if user has elevated access (effective admin or has a scoped role)
   const hasElevatedAccess = effectiveIsAppAdmin || effectiveIsUnitAdmin || !!userScopeUnitId;
