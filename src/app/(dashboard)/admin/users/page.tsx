@@ -26,7 +26,7 @@ import {
   type RucEntry,
 } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
-import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
+import { buildHierarchicalUnitOptions } from "@/lib/unit-hierarchy";
 
 interface UserRole {
   id?: string;
@@ -410,88 +410,62 @@ function RoleAssignmentModal({
     checkAuth();
   }, [currentUser, user.id]);
 
-  // Build hierarchical unit options for the dropdown
-  const hierarchicalUnits = useMemo(() => {
-    return buildHierarchicalUnitOptions(units);
-  }, [units]);
-
-  // Manager role options
-  const MANAGER_ROLES: RoleName[] = [
-    "Unit Manager",
-    "Company Manager",
-    "Section Manager",
-    "Work Section Manager",
-  ];
-
   // Check if user is App Admin (cannot be changed via UI)
   const isAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
 
-  // Initialize state from user's current roles
-  const currentUnitAdminRole = user.roles.find(r => r.role_name === "Unit Admin");
-  const currentManagerRole = user.roles.find(r => MANAGER_ROLES.includes(r.role_name));
+  // Get current Unit Admin roles (user can have multiple, one per RUC)
+  const currentUnitAdminRoles = user.roles.filter(r => r.role_name === "Unit Admin");
 
-  // Convert unit ID to org ID for dropdown initialization
-  // scope_unit_id is now a unit ID, but dropdown uses org IDs
-  const getOrgIdFromUnitId = useCallback((unitId: string | null): string => {
-    if (!unitId) return "";
+  // Map unit IDs to organization IDs for tracking
+  const getOrgIdFromUnitId = useCallback((unitId: string | null): string | null => {
+    if (!unitId) return null;
     const unit = units.find(u => u.id === unitId);
-    if (unit) {
-      // Get organization_id from unit (added in data layer)
-      const orgId = (unit as UnitSection & { organization_id?: string }).organization_id;
-      if (orgId) return orgId;
-    }
-    // Fallback: return empty string if no mapping found
-    return "";
+    return unit?.organization_id || null;
   }, [units]);
 
-  // Local state for the form
-  const [isUnitAdmin, setIsUnitAdmin] = useState(!!currentUnitAdminRole);
-  const [unitAdminScope, setUnitAdminScope] = useState(
-    getOrgIdFromUnitId(currentUnitAdminRole?.scope_unit_id || null)
+  // Get set of organization IDs where user is currently Unit Admin
+  const currentUnitAdminOrgIds = useMemo(() => {
+    const orgIds = new Set<string>();
+    for (const role of currentUnitAdminRoles) {
+      const orgId = getOrgIdFromUnitId(role.scope_unit_id);
+      if (orgId) orgIds.add(orgId);
+    }
+    return orgIds;
+  }, [currentUnitAdminRoles, getOrgIdFromUnitId]);
+
+  // Track selected RUCs (organization IDs)
+  const [selectedRucIds, setSelectedRucIds] = useState<Set<string>>(
+    new Set(currentUnitAdminOrgIds)
   );
-  const [managerRole, setManagerRole] = useState<RoleName | "">(currentManagerRole?.role_name || "");
-  const [managerScope, setManagerScope] = useState(currentManagerRole?.scope_unit_id || "");
-  const [canApproveNA, setCanApproveNA] = useState(user.can_approve_non_availability);
 
   // Check if there are changes
   const hasChanges = useMemo(() => {
-    // Check Unit Admin change
-    const originalUnitAdmin = !!currentUnitAdminRole;
-    // Convert unit ID to org ID for comparison
-    const originalUnitAdminScope = getOrgIdFromUnitId(currentUnitAdminRole?.scope_unit_id || null);
-    const unitAdminChanged = isUnitAdmin !== originalUnitAdmin ||
-      (isUnitAdmin && unitAdminScope !== originalUnitAdminScope);
+    if (selectedRucIds.size !== currentUnitAdminOrgIds.size) return true;
+    for (const orgId of selectedRucIds) {
+      if (!currentUnitAdminOrgIds.has(orgId)) return true;
+    }
+    for (const orgId of currentUnitAdminOrgIds) {
+      if (!selectedRucIds.has(orgId)) return true;
+    }
+    return false;
+  }, [selectedRucIds, currentUnitAdminOrgIds]);
 
-    // Check Manager role change
-    const originalManagerRole = currentManagerRole?.role_name || "";
-    const originalManagerScope = currentManagerRole?.scope_unit_id || "";
-    const managerChanged = managerRole !== originalManagerRole ||
-      (managerRole && managerScope !== originalManagerScope);
-
-    // Check approval permission change
-    const approvalChanged = canApproveNA !== user.can_approve_non_availability;
-
-    return unitAdminChanged || managerChanged || approvalChanged;
-  }, [isUnitAdmin, unitAdminScope, managerRole, managerScope, canApproveNA,
-      currentUnitAdminRole, currentManagerRole, user.can_approve_non_availability, getOrgIdFromUnitId]);
-
-  // Check if user has any scoped role that could have approval permissions
-  const hasScopedRole = isUnitAdmin || !!managerRole;
+  // Toggle RUC selection
+  const toggleRuc = (orgId: string) => {
+    setSelectedRucIds(prev => {
+      const next = new Set(prev);
+      if (next.has(orgId)) {
+        next.delete(orgId);
+      } else {
+        next.add(orgId);
+      }
+      return next;
+    });
+  };
 
   const handleSaveChanges = async () => {
-    // Check authorization first
     if (authError) {
       setError(authError);
-      return;
-    }
-
-    // Validation
-    if (isUnitAdmin && !unitAdminScope) {
-      setError("Please select a RUC scope for Unit Admin");
-      return;
-    }
-    if (managerRole && !managerScope) {
-      setError("Please select a RUC scope for the manager role");
       return;
     }
 
@@ -499,32 +473,34 @@ function RoleAssignmentModal({
     setError(null);
 
     try {
-      // Remove old Unit Admin role if it exists and changed
-      if (currentUnitAdminRole) {
-        const result = await removeUserRole(currentUser, user.id, "Unit Admin", currentUnitAdminRole.scope_unit_id);
-        if (!result.success) {
-          setError(result.error || "Failed to remove Unit Admin role");
-          setIsSaving(false);
-          return;
+      // Find RUCs to remove (were selected before, not now)
+      const toRemove = [...currentUnitAdminOrgIds].filter(orgId => !selectedRucIds.has(orgId));
+
+      // Find RUCs to add (selected now, weren't before)
+      const toAdd = [...selectedRucIds].filter(orgId => !currentUnitAdminOrgIds.has(orgId));
+
+      // Remove Unit Admin roles
+      for (const orgId of toRemove) {
+        const roleToRemove = currentUnitAdminRoles.find(r => {
+          const roleOrgId = getOrgIdFromUnitId(r.scope_unit_id);
+          return roleOrgId === orgId;
+        });
+        if (roleToRemove?.scope_unit_id) {
+          const result = await removeUserRole(currentUser, user.id, "Unit Admin", roleToRemove.scope_unit_id);
+          if (!result.success) {
+            setError(result.error || "Failed to remove Unit Admin role");
+            setIsSaving(false);
+            return;
+          }
         }
       }
 
-      // Remove old Manager role if it exists
-      if (currentManagerRole) {
-        const result = await removeUserRole(currentUser, user.id, currentManagerRole.role_name, currentManagerRole.scope_unit_id);
-        if (!result.success) {
-          setError(result.error || "Failed to remove manager role");
-          setIsSaving(false);
-          return;
-        }
-      }
-
-      // Add new Unit Admin role if enabled
-      // Note: unitAdminScope is an organization ID from the dropdown, we need to convert to unit ID
-      if (isUnitAdmin && unitAdminScope) {
-        const topLevelUnit = await getTopLevelUnitForOrganization(unitAdminScope);
+      // Add new Unit Admin roles
+      for (const orgId of toAdd) {
+        const topLevelUnit = await getTopLevelUnitForOrganization(orgId);
         if (!topLevelUnit) {
-          setError("No top-level unit found for this organization. Please create a unit first.");
+          const ruc = rucs.find(r => r.id === orgId);
+          setError(`No top-level unit found for ${ruc?.ruc || orgId}. Please create a unit first.`);
           setIsSaving(false);
           return;
         }
@@ -536,19 +512,8 @@ function RoleAssignmentModal({
         }
       }
 
-      // Add new Manager role if selected
-      if (managerRole && managerScope) {
-        const result = await assignUserRole(currentUser, user.id, managerRole, managerScope);
-        if (!result.success) {
-          setError(result.error || "Failed to assign manager role");
-          setIsSaving(false);
-          return;
-        }
-      }
-
-      // Ensure user has Standard User role if they have no other roles
-      if (!isUnitAdmin && !managerRole && !isAppAdmin) {
-        // Check if they already have Standard User
+      // Ensure user has Standard User role if they have no Unit Admin roles and not App Admin
+      if (selectedRucIds.size === 0 && !isAppAdmin) {
         const hasStandardUser = user.roles.some(r => r.role_name === "Standard User");
         if (!hasStandardUser) {
           const result = await assignUserRole(currentUser, user.id, "Standard User", null);
@@ -560,10 +525,8 @@ function RoleAssignmentModal({
         }
       }
 
-      // Roles are now managed directly via assignUserRole/removeUserRole in data-layer
-      // The role changes were already applied above, just refresh data
+      // Refresh user data
       await loadUsers();
-
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -573,7 +536,6 @@ function RoleAssignmentModal({
   };
 
   const handleDeleteAccount = async () => {
-    // Check authorization first
     if (authError) {
       setError(authError);
       return;
@@ -583,14 +545,12 @@ function RoleAssignmentModal({
     setError(null);
 
     try {
-      // Delete user from Supabase (data-layer handles both DB and cache)
       const result = await deleteUser(currentUser, user.id);
       if (!result.success) {
         setError(result.error || "Failed to delete user");
         setIsDeleting(false);
         return;
       }
-
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -605,11 +565,11 @@ function RoleAssignmentModal({
         <CardHeader>
           <CardTitle>Manage Roles - {user.edipi}</CardTitle>
           <CardDescription>
-            Configure user roles and permissions
+            Assign Unit Admin access to one or more RUCs
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Authorization Error - User cannot manage this user */}
+          {/* Authorization Error */}
           {authError && (
             <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
               <div className="flex items-center gap-2">
@@ -627,7 +587,7 @@ function RoleAssignmentModal({
             </div>
           )}
 
-          {/* App Admin Badge (if applicable) - Not editable */}
+          {/* App Admin Badge (if applicable) */}
           {isAppAdmin && (
             <div className="p-3 rounded-lg bg-highlight/10 border border-highlight/20">
               <div className="flex items-center gap-2">
@@ -641,137 +601,60 @@ function RoleAssignmentModal({
             </div>
           )}
 
-          {/* Unit Admin Toggle */}
+          {/* Unit Admin RUC Selection */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-foreground">Unit Admin</h4>
-                <p className="text-sm text-foreground-muted">
-                  Full administrative access to a specific unit
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsUnitAdmin(!isUnitAdmin);
-                  if (!isUnitAdmin) setUnitAdminScope("");
-                }}
-                disabled={isSaving}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 ${
-                  isUnitAdmin ? "bg-primary" : "bg-foreground-muted/30"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isUnitAdmin ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
+            <div>
+              <h4 className="font-medium text-foreground">Unit Admin Access</h4>
+              <p className="text-sm text-foreground-muted">
+                Select which RUCs this user can administer
+              </p>
             </div>
 
-            {/* Unit Admin Scope Selector */}
-            {isUnitAdmin && (
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Unit Scope (RUC)
-                </label>
-                <select
-                  className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={unitAdminScope}
-                  onChange={(e) => setUnitAdminScope(e.target.value)}
-                  disabled={isSaving}
-                >
-                  <option value="">Select a unit...</option>
-                  {rucs.map((ruc) => (
-                    <option key={ruc.id} value={ruc.id}>
-                      {ruc.ruc}{ruc.name ? ` - ${ruc.name}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {rucs.map((ruc) => {
+                const isSelected = selectedRucIds.has(ruc.id);
+                return (
+                  <label
+                    key={ruc.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-primary/10 border-primary"
+                        : "bg-surface border-border hover:border-foreground-muted"
+                    } ${isSaving ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleRuc(ruc.id)}
+                      disabled={isSaving}
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <div className="flex-1">
+                      <span className="font-mono font-medium text-foreground">
+                        {ruc.ruc}
+                      </span>
+                      {ruc.name && (
+                        <span className="ml-2 text-foreground-muted">
+                          - {ruc.name}
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <span className="px-2 py-0.5 text-xs font-medium rounded bg-primary/20 text-primary">
+                        Unit Admin
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+
+            {selectedRucIds.size === 0 && !isAppAdmin && (
+              <p className="text-sm text-foreground-muted italic">
+                No Unit Admin roles assigned. User will have Standard User access only.
+              </p>
             )}
           </div>
-
-          {/* Manager Role Dropdown - Hidden for App Admin users */}
-          {!isAppAdmin && (
-            <div className="space-y-3 pt-4 border-t border-border">
-              <div>
-                <h4 className="font-medium text-foreground">Manager Role</h4>
-                <p className="text-sm text-foreground-muted">
-                  Assign a management role for personnel oversight
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Role
-                </label>
-                <select
-                  className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  value={managerRole}
-                  onChange={(e) => {
-                    setManagerRole(e.target.value as RoleName | "");
-                    if (!e.target.value) setManagerScope("");
-                  }}
-                  disabled={isSaving}
-                >
-                  <option value="">None</option>
-                  <option value="Unit Manager">Unit Manager</option>
-                  <option value="Company Manager">Company Manager</option>
-                  <option value="Section Manager">Section Manager</option>
-                  <option value="Work Section Manager">Work Section Manager</option>
-                </select>
-              </div>
-
-              {/* Manager Scope Selector */}
-              {managerRole && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Unit Scope (RUC)
-                  </label>
-                  <select
-                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-                    value={managerScope}
-                    onChange={(e) => setManagerScope(e.target.value)}
-                    disabled={isSaving}
-                  >
-                    <option value="">Select a unit...</option>
-                    {hierarchicalUnits.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {formatUnitOptionLabel(option, true)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Approval Permission Toggle - For users with scoped roles (hidden for App Admins) */}
-          {hasScopedRole && !isAppAdmin && (
-            <div className="pt-4 border-t border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium text-foreground">Non-Availability Approval</h4>
-                  <p className="text-sm text-foreground-muted">
-                    Allow approving/rejecting non-availability requests
-                  </p>
-                </div>
-                <button
-                  onClick={() => setCanApproveNA(!canApproveNA)}
-                  disabled={isSaving}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 ${
-                    canApproveNA ? "bg-success" : "bg-foreground-muted/30"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      canApproveNA ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Unsaved Changes Indicator */}
           {hasChanges && (
@@ -782,7 +665,6 @@ function RoleAssignmentModal({
 
           {/* Action Buttons */}
           <div className="flex flex-col gap-3 pt-4 border-t border-border">
-            {/* Save Changes Button */}
             <Button
               variant="accent"
               onClick={handleSaveChanges}
