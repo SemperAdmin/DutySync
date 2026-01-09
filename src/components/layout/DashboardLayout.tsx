@@ -17,6 +17,7 @@ import {
 import AutoSaveStatus from "@/components/AutoSaveStatus";
 import SyncIndicator from "@/components/ui/SyncIndicator";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import SessionTimeoutWarning from "@/components/SessionTimeoutWarning";
 import type { SessionUser, RoleName } from "@/types";
 
 interface DashboardLayoutProps {
@@ -671,6 +672,9 @@ export default function DashboardLayout({
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* Session timeout warning modal */}
+      <SessionTimeoutWarning />
     </div>
   );
 }

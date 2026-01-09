@@ -13,6 +13,7 @@ import Card, {
   CardContent,
   CardFooter,
 } from "@/components/ui/Card";
+import { loginRateLimiter, formatRetryTime } from "@/lib/rate-limiter";
 
 function LoginForm() {
   const router = useRouter();
@@ -22,6 +23,26 @@ function LoginForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockTimeRemaining, setBlockTimeRemaining] = useState<string | null>(null);
+
+  // Check rate limit status on mount and update countdown
+  useEffect(() => {
+    const checkStatus = () => {
+      const status = loginRateLimiter.check();
+      if (!status.allowed && status.retryAfterMs) {
+        setIsBlocked(true);
+        setBlockTimeRemaining(formatRetryTime(status.retryAfterMs));
+      } else {
+        setIsBlocked(false);
+        setBlockTimeRemaining(null);
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -31,6 +52,16 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Check rate limit before attempting login
+    const rateLimitStatus = loginRateLimiter.check();
+    if (!rateLimitStatus.allowed) {
+      setIsBlocked(true);
+      setBlockTimeRemaining(formatRetryTime(rateLimitStatus.retryAfterMs || 0));
+      setFormError(`Too many login attempts. Please try again in ${formatRetryTime(rateLimitStatus.retryAfterMs || 0)}.`);
+      return;
+    }
+
     setIsLoading(true);
     setFormError(null);
 
@@ -42,12 +73,21 @@ function LoginForm() {
       const success = await login(edipi, password);
 
       if (success) {
+        loginRateLimiter.recordSuccess();
         router.push(callbackUrl);
       } else {
-        setFormError("Invalid EDIPI or password");
+        const result = loginRateLimiter.recordFailure();
+        if (!result.allowed) {
+          setIsBlocked(true);
+          setBlockTimeRemaining(formatRetryTime(result.retryAfterMs || 0));
+          setFormError(`Too many login attempts. Please try again in ${formatRetryTime(result.retryAfterMs || 0)}.`);
+        } else {
+          setFormError(`Invalid EDIPI or password. ${result.remainingAttempts} attempt${result.remainingAttempts !== 1 ? 's' : ''} remaining.`);
+        }
         setIsLoading(false);
       }
     } catch {
+      loginRateLimiter.recordFailure();
       setFormError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
@@ -101,8 +141,9 @@ function LoginForm() {
             size="lg"
             className="w-full mt-6"
             isLoading={isLoading}
+            disabled={isBlocked}
           >
-            Sign In
+            {isBlocked ? `Blocked (${blockTimeRemaining})` : "Sign In"}
           </Button>
         </form>
       </CardContent>
