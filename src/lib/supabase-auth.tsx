@@ -107,14 +107,12 @@ async function getUserOrganizationRuc(sessionUser: SessionUser): Promise<string 
 
 /**
  * Get all available RUCs for a user (from their Unit Admin roles).
- * Returns empty array for App Admins (they have access to all) or users with no Unit Admin roles.
+ * Returns the list of RUCs the user has Unit Admin access to.
+ * For users with BOTH App Admin and Unit Admin roles, still returns their
+ * Unit Admin RUCs so they can switch between them in Unit Admin view.
+ * Returns empty array for users with no Unit Admin roles.
  */
 async function getUserAvailableRucs(sessionUser: SessionUser): Promise<RucOption[]> {
-  // App Admin has access to all RUCs - return empty to signal "all access"
-  if (sessionUser.roles.some(r => r.role_name === ROLE_NAMES.APP_ADMIN)) {
-    return [];
-  }
-
   // Find all Unit Admin roles (user could have multiple)
   const unitAdminRoles = sessionUser.roles.filter(r =>
     r.role_name === "Unit Admin" && r.scope_unit_id
