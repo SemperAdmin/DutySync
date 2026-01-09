@@ -22,6 +22,7 @@ import {
   getAllNonAvailability,
   type EnrichedDutyType,
 } from "@/lib/client-stores";
+import { getTopLevelUnitForOrganization } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
@@ -94,6 +95,19 @@ export default function DutyTypesPage() {
     const scopeUnit = getUnitSectionById(scopedRole.scope_unit_id);
     return scopeUnit?.organization_id || null;
   }, [user?.roles]);
+
+  // Set default filter to the user's RUC (top-level unit) for non-App Admins
+  useEffect(() => {
+    async function setDefaultFilter() {
+      if (userOrganizationId && !selectedUnitFilter) {
+        const topLevelUnit = await getTopLevelUnitForOrganization(userOrganizationId);
+        if (topLevelUnit) {
+          setSelectedUnitFilter(topLevelUnit.id);
+        }
+      }
+    }
+    setDefaultFilter();
+  }, [userOrganizationId]); // Only run when organization changes, not on filter change
 
   // Selection for blocking
   const [selectedDutyIds, setSelectedDutyIds] = useState<Set<string>>(new Set());
