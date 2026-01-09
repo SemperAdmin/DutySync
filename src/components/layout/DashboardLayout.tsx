@@ -3,7 +3,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/supabase-auth";
+import { useAuth, type RucOption } from "@/lib/supabase-auth";
 import Logo from "@/components/ui/Logo";
 import Button from "@/components/ui/Button";
 import {
@@ -70,9 +70,10 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, selectedRuc, availableRucs, setSelectedRuc } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODE_USER);
+  const [isChangingRuc, setIsChangingRuc] = useState(false);
 
   // Check actual admin status (not affected by view mode)
   const actuallyIsAppAdmin = hasAnyRole(user, ["App Admin"]);
@@ -562,13 +563,41 @@ export default function DashboardLayout({
               </svg>
             </button>
 
-            {/* Right side actions - auto-save status, role badge and view toggle */}
+            {/* Right side actions - auto-save status, RUC selector, role badge and view toggle */}
             <div className="flex items-center gap-3 ml-auto">
               {/* Auto-save status indicator */}
-              <AutoSaveStatus ruc="02301" />
+              <AutoSaveStatus ruc={selectedRuc || "02301"} />
 
               {/* Sync indicator */}
               <SyncIndicator />
+
+              {/* RUC Selector - only show if user has multiple RUCs */}
+              {availableRucs.length > 1 && (
+                <div className="relative">
+                  <select
+                    value={selectedRuc || ""}
+                    onChange={async (e) => {
+                      setIsChangingRuc(true);
+                      await setSelectedRuc(e.target.value);
+                      setIsChangingRuc(false);
+                    }}
+                    disabled={isChangingRuc}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                    title="Switch between your assigned RUCs"
+                  >
+                    {availableRucs.map((ruc) => (
+                      <option key={ruc.ruc} value={ruc.ruc}>
+                        {ruc.ruc}{ruc.name ? ` - ${ruc.name}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {isChangingRuc && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-surface/50 rounded-lg">
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* View mode toggle for users with admin roles */}
               {hasAnyAdminRole && (
