@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, ReactNode } from "react";
+import { Component, ReactNode, Suspense } from "react";
 import Button from "./Button";
 
 interface ErrorBoundaryProps {
@@ -94,7 +94,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
 /**
  * Wrapper for async operations in components.
- * Use this for data fetching errors within Suspense boundaries.
+ * Combines ErrorBoundary with Suspense for handling both loading and error states.
  */
 interface AsyncBoundaryProps {
   children: ReactNode;
@@ -105,10 +105,13 @@ interface AsyncBoundaryProps {
 export function AsyncBoundary({
   children,
   errorFallback,
+  loadingFallback,
 }: AsyncBoundaryProps): ReactNode {
   return (
     <ErrorBoundary fallback={errorFallback}>
-      {children}
+      <Suspense fallback={loadingFallback ?? null}>
+        {children}
+      </Suspense>
     </ErrorBoundary>
   );
 }
