@@ -107,11 +107,11 @@ function convertDutyType(dt: SupabaseDbDutyType): DutyType {
     rank_filter_values: dt.rank_filter_values,
     section_filter_mode: dt.section_filter_mode === "none" ? null : dt.section_filter_mode,
     section_filter_values: dt.section_filter_values,
-    // Supernumerary fields (default values when loading from Supabase which may not have these yet)
-    requires_supernumerary: false,
-    supernumerary_count: 2,
-    supernumerary_period_days: 15,
-    supernumerary_value: 0.5,
+    // Supernumerary fields from Supabase (with fallback defaults)
+    requires_supernumerary: dt.requires_supernumerary ?? false,
+    supernumerary_count: dt.supernumerary_count ?? 2,
+    supernumerary_period_days: dt.supernumerary_period_days ?? 15,
+    supernumerary_value: dt.supernumerary_value ?? 0.5,
     created_at: new Date(dt.created_at),
     updated_at: new Date(dt.updated_at),
   };

@@ -1949,6 +1949,11 @@ export async function updateDutyType(
     rankFilterValues?: string[] | null;
     sectionFilterMode?: "none" | "include" | "exclude";
     sectionFilterValues?: string[] | null;
+    // Supernumerary options
+    requiresSupernumerary?: boolean;
+    supernumeraryCount?: number;
+    supernumeraryPeriodDays?: number;
+    supernumeraryValue?: number;
   }
 ): Promise<DutyType | null> {
   if (!isSupabaseConfigured()) return null;
@@ -1962,6 +1967,11 @@ export async function updateDutyType(
   if (updates.rankFilterValues !== undefined) supabaseUpdates.rank_filter_values = updates.rankFilterValues;
   if (updates.sectionFilterMode !== undefined) supabaseUpdates.section_filter_mode = updates.sectionFilterMode;
   if (updates.sectionFilterValues !== undefined) supabaseUpdates.section_filter_values = updates.sectionFilterValues;
+  // Supernumerary fields
+  if (updates.requiresSupernumerary !== undefined) supabaseUpdates.requires_supernumerary = updates.requiresSupernumerary;
+  if (updates.supernumeraryCount !== undefined) supabaseUpdates.supernumerary_count = updates.supernumeraryCount;
+  if (updates.supernumeraryPeriodDays !== undefined) supabaseUpdates.supernumerary_period_days = updates.supernumeraryPeriodDays;
+  if (updates.supernumeraryValue !== undefined) supabaseUpdates.supernumerary_value = updates.supernumeraryValue;
 
   if (Object.keys(supabaseUpdates).length === 0) return null;
 
