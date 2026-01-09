@@ -6,7 +6,7 @@ import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { useAuth } from "@/lib/supabase-auth";
-import type { UnitSection, HierarchyLevel, RoleName, Personnel } from "@/types";
+import type { UnitSection, HierarchyLevel, RoleName, Personnel, SessionUser } from "@/types";
 import {
   getUnitSections,
   createUnitSection,
@@ -26,6 +26,7 @@ import {
   getUnitById,
   getRucDisplayName,
   resolveUnitAdminScope,
+  canManageUser,
   type RucEntry,
 } from "@/lib/data-layer";
 
@@ -820,6 +821,7 @@ function UnitForm({ unit, units, onClose, onSuccess }: { unit: UnitSection | nul
 
 // ============ Users Tab ============
 function UsersTab() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
@@ -982,6 +984,7 @@ function UsersTab() {
       {editingUser && (
         <RoleAssignmentModal
           user={editingUser}
+          currentUser={currentUser}
           units={units}
           rucs={rucs}
           onClose={() => setEditingUser(null)}
@@ -1088,18 +1091,30 @@ interface PendingRole {
   scope_unit_id: string | null;
 }
 
-function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: UserData; units: UnitSection[]; rucs: RucEntry[]; onClose: () => void; onSuccess: () => void; }) {
+function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSuccess }: { user: UserData; currentUser: SessionUser | null; units: UnitSection[]; rucs: RucEntry[]; onClose: () => void; onSuccess: () => void; }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
   const [selectedRuc, setSelectedRuc] = useState<string>("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Track pending changes (roles to add and remove)
   const [pendingAdds, setPendingAdds] = useState<PendingRole[]>([]);
   const [pendingRemoves, setPendingRemoves] = useState<PendingRole[]>([]);
 
   const isUserAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
+
+  // Check authorization on mount
+  useEffect(() => {
+    async function checkAuth() {
+      const authCheck = await canManageUser(currentUser, user.id);
+      if (!authCheck.allowed) {
+        setAuthError(authCheck.reason || "You are not authorized to manage this user");
+      }
+    }
+    checkAuth();
+  }, [currentUser, user.id]);
 
   // Check if role requires a unit scope
   const roleRequiresScope = (role: string) => {
@@ -1181,6 +1196,12 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
   };
 
   const handleSave = async () => {
+    // Check authorization first
+    if (authError) {
+      setError(authError);
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -1195,17 +1216,25 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
       // Process removals first
       for (const remove of pendingRemoves) {
         console.log("[RoleAssignment] Removing role:", remove);
-        const success = await removeUserRole(user.id, remove.role_name, remove.scope_unit_id);
-        console.log("[RoleAssignment] Remove result:", success);
-        if (!success) throw new Error(`Failed to remove role: ${remove.role_name}`);
+        const result = await removeUserRole(currentUser, user.id, remove.role_name, remove.scope_unit_id);
+        console.log("[RoleAssignment] Remove result:", result);
+        if (!result.success) {
+          setError(result.error || `Failed to remove role: ${remove.role_name}`);
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       // Then process adds (local cache update)
       for (const add of pendingAdds) {
         console.log("[RoleAssignment] Adding role:", add);
-        const success = await assignUserRole(user.id, add.role_name, add.scope_unit_id);
-        console.log("[RoleAssignment] Add result:", success);
-        if (!success) throw new Error(`Failed to assign role: ${add.role_name}`);
+        const result = await assignUserRole(currentUser, user.id, add.role_name, add.scope_unit_id);
+        console.log("[RoleAssignment] Add result:", result);
+        if (!result.success) {
+          setError(result.error || `Failed to assign role: ${add.role_name}`);
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       // Changes are persisted directly to Supabase
@@ -1220,13 +1249,23 @@ function RoleAssignmentModal({ user, units, rucs, onClose, onSuccess }: { user: 
   };
 
   const handleDeleteUser = async () => {
+    // Check authorization first
+    if (authError) {
+      setError(authError);
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
     try {
       // Delete user from Supabase
-      const success = await deleteUser(user.id);
-      if (!success) throw new Error("Failed to delete user");
+      const result = await deleteUser(currentUser, user.id);
+      if (!result.success) {
+        setError(result.error || "Failed to delete user");
+        setIsSubmitting(false);
+        return;
+      }
 
       console.log("[RoleAssignment] User deleted from Supabase");
       onSuccess();

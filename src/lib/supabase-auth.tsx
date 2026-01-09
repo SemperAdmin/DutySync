@@ -42,6 +42,63 @@ function isAppAdminByEdipi(edipi: string | null | undefined): boolean {
 }
 
 /**
+ * Determine the user's organization RUC from their roles.
+ * Returns the RUC code if user has a scoped role, null otherwise.
+ * App Admins don't have a specific organization scope.
+ */
+async function getUserOrganizationRuc(sessionUser: SessionUser): Promise<string | null> {
+  // App Admin doesn't have organization scope
+  if (sessionUser.roles.some(r => r.role_name === ROLE_NAMES.APP_ADMIN)) {
+    console.log("[Auth] User is App Admin - no organization scope restriction");
+    return null;
+  }
+
+  // Find the user's scoped role (Unit Admin or Manager roles)
+  const scopedRole = sessionUser.roles.find(r =>
+    r.scope_unit_id && (
+      r.role_name === "Unit Admin" ||
+      r.role_name === "Unit Manager" ||
+      r.role_name === "Company Manager" ||
+      r.role_name === "Section Manager" ||
+      r.role_name === "Work Section Manager"
+    )
+  );
+
+  if (!scopedRole?.scope_unit_id) {
+    // Try to determine from personnel record if available
+    if (sessionUser.unitId) {
+      const unit = await supabaseData.getUnitById(sessionUser.unitId);
+      if (unit?.organization_id) {
+        const org = await supabaseData.getOrganizationById(unit.organization_id);
+        if (org) {
+          console.log(`[Auth] User organization determined from personnel unit: ${org.ruc_code}`);
+          return org.ruc_code;
+        }
+      }
+    }
+    console.log("[Auth] User has no scoped role - no organization scope restriction");
+    return null;
+  }
+
+  // Get the unit to find its organization
+  const unit = await supabaseData.getUnitById(scopedRole.scope_unit_id);
+  if (!unit?.organization_id) {
+    console.warn("[Auth] Could not determine organization from scope unit");
+    return null;
+  }
+
+  // Get the organization to get the RUC code
+  const org = await supabaseData.getOrganizationById(unit.organization_id);
+  if (!org) {
+    console.warn("[Auth] Organization not found for unit");
+    return null;
+  }
+
+  console.log(`[Auth] User organization scope: ${org.ruc_code} (${org.name || 'unnamed'})`);
+  return org.ruc_code;
+}
+
+/**
  * Fetch personnel and unit info for a user, linking by EDIPI if needed.
  * This handles the case where personnel were imported after user was created.
  */
@@ -173,10 +230,14 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
             setUser(refreshedUser);
             localStorage.setItem("dutysync_user", JSON.stringify(refreshedUser));
 
+            // Determine user's organization from their roles
+            const userRuc = await getUserOrganizationRuc(refreshedUser);
+
             // Load all data from Supabase into the data layer cache
+            // Pass the user's RUC to load only their organization's data
             console.log("[Auth] Restoring session - loading data from Supabase...");
-            await dataLayer.loadAllData();
-            console.log("[Auth] Data loaded successfully");
+            await dataLayer.loadAllData(userRuc || undefined);
+            console.log("[Auth] Data loaded successfully" + (userRuc ? ` for RUC: ${userRuc}` : " (all organizations)"));
           } else {
             // User no longer exists in database
             localStorage.removeItem("dutysync_user");
@@ -214,10 +275,14 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       setUser(sessionUser);
       localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
 
+      // Determine user's organization from their roles
+      const userRuc = await getUserOrganizationRuc(sessionUser);
+
       // Load all data from Supabase into the data layer cache
+      // Pass the user's RUC to load only their organization's data
       console.log("[Auth] Loading data from Supabase...");
-      await dataLayer.loadAllData();
-      console.log("[Auth] Data loaded successfully");
+      await dataLayer.loadAllData(userRuc || undefined);
+      console.log("[Auth] Data loaded successfully" + (userRuc ? ` for RUC: ${userRuc}` : " (all organizations)"));
 
       return true;
     } catch (error) {

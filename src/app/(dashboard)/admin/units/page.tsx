@@ -9,7 +9,7 @@ import Card, {
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import type { RoleName, UnitSection, HierarchyLevel } from "@/types";
+import type { RoleName, UnitSection, HierarchyLevel, SessionUser } from "@/types";
 import { useAuth } from "@/lib/supabase-auth";
 import {
   getAllUsers,
@@ -128,6 +128,7 @@ export default function UnitManagementPage() {
 
 // ============ RUC Management View (App Admin) ============
 function RucManagementView() {
+  const { user: currentUser } = useAuth();
   const [rucs, setRucs] = useState<RucEntry[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
@@ -306,6 +307,7 @@ function RucManagementView() {
       {editingRuc && (
         <RucEditModal
           ruc={editingRuc}
+          currentUser={currentUser}
           currentAdmins={unitAdminsByRuc.get(editingRuc.id) || []}
           onClose={() => setEditingRuc(null)}
           onSave={handleSaveRucName}
@@ -1088,6 +1090,7 @@ const UNIT_ADMIN_ROLE: RoleName = "Unit Admin";
 // RUC Name Edit Modal
 function RucEditModal({
   ruc,
+  currentUser,
   currentAdmins,
   onClose,
   onSave,
@@ -1095,6 +1098,7 @@ function RucEditModal({
   getAdminDisplay,
 }: {
   ruc: RucEntry;
+  currentUser: SessionUser | null;
   currentAdmins: UserData[];
   onClose: () => void;
   onSave: (rucCode: string, name: string | null) => void;
@@ -1149,13 +1153,17 @@ function RucEditModal({
         r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id !== topLevelUnit.id
       );
       if (otherUnitAdminRole) {
-        await removeUserRole(user.id, UNIT_ADMIN_ROLE, otherUnitAdminRole.scope_unit_id);
+        const removeResult = await removeUserRole(currentUser, user.id, UNIT_ADMIN_ROLE, otherUnitAdminRole.scope_unit_id);
+        if (!removeResult.success) {
+          setAdminError(removeResult.error || "Failed to remove existing Unit Admin role");
+          return;
+        }
       }
 
       // Assign the Unit Admin role with the top-level unit ID
-      const success = await assignUserRole(user.id, UNIT_ADMIN_ROLE, topLevelUnit.id);
-      if (!success) {
-        setAdminError("Failed to assign Unit Admin role");
+      const result = await assignUserRole(currentUser, user.id, UNIT_ADMIN_ROLE, topLevelUnit.id);
+      if (!result.success) {
+        setAdminError(result.error || "Failed to assign Unit Admin role");
         return;
       }
 
@@ -1183,7 +1191,11 @@ function RucEditModal({
         r => r.role_name === UNIT_ADMIN_ROLE && r.scope_unit_id === unitIdToMatch
       );
       if (unitAdminRole && unitIdToMatch) {
-        await removeUserRole(admin.id, UNIT_ADMIN_ROLE, unitIdToMatch);
+        const result = await removeUserRole(currentUser, admin.id, UNIT_ADMIN_ROLE, unitIdToMatch);
+        if (!result.success) {
+          setAdminError(result.error || "Failed to remove admin");
+          return;
+        }
         await loadUsers();
         onRefresh();
       }

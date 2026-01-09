@@ -31,6 +31,7 @@ import type {
   DutyRequirement,
   BlockedDuty,
   RoleName,
+  SessionUser,
 } from "@/types";
 import type {
   Unit as SupabaseUnit,
@@ -732,58 +733,286 @@ export function getSeedUserByEdipi(edipi: string): SeedUser | undefined {
   return usersCache.find(u => u.edipi === edipi);
 }
 
+// ============================================================================
+// USER AUTHORIZATION HELPERS
+// ============================================================================
+
+/**
+ * Get the organization ID for a user based on their scoped role.
+ * Returns null if user has no scoped role (e.g., App Admin or Standard User).
+ */
+export async function getUserOrganizationId(user: SessionUser | null): Promise<string | null> {
+  if (!user?.roles) return null;
+
+  // Find the user's scoped role (Unit Admin or Manager roles)
+  const scopedRole = user.roles.find(r =>
+    r.scope_unit_id && (
+      r.role_name === "Unit Admin" ||
+      r.role_name === "Unit Manager" ||
+      r.role_name === "Company Manager" ||
+      r.role_name === "Section Manager" ||
+      r.role_name === "Work Section Manager"
+    )
+  );
+
+  if (!scopedRole?.scope_unit_id) return null;
+
+  // Get the unit to find its organization
+  const unit = await supabase.getUnitById(scopedRole.scope_unit_id);
+  return unit?.organization_id || null;
+}
+
+/**
+ * Get the organization ID for a target user based on their personnel record.
+ */
+export async function getTargetUserOrganizationId(targetUserId: string): Promise<string | null> {
+  // Find the target user in cache
+  const targetUser = usersCache.find(u => u.id === targetUserId);
+  if (!targetUser) return null;
+
+  // Get the target user's personnel record by EDIPI
+  const personnel = await supabase.getPersonnelByServiceId(targetUser.edipi);
+  if (!personnel) return null;
+
+  // Get the unit to find organization
+  const unit = await supabase.getUnitById(personnel.unit_id);
+  return unit?.organization_id || null;
+}
+
+/**
+ * Check if the current user is an App Admin.
+ */
+export function isAppAdmin(user: SessionUser | null): boolean {
+  if (!user?.roles) return false;
+  return user.roles.some(r => r.role_name === "App Admin");
+}
+
+/**
+ * Check if the current user is a Unit Admin.
+ */
+export function isUnitAdmin(user: SessionUser | null): boolean {
+  if (!user?.roles) return false;
+  return user.roles.some(r => r.role_name === "Unit Admin");
+}
+
+/**
+ * Check if the current user can manage another user's roles.
+ *
+ * Rules:
+ * - App Admin can manage any user
+ * - Unit Admin can only manage users in their organization
+ * - Other users cannot manage roles
+ */
+export async function canManageUser(
+  currentUser: SessionUser | null,
+  targetUserId: string
+): Promise<{ allowed: boolean; reason?: string }> {
+  if (!currentUser) {
+    return { allowed: false, reason: "No current user session" };
+  }
+
+  // App Admin can manage anyone
+  if (isAppAdmin(currentUser)) {
+    return { allowed: true };
+  }
+
+  // Must be a Unit Admin to manage users
+  if (!isUnitAdmin(currentUser)) {
+    return { allowed: false, reason: "Only App Admins and Unit Admins can manage user roles" };
+  }
+
+  // Get the current user's organization
+  const currentUserOrgId = await getUserOrganizationId(currentUser);
+  if (!currentUserOrgId) {
+    return { allowed: false, reason: "Could not determine your organization scope" };
+  }
+
+  // Get the target user's organization
+  const targetUserOrgId = await getTargetUserOrganizationId(targetUserId);
+  if (!targetUserOrgId) {
+    // Target user has no personnel record - allow if they're being assigned to current user's org
+    return { allowed: true };
+  }
+
+  // Check if organizations match
+  if (currentUserOrgId !== targetUserOrgId) {
+    return {
+      allowed: false,
+      reason: "You can only manage users in your organization"
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Validate that a scope unit belongs to the current user's organization.
+ * Used when assigning roles with a scope.
+ */
+export async function validateScopeUnit(
+  currentUser: SessionUser | null,
+  scopeUnitId: string
+): Promise<{ valid: boolean; reason?: string }> {
+  if (!currentUser) {
+    return { valid: false, reason: "No current user session" };
+  }
+
+  // App Admin can assign any scope
+  if (isAppAdmin(currentUser)) {
+    return { valid: true };
+  }
+
+  // Get current user's organization
+  const currentUserOrgId = await getUserOrganizationId(currentUser);
+  if (!currentUserOrgId) {
+    return { valid: false, reason: "Could not determine your organization scope" };
+  }
+
+  // Get the scope unit's organization
+  const scopeUnit = await supabase.getUnitById(scopeUnitId);
+  if (!scopeUnit) {
+    return { valid: false, reason: "Invalid scope unit" };
+  }
+
+  // Check if scope unit belongs to current user's organization
+  if (scopeUnit.organization_id !== currentUserOrgId) {
+    return {
+      valid: false,
+      reason: "You can only assign roles scoped to units in your organization"
+    };
+  }
+
+  return { valid: true };
+}
+
+// ============================================================================
+// USER ROLE MANAGEMENT (with authorization)
+// ============================================================================
+
 export async function assignUserRole(
+  currentUser: SessionUser | null,
   userId: string,
   roleName: RoleName,
   scopeUnitId?: string | null
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
+  // Authorization check
+  const authCheck = await canManageUser(currentUser, userId);
+  if (!authCheck.allowed) {
+    console.error("[Data Layer] assignUserRole unauthorized:", authCheck.reason);
+    return { success: false, error: authCheck.reason };
+  }
+
+  // If assigning a scoped role, validate the scope unit
+  if (scopeUnitId) {
+    const scopeCheck = await validateScopeUnit(currentUser, scopeUnitId);
+    if (!scopeCheck.valid) {
+      console.error("[Data Layer] assignUserRole invalid scope:", scopeCheck.reason);
+      return { success: false, error: scopeCheck.reason };
+    }
+  }
+
+  // Prevent non-App Admins from assigning App Admin role
+  if (roleName === "App Admin" && !isAppAdmin(currentUser)) {
+    return { success: false, error: "Only App Admins can assign the App Admin role" };
+  }
+
   const role = await supabase.getRoleByName(roleName);
-  if (!role) return false;
+  if (!role) {
+    return { success: false, error: "Role not found" };
+  }
+
   const result = await supabase.addUserRole(userId, role.id, scopeUnitId || undefined);
   if (result) {
     // Update cache
     await loadUsers();
+    return { success: true };
   }
-  return !!result;
+
+  return { success: false, error: "Failed to assign role" };
 }
 
 export async function removeUserRole(
+  currentUser: SessionUser | null,
   userIdOrRoleId: string,
   roleName?: RoleName,
   scopeUnitId?: string | null
-): Promise<boolean> {
-  // If only one argument, it's the userRoleId
+): Promise<{ success: boolean; error?: string }> {
+  // Determine the target user ID
+  let targetUserId: string;
+  let userRoleId: string;
+
   if (!roleName) {
-    const success = await supabase.removeUserRole(userIdOrRoleId);
-    if (success) {
-      await loadUsers();
+    // userIdOrRoleId is the userRoleId - need to find the user
+    // Look through cache to find which user has this role ID
+    const userWithRole = usersCache.find(u =>
+      u.roles.some(r => r.id === userIdOrRoleId)
+    );
+    if (!userWithRole) {
+      return { success: false, error: "Role not found" };
     }
-    return success;
+    targetUserId = userWithRole.id;
+    userRoleId = userIdOrRoleId;
+  } else {
+    targetUserId = userIdOrRoleId;
+    // Find the user role by user ID, role name, and scope
+    const user = usersCache.find(u => u.id === userIdOrRoleId);
+    if (!user) {
+      return { success: false, error: "User not found" };
+    }
+    const role = user.roles.find(r =>
+      r.role_name === roleName && r.scope_unit_id === scopeUnitId
+    );
+    if (!role?.id) {
+      return { success: false, error: "Role not found for user" };
+    }
+    userRoleId = role.id;
   }
 
-  // Otherwise, find the user role by user ID, role name, and scope
-  const user = usersCache.find(u => u.id === userIdOrRoleId);
-  if (!user) return false;
+  // Authorization check
+  const authCheck = await canManageUser(currentUser, targetUserId);
+  if (!authCheck.allowed) {
+    console.error("[Data Layer] removeUserRole unauthorized:", authCheck.reason);
+    return { success: false, error: authCheck.reason };
+  }
 
-  const role = user.roles.find(r =>
-    r.role_name === roleName && r.scope_unit_id === scopeUnitId
-  );
-
-  if (!role?.id) return false;
-
-  const success = await supabase.removeUserRole(role.id);
+  const success = await supabase.removeUserRole(userRoleId);
   if (success) {
     await loadUsers();
+    return { success: true };
   }
-  return success;
+
+  return { success: false, error: "Failed to remove role" };
 }
 
-export async function deleteUser(userId: string): Promise<boolean> {
+export async function deleteUser(
+  currentUser: SessionUser | null,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  // Authorization check
+  const authCheck = await canManageUser(currentUser, userId);
+  if (!authCheck.allowed) {
+    console.error("[Data Layer] deleteUser unauthorized:", authCheck.reason);
+    return { success: false, error: authCheck.reason };
+  }
+
+  // Prevent deleting yourself
+  if (currentUser?.id === userId) {
+    return { success: false, error: "You cannot delete your own account" };
+  }
+
+  // Prevent non-App Admins from deleting App Admins
+  const targetUser = usersCache.find(u => u.id === userId);
+  if (targetUser?.roles.some(r => r.role_name === "App Admin") && !isAppAdmin(currentUser)) {
+    return { success: false, error: "Only App Admins can delete App Admin accounts" };
+  }
+
   const success = await supabase.deleteUser(userId);
   if (success) {
     usersCache = usersCache.filter(u => u.id !== userId);
+    return { success: true };
   }
-  return success;
+
+  return { success: false, error: "Failed to delete user" };
 }
 
 // ============================================================================

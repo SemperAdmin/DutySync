@@ -8,7 +8,7 @@ import Card, {
   CardContent,
 } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import type { UnitSection, RoleName, Personnel } from "@/types";
+import type { UnitSection, RoleName, Personnel, SessionUser } from "@/types";
 import {
   getAllUsers,
   getUnitSections,
@@ -22,6 +22,7 @@ import {
   loadRucs,
   getAllRucs,
   getTopLevelUnitForOrganization,
+  canManageUser,
   type RucEntry,
 } from "@/lib/data-layer";
 import { useAuth } from "@/lib/supabase-auth";
@@ -230,6 +231,7 @@ export default function UsersPage() {
       {editingUser && (
         <RoleAssignmentModal
           user={editingUser}
+          currentUser={currentUser}
           units={units}
           rucs={rucs}
           getUnitName={getUnitName}
@@ -376,6 +378,7 @@ export default function UsersPage() {
 
 function RoleAssignmentModal({
   user,
+  currentUser,
   units,
   rucs,
   getUnitName,
@@ -383,6 +386,7 @@ function RoleAssignmentModal({
   onSuccess,
 }: {
   user: UserData;
+  currentUser: SessionUser | null;
   units: UnitSection[];
   rucs: RucEntry[];
   getUnitName: (unitId: string | null) => string | null;
@@ -393,6 +397,18 @@ function RoleAssignmentModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Check authorization on mount
+  useEffect(() => {
+    async function checkAuth() {
+      const authCheck = await canManageUser(currentUser, user.id);
+      if (!authCheck.allowed) {
+        setAuthError(authCheck.reason || "You are not authorized to manage this user");
+      }
+    }
+    checkAuth();
+  }, [currentUser, user.id]);
 
   // Build hierarchical unit options for the dropdown
   const hierarchicalUnits = useMemo(() => {
@@ -463,6 +479,12 @@ function RoleAssignmentModal({
   const hasScopedRole = isUnitAdmin || !!managerRole;
 
   const handleSaveChanges = async () => {
+    // Check authorization first
+    if (authError) {
+      setError(authError);
+      return;
+    }
+
     // Validation
     if (isUnitAdmin && !unitAdminScope) {
       setError("Please select a RUC scope for Unit Admin");
@@ -479,12 +501,22 @@ function RoleAssignmentModal({
     try {
       // Remove old Unit Admin role if it exists and changed
       if (currentUnitAdminRole) {
-        await removeUserRole(user.id, "Unit Admin", currentUnitAdminRole.scope_unit_id);
+        const result = await removeUserRole(currentUser, user.id, "Unit Admin", currentUnitAdminRole.scope_unit_id);
+        if (!result.success) {
+          setError(result.error || "Failed to remove Unit Admin role");
+          setIsSaving(false);
+          return;
+        }
       }
 
       // Remove old Manager role if it exists
       if (currentManagerRole) {
-        await removeUserRole(user.id, currentManagerRole.role_name, currentManagerRole.scope_unit_id);
+        const result = await removeUserRole(currentUser, user.id, currentManagerRole.role_name, currentManagerRole.scope_unit_id);
+        if (!result.success) {
+          setError(result.error || "Failed to remove manager role");
+          setIsSaving(false);
+          return;
+        }
       }
 
       // Add new Unit Admin role if enabled
@@ -496,12 +528,22 @@ function RoleAssignmentModal({
           setIsSaving(false);
           return;
         }
-        await assignUserRole(user.id, "Unit Admin", topLevelUnit.id);
+        const result = await assignUserRole(currentUser, user.id, "Unit Admin", topLevelUnit.id);
+        if (!result.success) {
+          setError(result.error || "Failed to assign Unit Admin role");
+          setIsSaving(false);
+          return;
+        }
       }
 
       // Add new Manager role if selected
       if (managerRole && managerScope) {
-        await assignUserRole(user.id, managerRole, managerScope);
+        const result = await assignUserRole(currentUser, user.id, managerRole, managerScope);
+        if (!result.success) {
+          setError(result.error || "Failed to assign manager role");
+          setIsSaving(false);
+          return;
+        }
       }
 
       // Ensure user has Standard User role if they have no other roles
@@ -509,7 +551,12 @@ function RoleAssignmentModal({
         // Check if they already have Standard User
         const hasStandardUser = user.roles.some(r => r.role_name === "Standard User");
         if (!hasStandardUser) {
-          await assignUserRole(user.id, "Standard User", null);
+          const result = await assignUserRole(currentUser, user.id, "Standard User", null);
+          if (!result.success) {
+            setError(result.error || "Failed to assign Standard User role");
+            setIsSaving(false);
+            return;
+          }
         }
       }
 
@@ -526,14 +573,22 @@ function RoleAssignmentModal({
   };
 
   const handleDeleteAccount = async () => {
+    // Check authorization first
+    if (authError) {
+      setError(authError);
+      return;
+    }
+
     setIsDeleting(true);
     setError(null);
 
     try {
       // Delete user from Supabase (data-layer handles both DB and cache)
-      const success = await deleteUser(user.id);
-      if (!success) {
-        throw new Error("Failed to delete user");
+      const result = await deleteUser(currentUser, user.id);
+      if (!result.success) {
+        setError(result.error || "Failed to delete user");
+        setIsDeleting(false);
+        return;
       }
 
       onSuccess();
@@ -554,7 +609,19 @@ function RoleAssignmentModal({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {error && (
+          {/* Authorization Error - User cannot manage this user */}
+          {authError && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{authError}</span>
+              </div>
+            </div>
+          )}
+
+          {error && !authError && (
             <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
               {error}
             </div>
@@ -720,7 +787,7 @@ function RoleAssignmentModal({
               variant="accent"
               onClick={handleSaveChanges}
               isLoading={isSaving}
-              disabled={isSaving || isDeleting || !hasChanges}
+              disabled={isSaving || isDeleting || !hasChanges || !!authError}
               className="w-full"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -736,11 +803,11 @@ function RoleAssignmentModal({
                 disabled={isSaving || isDeleting}
                 className="flex-1"
               >
-                {hasChanges ? "Cancel" : "Close"}
+                {authError ? "Close" : hasChanges ? "Cancel" : "Close"}
               </Button>
 
               {/* Delete Account Button */}
-              {!isAppAdmin && (
+              {!isAppAdmin && !authError && (
                 <>
                   {!showDeleteConfirm ? (
                     <Button
