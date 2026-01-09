@@ -117,9 +117,6 @@ function LoginForm() {
             Sign up
           </Link>
         </p>
-        <p className="text-xs text-foreground-muted text-center">
-          Demo credentials: EDIPI 1234567890 / password admin123
-        </p>
       </CardFooter>
     </Card>
   );

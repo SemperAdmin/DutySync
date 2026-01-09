@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import bcrypt from "bcryptjs";
 import type { SessionUser, UserRole, RoleName } from "@/types";
 import {
   getPersonnelByEdipi,
@@ -26,7 +27,7 @@ interface AuthContextType {
   login: (edipi: string, password: string) => Promise<boolean>;
   logout: () => void;
   signup: (edipi: string, email: string, password: string) => Promise<SignupResult>;
-  refreshSession: () => void; // Refresh current user's session from seed data
+  refreshSession: () => Promise<void>; // Refresh current user's session from seed data
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -42,9 +43,25 @@ const ROLE_NAMES = {
 const APP_ADMIN_EDIPI = process.env.NEXT_PUBLIC_APP_ADMIN || "";
 
 // GitHub API configuration for workflow trigger
+// SECURITY WARNING: These are exposed in the client bundle for static site deployment
+// The GitHub token MUST be a fine-grained PAT with ONLY these permissions:
+// - Actions: Read and write (to trigger workflows)
+// - NO other permissions should be granted
+// For enhanced security, consider implementing a backend proxy service
 const GITHUB_OWNER = process.env.NEXT_PUBLIC_GITHUB_OWNER || "";
 const GITHUB_REPO = process.env.NEXT_PUBLIC_GITHUB_REPO || "";
 const GITHUB_TOKEN = process.env.NEXT_PUBLIC_GITHUB_TOKEN || "";
+
+// Validate GitHub token has minimal permissions (basic check)
+if (GITHUB_TOKEN && typeof window !== "undefined") {
+  // Log warning if token looks like a classic PAT (starts with ghp_)
+  // Fine-grained tokens start with github_pat_
+  if (GITHUB_TOKEN.startsWith("ghp_")) {
+    console.warn(
+      "[Security Warning] Using classic GitHub PAT. Consider using a fine-grained PAT with minimal permissions."
+    );
+  }
+}
 
 // Trigger GitHub workflow to update user roles and permissions
 export async function triggerUpdateRolesWorkflow(
@@ -235,6 +252,46 @@ function createRole(
 // Seed user type from getSeedUserByEdipi
 type SeedUser = NonNullable<ReturnType<typeof getSeedUserByEdipi>>;
 
+// Session integrity key - used to detect tampering
+// This provides basic tamper detection for localStorage sessions
+const SESSION_INTEGRITY_KEY = "dutysync_session_check";
+
+// Generate a simple integrity hash for session data
+// Uses essential fields only - roles are revalidated from authoritative source anyway
+async function generateSessionHash(userId: string, edipi: string): Promise<string> {
+  const data = `${userId}:${edipi}:${new Date().toDateString()}`;
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(data));
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("").substring(0, 16);
+}
+
+// Verify session integrity
+async function verifySessionIntegrity(session: SessionUser): Promise<boolean> {
+  try {
+    const storedHash = localStorage.getItem(SESSION_INTEGRITY_KEY);
+    if (!storedHash) return false;
+
+    const expectedHash = await generateSessionHash(session.id, session.edipi);
+    return storedHash === expectedHash;
+  } catch {
+    return false;
+  }
+}
+
+// Store session with integrity hash
+async function storeSessionSecurely(session: SessionUser): Promise<void> {
+  const hash = await generateSessionHash(session.id, session.edipi);
+  localStorage.setItem("dutysync_user", JSON.stringify(session));
+  localStorage.setItem(SESSION_INTEGRITY_KEY, hash);
+}
+
+// Clear session and integrity data
+function clearSession(): void {
+  localStorage.removeItem("dutysync_user");
+  localStorage.removeItem(SESSION_INTEGRITY_KEY);
+}
+
 // Build user roles from seed user data - reusable helper to avoid duplication
 function buildUserRoles(seedUser: SeedUser): UserRole[] {
   const roles: UserRole[] = [];
@@ -288,10 +345,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const sessionUser: SessionUser = JSON.parse(stored);
 
+          // Verify session integrity before trusting it
+          const isValid = await verifySessionIntegrity(sessionUser);
+          if (!isValid) {
+            console.warn("Session integrity check failed - clearing session");
+            clearSession();
+            setIsLoading(false);
+            return;
+          }
+
           // Force reload seed users to pick up any role changes since last login
           await loadSeedUsers(true);
 
           // Refresh roles and personnel info from seed data to pick up any changes
+          // SECURITY: Roles are ALWAYS loaded from authoritative source, not from localStorage
           const seedUser = getSeedUserByEdipi(sessionUser.edipi);
           if (seedUser) {
             // Update session with refreshed roles using shared helper
@@ -316,14 +383,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               sessionUser.unitName = unit?.unit_name;
             }
 
-            // Save refreshed session back to localStorage
-            localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
+            // Save refreshed session securely with integrity hash
+            await storeSessionSecurely(sessionUser);
+          } else {
+            // User no longer exists in seed data - clear session
+            console.warn("User not found in seed data - clearing session");
+            clearSession();
+            setIsLoading(false);
+            return;
           }
 
           setUser(sessionUser);
         } catch (error) {
           console.error("Failed to parse user session from localStorage:", error);
-          localStorage.removeItem("dutysync_user");
+          clearSession();
         }
       }
       setIsLoading(false);
@@ -351,18 +424,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Verify password if password_hash exists in seed data
-      // SECURITY WARNING: btoa() is NOT cryptographically secure - it's just base64 encoding.
-      // This MVP approach is ONLY acceptable because:
-      // 1. This is a demo/prototype with no real user data
-      // 2. There is no backend server to handle proper password hashing
-      // PRODUCTION REQUIREMENT: Use bcrypt/argon2 with a secure backend API
       if (found.password_hash) {
-        const inputHash = btoa(password);
-        if (inputHash !== found.password_hash) {
+        const isValidPassword = await bcrypt.compare(password, found.password_hash);
+        if (!isValidPassword) {
           return false; // Password mismatch
         }
       }
-      // If no password_hash in seed data, allow login (demo mode)
+      // If no password_hash in seed data, allow login (legacy demo mode)
 
       // Build user roles using shared helper
       const roles = buildUserRoles(found);
@@ -406,8 +474,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         unitName,
       };
       setUser(sessionUser);
-      // Session is stored in localStorage (just for current browser session)
-      localStorage.setItem("dutysync_user", JSON.stringify(sessionUser));
+      // Store session securely with integrity hash
+      await storeSessionSecurely(sessionUser);
       return true;
     } catch (error) {
       console.error("Login failed:", error);
@@ -436,9 +504,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Generate encrypted values for the workflow
       const edipiEncrypted = encryptEdipi(edipi);
-      // SECURITY WARNING: btoa() is NOT cryptographically secure - it's just base64 encoding.
-      // PRODUCTION REQUIREMENT: Use bcrypt/argon2 with a secure backend API
-      const passwordHash = btoa(password);
+      // Hash password with bcrypt before sending to workflow
+      const passwordHash = await bcrypt.hash(password, 12);
 
       // Trigger GitHub workflow to create user
       const workflowResult = await triggerCreateUserWorkflow(
@@ -465,11 +532,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("dutysync_user");
+    clearSession();
   };
 
   // Refresh current user's session from seed data (call after role changes)
-  const refreshSession = () => {
+  const refreshSession = async () => {
     if (!user) return;
 
     const seedUser = getSeedUserByEdipi(user.edipi);
@@ -498,8 +565,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(updatedUser);
-      localStorage.setItem("dutysync_user", JSON.stringify(updatedUser));
-      console.log("[refreshSession] Session refreshed with updated roles and personnel info");
+      await storeSessionSecurely(updatedUser);
     }
   };
 

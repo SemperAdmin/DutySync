@@ -16,33 +16,8 @@ interface StoredUser {
 
 // In-memory user store (for development only)
 // This will be replaced with database queries
+// SECURITY: No default admin credentials - users must be created through proper channels
 export const userStore: Map<string, StoredUser> = new Map();
-
-// Initialize with a default App Admin user
-const initializeDefaultAdmin = async () => {
-  if (userStore.size === 0) {
-    const hashedPassword = await bcrypt.hash("admin123", 12);
-    userStore.set("1234567890", {
-      id: "00000000-0000-0000-0000-000000000001",
-      edipi: "1234567890",
-      email: "admin@dutysync.mil",
-      password_hash: hashedPassword,
-      personnel_id: null,
-      roles: [
-        {
-          id: "00000000-0000-0000-0000-000000000001",
-          user_id: "00000000-0000-0000-0000-000000000001",
-          role_name: "App Admin",
-          scope_unit_id: null,
-          created_at: new Date(),
-        },
-      ],
-    });
-  }
-};
-
-// Initialize on module load
-initializeDefaultAdmin();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -119,7 +94,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
     maxAge: 24 * 60 * 60, // 24 hours
   },
-  secret: process.env.AUTH_SECRET || "development-secret-change-in-production",
+  // SECURITY: AUTH_SECRET must be set in environment variables
+  // Generate a secure secret with: openssl rand -base64 32
+  secret: process.env.AUTH_SECRET,
 });
 
 // Helper function to hash passwords
