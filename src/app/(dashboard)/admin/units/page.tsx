@@ -59,8 +59,15 @@ interface UserData {
 }
 
 export default function UnitManagementPage() {
-  const { user } = useAuth();
+  const { user, selectedRuc, availableRucs } = useAuth();
   const [currentViewMode, setCurrentViewMode] = useState<ViewMode>(VIEW_MODE_USER);
+  const [units, setUnits] = useState<UnitSection[]>([]);
+
+  // Load units for scope calculation
+  useEffect(() => {
+    const unitsData = getUnitSections();
+    setUnits(unitsData);
+  }, []);
 
   // Sync with view mode from localStorage
   useEffect(() => {
@@ -89,12 +96,32 @@ export default function UnitManagementPage() {
   const isAdminView = currentViewMode === VIEW_MODE_ADMIN;
   const isUnitAdminView = currentViewMode === VIEW_MODE_UNIT_ADMIN;
 
-  // Get unit admin scope
+  // Get the organization ID for the currently selected RUC
+  const selectedRucOrganizationId = useMemo(() => {
+    if (!selectedRuc || availableRucs.length === 0) return null;
+    const rucInfo = availableRucs.find(r => r.ruc === selectedRuc);
+    return rucInfo?.organizationId || null;
+  }, [selectedRuc, availableRucs]);
+
+  // Get unit admin scope based on selected RUC
   const unitAdminScope = useMemo(() => {
     if (!user?.roles) return null;
+
+    // If we have a selected RUC organization ID, find the matching Unit Admin role
+    if (selectedRucOrganizationId) {
+      for (const role of user.roles) {
+        if (role.role_name !== "Unit Admin" || !role.scope_unit_id) continue;
+        const scopeUnit = units.find(u => u.id === role.scope_unit_id);
+        if (scopeUnit?.organization_id === selectedRucOrganizationId) {
+          return role.scope_unit_id;
+        }
+      }
+    }
+
+    // Fallback: return first Unit Admin role's scope
     const unitAdminRole = user.roles.find(r => r.role_name === "Unit Admin" && r.scope_unit_id);
     return unitAdminRole?.scope_unit_id || null;
-  }, [user?.roles]);
+  }, [user?.roles, selectedRucOrganizationId, units]);
 
   // Show RUC table for App Admin in Admin View
   // Show Unit Hierarchy for Unit Admin in Unit Admin View

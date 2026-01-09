@@ -68,23 +68,60 @@ interface UserData {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, selectedRuc, availableRucs } = useAuth();
+  // Note: This shadows the imported isAppAdmin function, which is intentional
   const isAppAdmin = user?.roles?.some((role) => role.role_name === "App Admin");
   const isUnitAdmin = user?.roles?.some((role) => role.role_name === "Unit Admin");
   const [viewMode, setViewMode] = useState<string>("user");
   const [stats, setStats] = useState({ users: 0, personnel: 0, units: 0 });
   const [unitAdminRucDisplay, setUnitAdminRucDisplay] = useState<string>("N/A");
+  const [allUnits, setAllUnits] = useState<UnitSection[]>([]);
 
-  // Get Unit Admin scope - the scope_unit_id where they have Unit Admin role
-  // This can be either an organization UUID or a RUC code
-  const unitAdminScopeId = useMemo(() => {
-    const unitAdminRole = user?.roles?.find((role) => role.role_name === "Unit Admin");
-    return unitAdminRole?.scope_unit_id || null;
-  }, [user?.roles]);
-
-  // Load the RUC display name asynchronously
-  // scope_unit_id can be an organization UUID, unit UUID, or RUC code
+  // Load units for scope calculation
   useEffect(() => {
+    const unitsData = getUnitSections();
+    setAllUnits(unitsData);
+  }, []);
+
+  // Get the organization ID for the currently selected RUC
+  const selectedRucOrganizationId = useMemo(() => {
+    if (!selectedRuc || availableRucs.length === 0) return null;
+    const rucInfo = availableRucs.find(r => r.ruc === selectedRuc);
+    return rucInfo?.organizationId || null;
+  }, [selectedRuc, availableRucs]);
+
+  // Get Unit Admin scope based on selected RUC
+  const unitAdminScopeId = useMemo(() => {
+    if (!user?.roles) return null;
+
+    // If we have a selected RUC organization ID, find the matching Unit Admin role
+    if (selectedRucOrganizationId) {
+      for (const role of user.roles) {
+        if (role.role_name !== "Unit Admin" || !role.scope_unit_id) continue;
+        const scopeUnit = allUnits.find(u => u.id === role.scope_unit_id);
+        if (scopeUnit?.organization_id === selectedRucOrganizationId) {
+          return role.scope_unit_id;
+        }
+      }
+    }
+
+    // Fallback: return first Unit Admin role's scope
+    const unitAdminRole = user.roles.find(r => r.role_name === "Unit Admin" && r.scope_unit_id);
+    return unitAdminRole?.scope_unit_id || null;
+  }, [user?.roles, selectedRucOrganizationId, allUnits]);
+
+  // Update RUC display based on selected RUC
+  useEffect(() => {
+    // If we have a selected RUC, use it directly for display
+    if (selectedRuc) {
+      const rucInfo = availableRucs.find(r => r.ruc === selectedRuc);
+      if (rucInfo) {
+        setUnitAdminRucDisplay(`${rucInfo.ruc}${rucInfo.name ? ` - ${rucInfo.name}` : ""}`);
+        return;
+      }
+    }
+
+    // Fallback: resolve from scope ID
     async function loadRucDisplay() {
       if (!unitAdminScopeId) {
         setUnitAdminRucDisplay("N/A");
@@ -95,7 +132,7 @@ export default function AdminDashboard() {
       setUnitAdminRucDisplay(rucDisplay);
     }
     loadRucDisplay();
-  }, [unitAdminScopeId]);
+  }, [unitAdminScopeId, selectedRuc, availableRucs]);
 
   // Sync with view mode from localStorage (set by DashboardLayout)
   useEffect(() => {
