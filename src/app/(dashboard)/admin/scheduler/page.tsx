@@ -29,7 +29,7 @@ interface ScheduleResult {
 }
 
 export default function SchedulerPage() {
-  const { user } = useAuth();
+  const { user, selectedRuc, availableRucs } = useAuth();
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -47,14 +47,23 @@ export default function SchedulerPage() {
   // Store preview slots so we can apply the exact same schedule
   const [previewSlots, setPreviewSlots] = useState<DutySlot[]>([]);
 
+  // Get the organization ID for the currently selected RUC
+  const selectedRucOrganizationId = useMemo(() => {
+    if (!selectedRuc || availableRucs.length === 0) return null;
+    const rucInfo = availableRucs.find(r => r.ruc === selectedRuc);
+    return rucInfo?.organizationId || null;
+  }, [selectedRuc, availableRucs]);
+
   const fetchUnits = useCallback(() => {
     try {
       setLoading(true);
       const allUnitsData = getUnitSections();
 
-      // Derive organization ID here now that units are loaded
-      let userOrganizationId: string | null = null;
-      if (user?.roles) {
+      // Derive organization ID - prioritize selected RUC
+      let userOrganizationId: string | null = selectedRucOrganizationId;
+
+      // Fallback to role-based organization if no selected RUC
+      if (!userOrganizationId && user?.roles) {
         const isAppAdmin = user.roles.some(r => r.role_name === "App Admin");
         if (!isAppAdmin) {
           const scopedRole = user.roles.find(r => ORG_SCOPED_ROLES.includes(r.role_name as RoleName));
@@ -76,7 +85,7 @@ export default function SchedulerPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.roles]);
+  }, [user?.roles, selectedRucOrganizationId]);
 
   useEffect(() => {
     fetchUnits();
