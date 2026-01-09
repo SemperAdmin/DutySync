@@ -573,8 +573,8 @@ export default function DashboardLayout({
               {/* Sync indicator */}
               <SyncIndicator />
 
-              {/* RUC Selector - only show if user has multiple RUCs */}
-              {availableRucs.length > 1 && (
+              {/* RUC Selector - show for Unit Admins with multiple RUCs when in Unit Admin view */}
+              {availableRucs.length > 1 && (!actuallyIsAppAdmin || isUnitAdminView) && (
                 <div className="relative">
                   <select
                     value={selectedRuc || ""}
