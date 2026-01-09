@@ -29,8 +29,11 @@ import {
   canManageUser,
   isAppAdmin,
   getUserOrganizationId,
+  getTopLevelUnitForOrganization,
+  loadUsers,
   type RucEntry,
 } from "@/lib/data-layer";
+import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 
 // Manager role names - a user can only have one of these at a time
 const MANAGER_ROLES: RoleName[] = [
@@ -1088,236 +1091,270 @@ function UsersTab() {
   );
 }
 
-interface PendingRole {
-  role_name: RoleName;
-  scope_unit_id: string | null;
-}
-
 function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSuccess }: { user: UserData; currentUser: SessionUser | null; units: UnitSection[]; rucs: RucEntry[]; onClose: () => void; onSuccess: () => void; }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<RoleName>("Standard User");
-  const [selectedRuc, setSelectedRuc] = useState<string>("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Track pending changes (roles to add and remove)
-  const [pendingAdds, setPendingAdds] = useState<PendingRole[]>([]);
-  const [pendingRemoves, setPendingRemoves] = useState<PendingRole[]>([]);
+  // Check if current user is App Admin (determines which form to show)
+  const currentUserIsAppAdmin = currentUser?.roles?.some(r => r.role_name === "App Admin") ?? false;
 
-  const isUserAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
-
-  // Track current user's organization ID for filtering
-  const [currentUserOrgId, setCurrentUserOrgId] = useState<string | null>(null);
-
-  // Check authorization on mount and get current user's organization
+  // Check authorization on mount
   useEffect(() => {
     async function checkAuth() {
       const authCheck = await canManageUser(currentUser, user.id);
       if (!authCheck.allowed) {
         setAuthError(authCheck.reason || "You are not authorized to manage this user");
       }
-      // Get current user's organization for RUC filtering
-      const orgId = await getUserOrganizationId(currentUser);
-      setCurrentUserOrgId(orgId);
     }
     checkAuth();
   }, [currentUser, user.id]);
 
-  // Filter RUCs based on current user's organization (Unit Admins only see their own RUC)
-  const filteredRucs = useMemo(() => {
-    // App Admin can see all RUCs
-    if (isAppAdmin(currentUser)) {
-      return rucs;
+  // Check if target user is App Admin (cannot be changed via UI)
+  const targetIsAppAdmin = user.roles.some((r) => r.role_name === "App Admin");
+
+  // ============================================================================
+  // APP ADMIN VIEW: Multi-RUC Unit Admin assignment
+  // ============================================================================
+
+  // Get current Unit Admin roles (user can have multiple, one per RUC)
+  const currentUnitAdminRoles = user.roles.filter(r => r.role_name === "Unit Admin");
+
+  // Map unit IDs to organization IDs for tracking
+  const getOrgIdFromUnitId = useCallback((unitId: string | null): string | null => {
+    if (!unitId) return null;
+    const unit = units.find(u => u.id === unitId);
+    return (unit as UnitSection & { organization_id?: string })?.organization_id || null;
+  }, [units]);
+
+  // Get set of organization IDs where user is currently Unit Admin
+  const currentUnitAdminOrgIds = useMemo(() => {
+    const orgIds = new Set<string>();
+    for (const role of currentUnitAdminRoles) {
+      const orgId = getOrgIdFromUnitId(role.scope_unit_id);
+      if (orgId) orgIds.add(orgId);
     }
-    // Unit Admin can only see their organization's RUC
-    if (currentUserOrgId) {
-      return rucs.filter(r => r.id === currentUserOrgId);
-    }
-    return rucs;
-  }, [rucs, currentUser, currentUserOrgId]);
+    return orgIds;
+  }, [currentUnitAdminRoles, getOrgIdFromUnitId]);
 
-  // Check if role requires a unit scope
-  const roleRequiresScope = (role: string) => {
-    return ["Unit Admin", ...MANAGER_ROLES].includes(role as RoleName);
-  };
+  // Track selected RUCs (organization IDs) for App Admin view
+  const [selectedRucIds, setSelectedRucIds] = useState<Set<string>>(
+    new Set(currentUnitAdminOrgIds)
+  );
 
-  // Calculate the effective roles (current - pending removes + pending adds)
-  const effectiveRoles = useMemo(() => {
-    // Start with current roles minus pending removes
-    let roles = user.roles.filter(r =>
-      !pendingRemoves.some(pr => pr.role_name === r.role_name && pr.scope_unit_id === r.scope_unit_id)
-    );
-    // Add pending adds (avoiding duplicates)
-    for (const add of pendingAdds) {
-      const exists = roles.some(r => r.role_name === add.role_name && r.scope_unit_id === add.scope_unit_id);
-      if (!exists) {
-        roles.push({ role_name: add.role_name, scope_unit_id: add.scope_unit_id });
-      }
-    }
-    return roles;
-  }, [user.roles, pendingAdds, pendingRemoves]);
-
-  // Check if user has a manager role in effective roles
-  const existingManagerRole = effectiveRoles.find((r) => MANAGER_ROLES.includes(r.role_name as RoleName));
-
-  // Check if there are unsaved changes
-  const hasChanges = pendingAdds.length > 0 || pendingRemoves.length > 0;
-
-  const handleAddRole = () => {
-    setError(null);
-
-    const scopeUnitId = roleRequiresScope(selectedRole) ? selectedRuc : null;
-
-    // Check if already exists in effective roles
-    const alreadyExists = effectiveRoles.some(r => r.role_name === selectedRole && r.scope_unit_id === scopeUnitId);
-    if (alreadyExists) {
-      setError("This role is already assigned");
-      return;
-    }
-
-    // If assigning a manager role and user already has one, mark it for removal
-    if (MANAGER_ROLES.includes(selectedRole as RoleName) && existingManagerRole) {
-      // Check if it's an original role (not a pending add)
-      const isOriginal = user.roles.some(r => r.role_name === existingManagerRole.role_name && r.scope_unit_id === existingManagerRole.scope_unit_id);
-      if (isOriginal) {
-        setPendingRemoves(prev => {
-          const alreadyPending = prev.some(pr => pr.role_name === existingManagerRole.role_name && pr.scope_unit_id === existingManagerRole.scope_unit_id);
-          if (alreadyPending) return prev;
-          return [...prev, { role_name: existingManagerRole.role_name as RoleName, scope_unit_id: existingManagerRole.scope_unit_id }];
-        });
+  // Toggle RUC selection
+  const toggleRuc = (orgId: string) => {
+    setSelectedRucIds(prev => {
+      const next = new Set(prev);
+      if (next.has(orgId)) {
+        next.delete(orgId);
       } else {
-        // Remove from pending adds
-        setPendingAdds(prev => prev.filter(pa => !(pa.role_name === existingManagerRole.role_name && pa.scope_unit_id === existingManagerRole.scope_unit_id)));
+        next.add(orgId);
       }
-    }
-
-    // Add to pending adds
-    setPendingAdds(prev => [...prev, { role_name: selectedRole, scope_unit_id: scopeUnitId }]);
-
-    // Reset selection
-    setSelectedRole("Standard User");
-    setSelectedRuc("");
-  };
-
-  const handleRemoveRole = (roleName: string, scopeUnitId: string | null) => {
-    // Check if it's a pending add - just remove from pending adds
-    const isPendingAdd = pendingAdds.some(pa => pa.role_name === roleName && pa.scope_unit_id === scopeUnitId);
-    if (isPendingAdd) {
-      setPendingAdds(prev => prev.filter(pa => !(pa.role_name === roleName && pa.scope_unit_id === scopeUnitId)));
-      return;
-    }
-
-    // Otherwise add to pending removes
-    setPendingRemoves(prev => {
-      const alreadyPending = prev.some(pr => pr.role_name === roleName && pr.scope_unit_id === scopeUnitId);
-      if (alreadyPending) return prev;
-      return [...prev, { role_name: roleName as RoleName, scope_unit_id: scopeUnitId }];
+      return next;
     });
   };
 
-  const handleSave = async () => {
-    // Check authorization first
+  // ============================================================================
+  // UNIT ADMIN VIEW: Manager role assignment within their RUC
+  // ============================================================================
+
+  // Get current user's organization ID (for Unit Admin filtering)
+  const currentUserOrgId = useMemo(() => {
+    if (!currentUser?.roles) return null;
+    const unitAdminRole = currentUser.roles.find(r => r.role_name === "Unit Admin");
+    if (!unitAdminRole?.scope_unit_id) return null;
+    return getOrgIdFromUnitId(unitAdminRole.scope_unit_id);
+  }, [currentUser?.roles, getOrgIdFromUnitId]);
+
+  // Get units within the current user's organization (for Unit Admin scope selection)
+  const unitsInOrg = useMemo(() => {
+    if (!currentUserOrgId) return units;
+    return units.filter(u => (u as UnitSection & { organization_id?: string }).organization_id === currentUserOrgId);
+  }, [units, currentUserOrgId]);
+
+  // Build hierarchical unit options for manager scope dropdown
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(unitsInOrg);
+  }, [unitsInOrg]);
+
+  // Get current manager role for this user
+  const currentManagerRole = user.roles.find(r => MANAGER_ROLES.includes(r.role_name as RoleName));
+
+  // Local state for manager role form
+  const [managerRole, setManagerRole] = useState<RoleName | "">(currentManagerRole?.role_name || "");
+  const [managerScope, setManagerScope] = useState(currentManagerRole?.scope_unit_id || "");
+
+  // ============================================================================
+  // CHANGE DETECTION
+  // ============================================================================
+
+  const hasChanges = useMemo(() => {
+    if (currentUserIsAppAdmin) {
+      // App Admin view: Check Unit Admin RUC changes
+      if (selectedRucIds.size !== currentUnitAdminOrgIds.size) return true;
+      for (const orgId of selectedRucIds) {
+        if (!currentUnitAdminOrgIds.has(orgId)) return true;
+      }
+      for (const orgId of currentUnitAdminOrgIds) {
+        if (!selectedRucIds.has(orgId)) return true;
+      }
+      return false;
+    } else {
+      // Unit Admin view: Check manager role changes
+      const originalManagerRole = currentManagerRole?.role_name || "";
+      const originalManagerScope = currentManagerRole?.scope_unit_id || "";
+      return managerRole !== originalManagerRole ||
+        (managerRole && managerScope !== originalManagerScope);
+    }
+  }, [currentUserIsAppAdmin, selectedRucIds, currentUnitAdminOrgIds,
+      managerRole, managerScope, currentManagerRole]);
+
+  // ============================================================================
+  // SAVE HANDLERS
+  // ============================================================================
+
+  const handleSaveChanges = async () => {
     if (authError) {
       setError(authError);
       return;
     }
 
-    setIsSubmitting(true);
+    setIsSaving(true);
     setError(null);
 
-    console.log("[RoleAssignment] Starting save...", {
-      userId: user.id,
-      edipi: user.edipi,
-      pendingAdds,
-      pendingRemoves,
-    });
-
     try {
-      // Process removals first
-      for (const remove of pendingRemoves) {
-        console.log("[RoleAssignment] Removing role:", remove);
-        const result = await removeUserRole(currentUser, user.id, remove.role_name, remove.scope_unit_id);
-        console.log("[RoleAssignment] Remove result:", result);
-        if (!result.success) {
-          setError(result.error || `Failed to remove role: ${remove.role_name}`);
-          setIsSubmitting(false);
+      if (currentUserIsAppAdmin) {
+        // App Admin: Handle Unit Admin role changes
+        const toRemove = [...currentUnitAdminOrgIds].filter(orgId => !selectedRucIds.has(orgId));
+        const toAdd = [...selectedRucIds].filter(orgId => !currentUnitAdminOrgIds.has(orgId));
+
+        // Remove Unit Admin roles
+        for (const orgId of toRemove) {
+          const roleToRemove = currentUnitAdminRoles.find(r => {
+            const roleOrgId = getOrgIdFromUnitId(r.scope_unit_id);
+            return roleOrgId === orgId;
+          });
+          if (roleToRemove?.scope_unit_id) {
+            const result = await removeUserRole(currentUser, user.id, "Unit Admin", roleToRemove.scope_unit_id);
+            if (!result.success) {
+              setError(result.error || "Failed to remove Unit Admin role");
+              setIsSaving(false);
+              return;
+            }
+          }
+        }
+
+        // Add new Unit Admin roles
+        for (const orgId of toAdd) {
+          const topLevelUnit = await getTopLevelUnitForOrganization(orgId);
+          if (!topLevelUnit) {
+            const ruc = rucs.find(r => r.id === orgId);
+            setError(`No top-level unit found for ${ruc?.ruc || orgId}. Please create a unit first.`);
+            setIsSaving(false);
+            return;
+          }
+          const result = await assignUserRole(currentUser, user.id, "Unit Admin", topLevelUnit.id);
+          if (!result.success) {
+            setError(result.error || "Failed to assign Unit Admin role");
+            setIsSaving(false);
+            return;
+          }
+        }
+
+        // Ensure user has Standard User role if no admin roles
+        if (selectedRucIds.size === 0 && !targetIsAppAdmin) {
+          const hasStandardUser = user.roles.some(r => r.role_name === "Standard User");
+          if (!hasStandardUser) {
+            const result = await assignUserRole(currentUser, user.id, "Standard User", null);
+            if (!result.success) {
+              setError(result.error || "Failed to assign Standard User role");
+              setIsSaving(false);
+              return;
+            }
+          }
+        }
+      } else {
+        // Unit Admin: Handle manager role changes
+
+        // Validation
+        if (managerRole && !managerScope) {
+          setError("Please select a unit scope for the manager role");
+          setIsSaving(false);
           return;
+        }
+
+        // Remove old manager role if it exists
+        if (currentManagerRole) {
+          const result = await removeUserRole(
+            currentUser,
+            user.id,
+            currentManagerRole.role_name,
+            currentManagerRole.scope_unit_id
+          );
+          if (!result.success) {
+            setError(result.error || "Failed to remove manager role");
+            setIsSaving(false);
+            return;
+          }
+        }
+
+        // Add new manager role if selected
+        if (managerRole && managerScope) {
+          const result = await assignUserRole(currentUser, user.id, managerRole, managerScope);
+          if (!result.success) {
+            setError(result.error || "Failed to assign manager role");
+            setIsSaving(false);
+            return;
+          }
         }
       }
 
-      // Then process adds (local cache update)
-      for (const add of pendingAdds) {
-        console.log("[RoleAssignment] Adding role:", add);
-        const result = await assignUserRole(currentUser, user.id, add.role_name, add.scope_unit_id);
-        console.log("[RoleAssignment] Add result:", result);
-        if (!result.success) {
-          setError(result.error || `Failed to assign role: ${add.role_name}`);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // Changes are persisted directly to Supabase
-      console.log("[RoleAssignment] Roles saved to Supabase");
+      // Refresh user data
+      await loadUsers();
       onSuccess();
     } catch (err) {
-      console.error("[RoleAssignment] Error:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
   };
 
-  const handleDeleteUser = async () => {
-    // Check authorization first
+  const handleDeleteAccount = async () => {
     if (authError) {
       setError(authError);
       return;
     }
 
-    setIsSubmitting(true);
+    setIsDeleting(true);
     setError(null);
 
     try {
-      // Delete user from Supabase
       const result = await deleteUser(currentUser, user.id);
       if (!result.success) {
         setError(result.error || "Failed to delete user");
-        setIsSubmitting(false);
+        setIsDeleting(false);
         return;
       }
-
-      console.log("[RoleAssignment] User deleted from Supabase");
       onSuccess();
     } catch (err) {
-      console.error("[RoleAssignment] Delete error:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setIsSubmitting(false);
+      setIsDeleting(false);
     }
   };
 
-  // Get role color for badges
-  const getRoleBadgeColor = (roleName: string, isPending: boolean = false) => {
-    const baseColor = (() => {
-      if (roleName === "App Admin") return "bg-highlight/20 text-highlight border-highlight/30";
-      if (roleName === "Unit Admin") return "bg-primary/20 text-blue-400 border-primary/30";
-      if (MANAGER_ROLES.includes(roleName as RoleName)) return "bg-success/20 text-success border-success/30";
-      return "bg-foreground-muted/20 text-foreground-muted border-foreground-muted/30";
-    })();
-    return isPending ? `${baseColor} ring-2 ring-warning/50` : baseColor;
+  // Get RUC display name helper
+  const getRucDisplayForScope = (scopeUnitId: string | null) => {
+    if (!scopeUnitId) return null;
+    const orgId = getOrgIdFromUnitId(scopeUnitId);
+    const ruc = rucs.find(r => r.id === orgId);
+    return ruc?.ruc ? (ruc.name ? `${ruc.ruc} - ${ruc.name}` : ruc.ruc) : null;
   };
 
-  // Get RUC display name
-  const getRucDisplayName = (rucCode: string | null) => {
-    if (!rucCode) return null;
-    const ruc = rucs.find(r => r.ruc === rucCode);
-    return ruc?.name ? `${rucCode} - ${ruc.name}` : rucCode;
-  };
-
-  // Build the full unit hierarchy path (e.g., "02301 > H Company > S1DV > MPHQ")
-  // Note: Uses getUnitSections() directly to ensure we have latest data
+  // Build unit path for display
   const buildUnitPath = (unitId: string): string => {
     const allUnits = getUnitSections();
     const path: string[] = [];
@@ -1333,176 +1370,273 @@ function RoleAssignmentModal({ user, currentUser, units, rucs, onClose, onSucces
     return path.join(" > ");
   };
 
-  const getUnitDisplayName = (unitId: string | null) => {
+  const getUnitName = (unitId: string | null) => {
     if (!unitId) return null;
     return buildUnitPath(unitId) || "Unknown Unit";
   };
 
-  // Check if a role is a pending addition
-  const isPendingAdd = (roleName: string, scopeUnitId: string | null) => {
-    return pendingAdds.some(pa => pa.role_name === roleName && pa.scope_unit_id === scopeUnitId);
-  };
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card variant="elevated" className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <Card variant="elevated" className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <CardTitle>Manage Roles - {user.edipi}</CardTitle>
-          <CardDescription>Assign or remove user roles</CardDescription>
+          <CardDescription>
+            {currentUserIsAppAdmin
+              ? "Assign Unit Admin access to one or more RUCs"
+              : "Assign manager roles within your organization"
+            }
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {error && <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">{error}</div>}
-
-          {/* Current Roles with Remove Buttons */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Current Roles</label>
-            <div className="flex flex-wrap gap-2">
-              {effectiveRoles.map((role, idx) => {
-                const canRemove = role.role_name !== "App Admin" && role.role_name !== "Standard User";
-                const pending = isPendingAdd(role.role_name, role.scope_unit_id);
-                return (
-                  <span
-                    key={role.id ?? `${idx}-${role.role_name}-${role.scope_unit_id}`}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-lg border ${getRoleBadgeColor(role.role_name, pending)}`}
-                  >
-                    <span>
-                      {role.role_name}
-                      {role.scope_unit_id && (
-                        <span className="ml-1 opacity-75 text-xs">({getUnitDisplayName(role.scope_unit_id)})</span>
-                      )}
-                      {pending && <span className="ml-1 text-xs text-warning">(new)</span>}
-                    </span>
-                    {canRemove && (
-                      <button
-                        onClick={() => handleRemoveRole(role.role_name, role.scope_unit_id)}
-                        disabled={isSubmitting}
-                        className="ml-1 hover:bg-white/20 rounded p-0.5 transition-colors"
-                        title={`Remove ${role.role_name}`}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </span>
-                );
-              })}
+        <CardContent className="space-y-6">
+          {/* Authorization Error */}
+          {authError && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{authError}</span>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="p-3 rounded-lg bg-surface-elevated border border-border">
-            <label className="block text-sm font-medium text-foreground mb-1">EDIPI</label>
-            <span className="font-mono text-foreground-muted">{user.edipi}</span>
-          </div>
+          {error && !authError && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
+              {error}
+            </div>
+          )}
 
-          {!isUserAppAdmin && (
-            <div className="space-y-4 pt-4 border-t border-border">
-              <h4 className="font-medium text-foreground">Assign New Role</h4>
+          {/* Target User's App Admin Badge (if applicable) */}
+          {targetIsAppAdmin && (
+            <div className="p-3 rounded-lg bg-highlight/10 border border-highlight/20">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 text-xs font-medium rounded bg-highlight/20 text-highlight border border-highlight/30">
+                  App Admin
+                </span>
+                <span className="text-sm text-foreground-muted">
+                  (Assigned via configuration)
+                </span>
+              </div>
+            </div>
+          )}
 
-              {/* Warning if replacing manager role */}
-              {existingManagerRole && MANAGER_ROLES.includes(selectedRole as RoleName) && selectedRole !== existingManagerRole.role_name && (
-                <div className="p-2 rounded-lg bg-warning/10 border border-warning/20 text-warning text-xs">
-                  This will replace the existing {existingManagerRole.role_name} role. Users can only have one manager role.
+          {/* ============================================================== */}
+          {/* APP ADMIN VIEW: Multi-RUC Unit Admin Selection */}
+          {/* ============================================================== */}
+          {currentUserIsAppAdmin && (
+            <div className="space-y-3">
+              <div>
+                <h4 className="font-medium text-foreground">Unit Admin Access</h4>
+                <p className="text-sm text-foreground-muted">
+                  Select which RUCs this user can administer
+                </p>
+              </div>
+
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {rucs.map((ruc) => {
+                  const isSelected = selectedRucIds.has(ruc.id);
+                  return (
+                    <label
+                      key={ruc.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-primary/10 border-primary"
+                          : "bg-surface border-border hover:border-foreground-muted"
+                      } ${isSaving ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleRuc(ruc.id)}
+                        disabled={isSaving}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <div className="flex-1">
+                        <span className="font-mono font-medium text-foreground">
+                          {ruc.ruc}
+                        </span>
+                        {ruc.name && (
+                          <span className="ml-2 text-foreground-muted">
+                            - {ruc.name}
+                          </span>
+                        )}
+                      </div>
+                      {isSelected && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-primary/20 text-primary">
+                          Unit Admin
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+
+              {selectedRucIds.size === 0 && !targetIsAppAdmin && (
+                <p className="text-sm text-foreground-muted italic">
+                  No Unit Admin roles assigned. User will have Standard User access only.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* UNIT ADMIN VIEW: Manager Role Assignment */}
+          {/* ============================================================== */}
+          {!currentUserIsAppAdmin && (
+            <div className="space-y-4">
+              {/* Show target user's current Unit Admin status if they have any */}
+              {currentUnitAdminRoles.length > 0 && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-foreground">Unit Admin for:</span>
+                    {currentUnitAdminRoles.map((role, idx) => (
+                      <span key={idx} className="px-2 py-0.5 text-xs font-medium rounded bg-primary/20 text-primary">
+                        {getRucDisplayForScope(role.scope_unit_id) || "Unknown"}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Role Type</label>
-                <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as RoleName)} disabled={isSubmitting}>
-                  <option value="Standard User">Standard User</option>
-                  <optgroup label="Admin Roles">
-                    <option value="Unit Admin">Unit Admin</option>
-                  </optgroup>
-                  <optgroup label="Manager Roles (one at a time)">
-                    <option value="Unit Manager">Unit Manager</option>
-                    <option value="Company Manager">Company Manager</option>
-                    <option value="Section Manager">Section Manager</option>
-                    <option value="Work Section Manager">Work Section Manager</option>
-                  </optgroup>
+                <h4 className="font-medium text-foreground">Manager Role</h4>
+                <p className="text-sm text-foreground-muted">
+                  Assign a management role for personnel oversight
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Role
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={managerRole}
+                  onChange={(e) => {
+                    setManagerRole(e.target.value as RoleName | "");
+                    if (!e.target.value) setManagerScope("");
+                  }}
+                  disabled={isSaving}
+                >
+                  <option value="">None</option>
+                  <option value="Unit Manager">Unit Manager</option>
+                  <option value="Company Manager">Company Manager</option>
+                  <option value="Section Manager">Section Manager</option>
+                  <option value="Work Section Manager">Work Section Manager</option>
                 </select>
               </div>
 
-              {roleRequiresScope(selectedRole) && (
+              {/* Manager Scope Selector */}
+              {managerRole && (
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Unit Scope (RUC)</label>
-                  <select className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary" value={selectedRuc} onChange={(e) => setSelectedRuc(e.target.value)} disabled={isSubmitting}>
-                    <option value="">Select a RUC...</option>
-                    {filteredRucs.map((ruc) => <option key={ruc.ruc} value={ruc.ruc}>{ruc.ruc}{ruc.name ? ` - ${ruc.name}` : ""}</option>)}
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                    Unit Scope
+                  </label>
+                  <select
+                    className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                    value={managerScope}
+                    onChange={(e) => setManagerScope(e.target.value)}
+                    disabled={isSaving}
+                  >
+                    <option value="">Select a unit...</option>
+                    {hierarchicalUnits.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {formatUnitOptionLabel(option, true)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
 
-              <Button variant="secondary" onClick={handleAddRole} disabled={isSubmitting || (roleRequiresScope(selectedRole) && !selectedRuc)} className="w-full">
-                {existingManagerRole && MANAGER_ROLES.includes(selectedRole as RoleName) && selectedRole !== existingManagerRole.role_name
-                  ? "Add Role (replaces manager)"
-                  : "Add Role"}
-              </Button>
-            </div>
-          )}
-
-          {isUserAppAdmin && (
-            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
-              This user is an App Admin (assigned via EDIPI). The App Admin role cannot be removed here.
-            </div>
-          )}
-
-          {/* Delete Account Section */}
-          {!isUserAppAdmin && (
-            <div className="pt-4 border-t border-border">
-              {!showDeleteConfirm ? (
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={isSubmitting}
-                  className="w-full text-error hover:bg-error/10"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete Account
-                </Button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
-                    Are you sure you want to delete this account? This action cannot be undone.
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      onClick={() => setShowDeleteConfirm(false)}
-                      disabled={isSubmitting}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={handleDeleteUser}
-                      isLoading={isSubmitting}
-                      disabled={isSubmitting}
-                      className="flex-1 bg-error text-white hover:bg-error/90"
-                    >
-                      Confirm Delete
-                    </Button>
-                  </div>
-                </div>
+              {/* Current manager role info */}
+              {currentManagerRole && (
+                <p className="text-sm text-foreground-muted">
+                  Currently: <span className="font-medium text-foreground">{currentManagerRole.role_name}</span>
+                  {currentManagerRole.scope_unit_id && (
+                    <span> for {getUnitName(currentManagerRole.scope_unit_id) || "Unknown unit"}</span>
+                  )}
+                </p>
               )}
             </div>
           )}
 
-          <div className="flex gap-3 pt-4 border-t border-border">
-            <Button variant="secondary" onClick={onClose} disabled={isSubmitting} className="flex-1">
-              Cancel
-            </Button>
+          {/* Unsaved Changes Indicator */}
+          {hasChanges && (
+            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
+              You have unsaved changes. Click &quot;Save Changes&quot; to apply them.
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-4 border-t border-border">
             <Button
               variant="accent"
-              onClick={handleSave}
-              isLoading={isSubmitting}
-              disabled={isSubmitting || !hasChanges}
-              className="flex-1"
+              onClick={handleSaveChanges}
+              isLoading={isSaving}
+              disabled={isSaving || isDeleting || !hasChanges || !!authError}
+              className="w-full"
             >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
               Save Changes
             </Button>
+
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={onClose}
+                disabled={isSaving || isDeleting}
+                className="flex-1"
+              >
+                {authError ? "Close" : hasChanges ? "Cancel" : "Close"}
+              </Button>
+
+              {/* Delete Account Button */}
+              {!targetIsAppAdmin && !authError && (
+                <>
+                  {!showDeleteConfirm ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={isSaving || isDeleting}
+                      className="text-error hover:bg-error/10"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      onClick={handleDeleteAccount}
+                      isLoading={isDeleting}
+                      disabled={isSaving || isDeleting}
+                      className="bg-error/10 text-error hover:bg-error/20"
+                    >
+                      Confirm Delete
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {showDeleteConfirm && (
+              <p className="text-xs text-error text-center">
+                Are you sure? This will permanently delete this user account.
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="ml-2 underline hover:no-underline"
+                >
+                  Cancel
+                </button>
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
