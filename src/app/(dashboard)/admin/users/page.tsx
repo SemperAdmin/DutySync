@@ -51,7 +51,7 @@ interface UserData {
 }
 
 export default function UsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, selectedRuc, availableRucs } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [units, setUnits] = useState<UnitSection[]>([]);
   const [rucs, setRucs] = useState<RucEntry[]>([]);
@@ -64,8 +64,31 @@ export default function UsersPage() {
   // Check actual role presence (not affected by view mode)
   const actuallyIsAppAdmin = currentUser?.roles?.some(r => r.role_name === "App Admin") ?? false;
   const actuallyIsUnitAdmin = currentUser?.roles?.some(r => r.role_name === "Unit Admin") ?? false;
-  const unitAdminRole = currentUser?.roles?.find(r => r.role_name === "Unit Admin");
-  const unitAdminScopeId = unitAdminRole?.scope_unit_id ?? null;
+
+  // Get the organization ID for the currently selected RUC
+  // This determines which RUC's data to show when in Unit Admin view
+  const selectedRucOrganizationId = useMemo(() => {
+    if (!selectedRuc || availableRucs.length === 0) return null;
+    const rucInfo = availableRucs.find(r => r.ruc === selectedRuc);
+    return rucInfo?.organizationId || null;
+  }, [selectedRuc, availableRucs]);
+
+  // Find the Unit Admin role for the selected RUC's organization
+  const unitAdminScopeId = useMemo(() => {
+    if (!selectedRucOrganizationId || !currentUser?.roles) return null;
+    // Find the Unit Admin role whose scope unit belongs to the selected organization
+    for (const role of currentUser.roles) {
+      if (role.role_name !== "Unit Admin" || !role.scope_unit_id) continue;
+      // Check if this role's scope unit is in the selected organization
+      const scopeUnit = units.find(u => u.id === role.scope_unit_id);
+      if (scopeUnit?.organization_id === selectedRucOrganizationId) {
+        return role.scope_unit_id;
+      }
+    }
+    // Fallback: return first Unit Admin role's scope
+    const firstUnitAdmin = currentUser.roles.find(r => r.role_name === "Unit Admin" && r.scope_unit_id);
+    return firstUnitAdmin?.scope_unit_id || null;
+  }, [selectedRucOrganizationId, currentUser?.roles, units]);
 
   // Effective admin status based on view mode
   // User must have the role AND be in the appropriate view mode
@@ -183,11 +206,15 @@ export default function UsersPage() {
   }, [effectiveIsAppAdmin, effectiveIsUnitAdmin, unitAdminScopeId]);
 
   // Get organization ID for the current user's Unit Admin scope
+  // Uses the selected RUC's organization ID directly when available
   const scopeOrganizationId = useMemo(() => {
+    // If we have a selected RUC organization ID, use it directly
+    if (selectedRucOrganizationId) return selectedRucOrganizationId;
+    // Fallback: derive from unitAdminScopeId
     if (!unitAdminScopeId) return null;
     const scopeUnit = units.find(u => u.id === unitAdminScopeId);
     return scopeUnit?.organization_id || null;
-  }, [unitAdminScopeId, units]);
+  }, [selectedRucOrganizationId, unitAdminScopeId, units]);
 
   // Filter users based on scope - Unit Admins only see users in their RUC/unit hierarchy
   const filteredUsers = useMemo(() => {
@@ -330,7 +357,7 @@ export default function UsersPage() {
           <CardTitle>Registered Users</CardTitle>
           <CardDescription>
             {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""} registered
-            {!effectiveIsAppAdmin && effectiveIsUnitAdmin && unitAdminScopeId && " (within your unit scope)"}
+            {!effectiveIsAppAdmin && effectiveIsUnitAdmin && selectedRuc && ` (RUC ${selectedRuc})`}
           </CardDescription>
         </CardHeader>
         <CardContent>
