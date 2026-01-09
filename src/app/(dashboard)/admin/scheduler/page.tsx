@@ -9,14 +9,26 @@ import {
   getPersonnelById,
   type EnrichedSlot,
 } from "@/lib/client-stores";
-import { previewSchedule, applyPreviewedSlots } from "@/lib/duty-thruster";
-import type { DutySlot } from "@/types";
+import {
+  previewSchedule,
+  applyPreviewedSlots,
+  previewSupernumeraryAssignments,
+  applySupernumeraryAssignments,
+} from "@/lib/duty-thruster";
+import type { DutySlot, SupernumeraryAssignment } from "@/types";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 import { parseLocalDate, formatDateToString } from "@/lib/date-utils";
 import { useAuth } from "@/lib/supabase-auth";
 import { ORG_SCOPED_ROLES } from "@/lib/constants";
 import type { RoleName } from "@/types";
+
+// Enriched supernumerary assignment for display
+interface EnrichedSupernumeraryAssignment extends SupernumeraryAssignment {
+  duty_type_name: string;
+  personnel_name: string;
+  personnel_rank: string;
+}
 
 interface ScheduleResult {
   success: boolean;
@@ -26,6 +38,8 @@ interface ScheduleResult {
   errors: string[];
   warnings: string[];
   slots: EnrichedSlot[];
+  supernumerary_created: number;
+  supernumerary: EnrichedSupernumeraryAssignment[];
 }
 
 export default function SchedulerPage() {
@@ -46,6 +60,8 @@ export default function SchedulerPage() {
 
   // Store preview slots so we can apply the exact same schedule
   const [previewSlots, setPreviewSlots] = useState<DutySlot[]>([]);
+  // Store preview supernumerary assignments
+  const [previewSupernumerary, setPreviewSupernumerary] = useState<SupernumeraryAssignment[]>([]);
 
   // Get the organization ID for the currently selected RUC
   const selectedRucOrganizationId = useMemo(() => {
@@ -123,6 +139,22 @@ export default function SchedulerPage() {
     });
   }
 
+  // Helper to enrich supernumerary assignments with duty type and personnel info
+  function enrichSupernumerary(assignments: SupernumeraryAssignment[]): EnrichedSupernumeraryAssignment[] {
+    return assignments.map((assignment) => {
+      const dutyType = getDutyTypeById(assignment.duty_type_id);
+      const personnel = getPersonnelById(assignment.personnel_id);
+      return {
+        ...assignment,
+        duty_type_name: dutyType?.duty_name || "Unknown Duty",
+        personnel_name: personnel
+          ? `${personnel.last_name}, ${personnel.first_name}`
+          : "Unknown",
+        personnel_rank: personnel?.rank || "",
+      };
+    });
+  }
+
   function handlePreview() {
     if (!selectedUnit || !startDate || !endDate) {
       setError("Please select a unit and date range");
@@ -133,6 +165,7 @@ export default function SchedulerPage() {
     setError("");
     setResult(null);
     setPreviewSlots([]);
+    setPreviewSupernumerary([]);
 
     try {
       const request = {
@@ -148,14 +181,31 @@ export default function SchedulerPage() {
       // Store the raw preview slots so we can apply exactly these later
       setPreviewSlots(scheduleResult.slots);
 
+      // Preview supernumerary assignments if we have an organization ID
+      let supernumeraryResult: { assignments: SupernumeraryAssignment[]; warnings: string[] } = {
+        assignments: [],
+        warnings: [],
+      };
+      if (selectedRucOrganizationId) {
+        supernumeraryResult = previewSupernumeraryAssignments(
+          selectedUnit,
+          selectedRucOrganizationId,
+          startDate,
+          endDate
+        );
+        setPreviewSupernumerary(supernumeraryResult.assignments);
+      }
+
       setResult({
         success: scheduleResult.success,
         preview: true,
         slots_created: scheduleResult.slotsCreated,
         slots_skipped: scheduleResult.slotsSkipped,
         errors: scheduleResult.errors,
-        warnings: scheduleResult.warnings,
+        warnings: [...scheduleResult.warnings, ...supernumeraryResult.warnings],
         slots: enrichSlots(scheduleResult.slots),
+        supernumerary_created: supernumeraryResult.assignments.length,
+        supernumerary: enrichSupernumerary(supernumeraryResult.assignments),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate preview");
@@ -165,7 +215,7 @@ export default function SchedulerPage() {
   }
 
   function handleApply() {
-    if (previewSlots.length === 0) {
+    if (previewSlots.length === 0 && previewSupernumerary.length === 0) {
       setError("No preview to apply. Please preview first.");
       return;
     }
@@ -183,6 +233,18 @@ export default function SchedulerPage() {
         selectedUnit
       );
 
+      // Apply supernumerary assignments
+      let supernumeraryApplyResult = { created: 0, warnings: [] as string[] };
+      if (previewSupernumerary.length > 0) {
+        supernumeraryApplyResult = applySupernumeraryAssignments(
+          previewSupernumerary,
+          clearExisting,
+          startDate,
+          endDate,
+          selectedUnit
+        );
+      }
+
       // Update result to show applied (not preview)
       setResult({
         success: applyResult.success,
@@ -190,12 +252,15 @@ export default function SchedulerPage() {
         slots_created: applyResult.slotsCreated,
         slots_skipped: applyResult.slotsSkipped,
         errors: applyResult.errors,
-        warnings: applyResult.warnings,
+        warnings: [...applyResult.warnings, ...supernumeraryApplyResult.warnings],
         slots: enrichSlots(applyResult.slots),
+        supernumerary_created: supernumeraryApplyResult.created,
+        supernumerary: enrichSupernumerary(previewSupernumerary),
       });
 
-      // Clear preview slots after applying
+      // Clear preview after applying
       setPreviewSlots([]);
+      setPreviewSupernumerary([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply schedule");
     } finally {
@@ -332,7 +397,7 @@ export default function SchedulerPage() {
           </Button>
           <Button
             onClick={handleApply}
-            disabled={generating || previewSlots.length === 0}
+            disabled={generating || (previewSlots.length === 0 && previewSupernumerary.length === 0)}
           >
             {generating ? "Processing..." : "Apply Schedule"}
           </Button>
@@ -385,6 +450,11 @@ export default function SchedulerPage() {
               <span className="text-green-400">
                 {result.slots_created} slots {result.preview ? "planned" : "applied"}
               </span>
+              {result.supernumerary_created > 0 && (
+                <span className="text-blue-400">
+                  {result.supernumerary_created} supernumerary
+                </span>
+              )}
               {result.slots_skipped > 0 && (
                 <span className="text-yellow-400">{result.slots_skipped} skipped</span>
               )}
@@ -469,11 +539,46 @@ export default function SchedulerPage() {
             </div>
           )}
 
-          {result.slots.length === 0 && (
+          {result.slots.length === 0 && result.supernumerary.length === 0 && (
             <p className="text-foreground-muted text-center py-8">
               No duty slots were generated. Check that you have active duty types and
               available personnel for the selected unit.
             </p>
+          )}
+
+          {/* Supernumerary Assignments */}
+          {result.supernumerary.length > 0 && (
+            <div className="space-y-3 pt-4 border-t border-border">
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Supernumerary Assignments (Standby Personnel)
+              </h3>
+              <p className="text-xs text-foreground-muted">
+                Personnel on standby who can be activated if regular duty personnel are unavailable.
+              </p>
+              <div className="grid gap-2">
+                {result.supernumerary.map((assignment) => (
+                  <div
+                    key={assignment.id}
+                    className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded px-3 py-2 text-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium text-blue-400">
+                        {assignment.duty_type_name}
+                      </span>
+                      <span className="text-foreground">
+                        {assignment.personnel_rank} {assignment.personnel_name}
+                      </span>
+                    </div>
+                    <span className="text-foreground-muted text-xs">
+                      {assignment.period_start} to {assignment.period_end}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
