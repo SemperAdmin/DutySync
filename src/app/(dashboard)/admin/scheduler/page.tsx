@@ -89,12 +89,13 @@ export default function SchedulerPage() {
 
   useEffect(() => {
     fetchUnits();
-    // Set default dates (next 30 days)
+    // Set default dates (next 30 days) using local date
     const today = new Date();
     const thirtyDaysLater = new Date(today);
     thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
-    setStartDate(today.toISOString().split("T")[0]);
-    setEndDate(thirtyDaysLater.toISOString().split("T")[0]);
+    // Use formatDateToString for local dates instead of toISOString (which is UTC)
+    setStartDate(formatDateToString(today));
+    setEndDate(formatDateToString(thirtyDaysLater));
   }, [fetchUnits]);
 
   // Auto-refresh when sync service detects data changes
@@ -228,7 +229,9 @@ export default function SchedulerPage() {
   function groupSlotsByDate(slots: EnrichedSlot[]): Map<string, EnrichedSlot[]> {
     const grouped = new Map<string, EnrichedSlot[]>();
     for (const slot of slots) {
-      const dateKey = formatDateToString(new Date(slot.date_assigned));
+      // Use the date_assigned string directly - it's already in YYYY-MM-DD format
+      // Don't convert through new Date() as that parses as UTC and causes timezone issues
+      const dateKey = slot.date_assigned;
       if (!grouped.has(dateKey)) {
         grouped.set(dateKey, []);
       }
