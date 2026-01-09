@@ -21,6 +21,11 @@ export interface RucOption {
   organizationId: string;
 }
 
+interface ChangePasswordResult {
+  success: boolean;
+  error?: string;
+}
+
 interface AuthContextType {
   user: SessionUser | null;
   isLoading: boolean;
@@ -28,6 +33,7 @@ interface AuthContextType {
   logout: () => void;
   signup: (edipi: string, email: string, password: string) => Promise<SignupResult>;
   refreshSession: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<ChangePasswordResult>;
   // Multi-RUC support
   selectedRuc: string | null;
   availableRucs: RucOption[];
@@ -539,6 +545,22 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     await dataLayer.loadAllData(ruc || undefined);
   };
 
+  // Change password for current user
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<ChangePasswordResult> => {
+    if (!user) {
+      return { success: false, error: "Not logged in" };
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: "Database not configured" };
+    }
+
+    return await supabaseData.changeUserPassword(user.id, currentPassword, newPassword);
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -547,6 +569,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       logout,
       signup,
       refreshSession,
+      changePassword,
       selectedRuc,
       availableRucs,
       setSelectedRuc,

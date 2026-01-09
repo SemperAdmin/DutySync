@@ -959,6 +959,71 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<Us
   return data as User;
 }
 
+export async function changeUserPassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: "Database not configured" };
+  }
+  const supabase = getSupabase();
+
+  // Get user to verify current password
+  const { data: user, error: fetchError } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError || !user) {
+    return { success: false, error: "User not found" };
+  }
+
+  const typedUser = user as User;
+
+  // Verify current password
+  const isBcryptHash = /^\$2[aby]\$/.test(typedUser.password_hash);
+  let isValidPassword = false;
+
+  if (isBcryptHash) {
+    isValidPassword = await bcrypt.compare(currentPassword, typedUser.password_hash);
+  } else {
+    // Legacy base64 check
+    try {
+      const legacyHash = btoa(currentPassword);
+      isValidPassword = legacyHash === typedUser.password_hash;
+    } catch {
+      isValidPassword = false;
+    }
+  }
+
+  if (!isValidPassword) {
+    return { success: false, error: "Current password is incorrect" };
+  }
+
+  // Validate new password
+  if (newPassword.length < 8) {
+    return { success: false, error: "New password must be at least 8 characters" };
+  }
+
+  // Hash the new password
+  const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+  // Update the password
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({ password_hash: newPasswordHash, updated_at: new Date().toISOString() } as never)
+    .eq("id", userId);
+
+  if (updateError) {
+    console.error("Error updating password:", updateError);
+    return { success: false, error: "Failed to update password" };
+  }
+
+  return { success: true };
+}
+
 export async function deleteUser(id: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   const supabase = getSupabase();
