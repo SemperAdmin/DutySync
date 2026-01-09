@@ -859,9 +859,35 @@ export async function authenticateUser(edipi: string, password: string): Promise
     return null;
   }
 
-  // Verify password using bcrypt
   const typedUser = user as User;
-  const isValidPassword = await bcrypt.compare(password, typedUser.password_hash);
+  let isValidPassword = false;
+
+  // Check if password hash is bcrypt format (starts with $2a$, $2b$, or $2y$)
+  const isBcryptHash = /^\$2[aby]\$/.test(typedUser.password_hash);
+
+  if (isBcryptHash) {
+    // Verify using bcrypt
+    isValidPassword = await bcrypt.compare(password, typedUser.password_hash);
+  } else {
+    // Legacy: verify using base64 comparison (atob/btoa)
+    try {
+      const legacyHash = btoa(password);
+      isValidPassword = legacyHash === typedUser.password_hash;
+
+      // If legacy password is valid, migrate to bcrypt
+      if (isValidPassword) {
+        const newHash = await bcrypt.hash(password, 12);
+        await supabase
+          .from("users")
+          .update({ password_hash: newHash, updated_at: new Date().toISOString() } as never)
+          .eq("id", typedUser.id);
+      }
+    } catch {
+      // If base64 decode fails, password is invalid
+      isValidPassword = false;
+    }
+  }
+
   if (!isValidPassword) {
     return null;
   }
