@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Card, { CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useAuth } from "@/lib/supabase-auth";
 import { getUnitSections, getPersonnelByEdipi } from "@/lib/data-layer";
-import { updatePersonnel } from "@/lib/client-stores";
+import { updatePersonnel, updateUser } from "@/lib/client-stores";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -84,26 +84,42 @@ export default function ProfilePage() {
 
   // Save changes
   async function saveChanges() {
-    if (!personnel) {
-      toast.error("No personnel record linked to update");
+    if (!user?.id) {
+      toast.error("No user account found");
       return;
     }
 
     setIsSaving(true);
     try {
-      // Update phone number on personnel record
-      const updated = updatePersonnel(personnel.id, {
-        phone_number: editPhone || null,
-      });
+      let success = true;
 
-      if (updated) {
-        setPersonnel(updated);
+      // Update email on user account
+      if (editEmail && editEmail !== user.email) {
+        const updatedUser = updateUser(user.id, { email: editEmail });
+        if (!updatedUser) {
+          toast.error("Failed to update email");
+          success = false;
+        }
+      }
+
+      // Update phone number on personnel record (if linked)
+      if (personnel) {
+        const updatedPersonnel = updatePersonnel(personnel.id, {
+          phone_number: editPhone || null,
+        });
+        if (updatedPersonnel) {
+          setPersonnel(updatedPersonnel);
+        } else {
+          toast.error("Failed to update phone number");
+          success = false;
+        }
+      }
+
+      if (success) {
         // Reload profile data to ensure we have latest from storage
         loadProfileData();
         toast.success("Profile updated successfully");
         setIsEditing(false);
-      } else {
-        toast.error("Failed to update profile");
       }
     } catch (err) {
       console.error("Error updating profile:", err);
@@ -202,32 +218,31 @@ export default function ProfilePage() {
                   onChange={(e) => setEditEmail(e.target.value)}
                   placeholder="Enter email address"
                   className="mt-1"
-                  disabled
-                  title="Email changes require account verification. Contact your administrator."
                 />
               ) : (
                 <p className="font-medium text-foreground">
                   {user?.email}
                 </p>
               )}
-              {isEditing && (
-                <p className="text-xs text-foreground-muted mt-1">
-                  Email changes require account verification
-                </p>
-              )}
             </div>
 
-            {/* Phone field - editable */}
+            {/* Phone field - editable (only if personnel record linked) */}
             <div>
               <label className="text-sm text-foreground-muted">Phone Number</label>
               {isEditing ? (
-                <Input
-                  type="tel"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  placeholder="Enter phone number"
-                  className="mt-1"
-                />
+                personnel ? (
+                  <Input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="Enter phone number"
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-foreground-muted italic text-sm mt-1">
+                    Link a personnel record to add phone number
+                  </p>
+                )
               ) : (
                 <p className="font-medium text-foreground">
                   {personnel?.phone_number || <span className="text-foreground-muted italic">Not set</span>}
