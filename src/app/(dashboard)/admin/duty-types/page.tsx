@@ -491,9 +491,9 @@ export default function DutyTypesPage() {
         section_filter_values: formData.section_filter_values.length > 0 ? formData.section_filter_values : null,
         is_active: true,
         requires_supernumerary: formData.requires_supernumerary,
-        supernumerary_count: parseInt(formData.supernumerary_count),
-        supernumerary_period_days: parseInt(formData.supernumerary_period_days),
-        supernumerary_value: parseFloat(formData.supernumerary_value),
+        supernumerary_count: parseInt(formData.supernumerary_count) || 2,
+        supernumerary_period_days: parseInt(formData.supernumerary_period_days) || 15,
+        supernumerary_value: parseFloat(formData.supernumerary_value) || 0.5,
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -537,9 +537,9 @@ export default function DutyTypesPage() {
         section_filter_mode: formData.section_filter_values.length > 0 ? formData.section_filter_mode : null,
         section_filter_values: formData.section_filter_values.length > 0 ? formData.section_filter_values : null,
         requires_supernumerary: formData.requires_supernumerary,
-        supernumerary_count: parseInt(formData.supernumerary_count),
-        supernumerary_period_days: parseInt(formData.supernumerary_period_days),
-        supernumerary_value: parseFloat(formData.supernumerary_value),
+        supernumerary_count: parseInt(formData.supernumerary_count) || 2,
+        supernumerary_period_days: parseInt(formData.supernumerary_period_days) || 15,
+        supernumerary_value: parseFloat(formData.supernumerary_value) || 0.5,
       });
 
       // Update duty value
