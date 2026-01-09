@@ -89,6 +89,11 @@ export interface DutyType {
   rank_filter_values: string[] | null;  // Selected ranks
   section_filter_mode: FilterMode | null;  // null = any section
   section_filter_values: string[] | null;  // Selected section IDs
+  // Supernumerary configuration
+  requires_supernumerary: boolean;  // Whether this duty type needs supernumerary coverage
+  supernumerary_count: number;  // How many supernumerary slots needed per period (e.g., 2)
+  supernumerary_period_days: number;  // Coverage period in days (e.g., 15 for half-month)
+  supernumerary_value: number;  // Duty score value for being on standby (e.g., 0.5)
   created_at: Date;
   updated_at: Date;
 }
@@ -113,6 +118,19 @@ export interface DutyValue {
   base_weight: number;
   weekend_multiplier: number;
   holiday_multiplier: number;
+}
+
+// Supernumerary Assignment (standby personnel for a duty type)
+export interface SupernumeraryAssignment {
+  id: UUID;
+  duty_type_id: UUID;  // Which duty type they're covering
+  personnel_id: UUID;  // Who is assigned as supernumerary
+  organization_id: UUID;  // Organization scope
+  period_start: DateString;  // Start of coverage period (YYYY-MM-DD)
+  period_end: DateString;  // End of coverage period (YYYY-MM-DD)
+  activation_count: number;  // How many times activated (for tracking, score uses duty_slot)
+  created_at: Date;
+  updated_at: Date;
 }
 
 // Duty Slot (the resulting schedule)

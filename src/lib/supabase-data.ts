@@ -1853,6 +1853,11 @@ export async function createDutyType(
     rankFilterValues?: string[] | null;
     sectionFilterMode?: "none" | "include" | "exclude";
     sectionFilterValues?: string[] | null;
+    // Supernumerary options
+    requiresSupernumerary?: boolean;
+    supernumeraryCount?: number;
+    supernumeraryPeriodDays?: number;
+    supernumeraryValue?: number;
   }
 ): Promise<DutyType | null> {
   if (!isSupabaseConfigured()) return null;
@@ -1903,6 +1908,10 @@ export async function createDutyType(
       rank_filter_values: options?.rankFilterValues || null,
       section_filter_mode: options?.sectionFilterMode ?? "none",
       section_filter_values: options?.sectionFilterValues || null,
+      requires_supernumerary: options?.requiresSupernumerary ?? false,
+      supernumerary_count: options?.supernumeraryCount ?? 2,
+      supernumerary_period_days: options?.supernumeraryPeriodDays ?? 15,
+      supernumerary_value: options?.supernumeraryValue ?? 0.5,
     } as never, { onConflict: 'id' })
     .select()
     .single();

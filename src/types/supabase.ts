@@ -271,6 +271,10 @@ export interface Database {
           rank_filter_values: string[] | null;
           section_filter_mode: FilterMode;
           section_filter_values: string[] | null;
+          requires_supernumerary: boolean;
+          supernumerary_count: number;
+          supernumerary_period_days: number;
+          supernumerary_value: number;
           created_at: string;
           updated_at: string;
         };
@@ -285,6 +289,10 @@ export interface Database {
           rank_filter_values?: string[] | null;
           section_filter_mode?: FilterMode;
           section_filter_values?: string[] | null;
+          requires_supernumerary?: boolean;
+          supernumerary_count?: number;
+          supernumerary_period_days?: number;
+          supernumerary_value?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -299,6 +307,45 @@ export interface Database {
           rank_filter_values?: string[] | null;
           section_filter_mode?: FilterMode;
           section_filter_values?: string[] | null;
+          requires_supernumerary?: boolean;
+          supernumerary_count?: number;
+          supernumerary_period_days?: number;
+          supernumerary_value?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      supernumerary_assignments: {
+        Row: {
+          id: string;
+          duty_type_id: string;
+          personnel_id: string;
+          organization_id: string;
+          period_start: string;
+          period_end: string;
+          activation_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          duty_type_id: string;
+          personnel_id: string;
+          organization_id: string;
+          period_start: string;
+          period_end: string;
+          activation_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          duty_type_id?: string;
+          personnel_id?: string;
+          organization_id?: string;
+          period_start?: string;
+          period_end?: string;
+          activation_count?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -647,6 +694,7 @@ export type DutyType = Database["public"]["Tables"]["duty_types"]["Row"];
 export type DutyValue = Database["public"]["Tables"]["duty_values"]["Row"];
 export type DutyRequirement = Database["public"]["Tables"]["duty_requirements"]["Row"];
 export type DutySlot = Database["public"]["Tables"]["duty_slots"]["Row"];
+export type SupernumeraryAssignment = Database["public"]["Tables"]["supernumerary_assignments"]["Row"];
 export type NonAvailability = Database["public"]["Tables"]["non_availability"]["Row"];
 export type DutyChangeRequest = Database["public"]["Tables"]["duty_change_requests"]["Row"];
 export type SwapApproval = Database["public"]["Tables"]["swap_approvals"]["Row"];
@@ -660,6 +708,7 @@ export type PersonnelInsert = Database["public"]["Tables"]["personnel"]["Insert"
 export type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
 export type UserRoleInsert = Database["public"]["Tables"]["user_roles"]["Insert"];
 export type DutySlotInsert = Database["public"]["Tables"]["duty_slots"]["Insert"];
+export type SupernumeraryAssignmentInsert = Database["public"]["Tables"]["supernumerary_assignments"]["Insert"];
 export type NonAvailabilityInsert = Database["public"]["Tables"]["non_availability"]["Insert"];
 export type DutyChangeRequestInsert = Database["public"]["Tables"]["duty_change_requests"]["Insert"];
 export type SwapApprovalInsert = Database["public"]["Tables"]["swap_approvals"]["Insert"];

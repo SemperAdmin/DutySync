@@ -1590,6 +1590,10 @@ export function createDutyType(dutyType: DutyType): DutyType {
         rankFilterValues: dutyType.rank_filter_values,
         sectionFilterMode: dutyType.section_filter_mode || "none",
         sectionFilterValues: dutyType.section_filter_values,
+        requiresSupernumerary: dutyType.requires_supernumerary,
+        supernumeraryCount: dutyType.supernumerary_count,
+        supernumeraryPeriodDays: dutyType.supernumerary_period_days,
+        supernumeraryValue: dutyType.supernumerary_value,
       }),
       "createDutyType"
     );
@@ -1620,6 +1624,10 @@ export function updateDutyType(id: string, updates: Partial<DutyType>): DutyType
         rankFilterValues: updatedType.rank_filter_values,
         sectionFilterMode: updatedType.section_filter_mode === null ? "none" : updatedType.section_filter_mode,
         sectionFilterValues: updatedType.section_filter_values,
+        requiresSupernumerary: updatedType.requires_supernumerary,
+        supernumeraryCount: updatedType.supernumerary_count,
+        supernumeraryPeriodDays: updatedType.supernumerary_period_days,
+        supernumeraryValue: updatedType.supernumerary_value,
       }),
       "updateDutyType"
     );
