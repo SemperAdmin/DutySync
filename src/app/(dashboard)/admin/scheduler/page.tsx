@@ -8,6 +8,8 @@ import {
   getDutyTypeById,
   getPersonnelById,
   getDutyTypesByUnitWithDescendants,
+  getPersonnelByUnitWithDescendants,
+  getActiveSupernumeraryForDutyType,
   type EnrichedSlot,
 } from "@/lib/client-stores";
 import {
@@ -495,11 +497,30 @@ export default function SchedulerPage() {
                   <li>Organization ID: {selectedUnitOrganizationId || "Not set"}</li>
                   <li>Total duty types: {dutyTypes.length}</li>
                   <li>With supernumerary enabled: {supernumeraryTypes.length}</li>
-                  {supernumeraryTypes.map(dt => (
-                    <li key={dt.id} className="ml-4">
-                      • {dt.duty_name}: requires_supernumerary={String(dt.requires_supernumerary)}, count={dt.supernumerary_count}
-                    </li>
-                  ))}
+                  {supernumeraryTypes.map(dt => {
+                    const personnel = getPersonnelByUnitWithDescendants(dt.unit_section_id);
+                    const rankFiltered = personnel.filter(p => {
+                      if (!dt.rank_filter_mode || dt.rank_filter_mode === 'none') return true;
+                      const values = dt.rank_filter_values || [];
+                      return dt.rank_filter_mode === 'include'
+                        ? values.includes(p.rank)
+                        : !values.includes(p.rank);
+                    });
+                    const existingSuper = getActiveSupernumeraryForDutyType(dt.id, startDate as `${number}-${number}-${number}`);
+                    return (
+                      <li key={dt.id} className="ml-4">
+                        • {dt.duty_name}: count={dt.supernumerary_count}, period={dt.supernumerary_period_days}d
+                        <br />
+                        <span className="ml-4">unit_section_id: {dt.unit_section_id}</span>
+                        <br />
+                        <span className="ml-4">Personnel in unit: {personnel.length}, After rank filter: {rankFiltered.length}</span>
+                        <br />
+                        <span className="ml-4">Existing supernumerary: {existingSuper.length}</span>
+                        <br />
+                        <span className="ml-4">Rank filter: {dt.rank_filter_mode || 'none'} {JSON.stringify(dt.rank_filter_values)}</span>
+                      </li>
+                    );
+                  })}
                   {supernumeraryTypes.length === 0 && (
                     <li className="text-yellow-400">No duty types have supernumerary enabled!</li>
                   )}
