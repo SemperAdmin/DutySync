@@ -26,6 +26,56 @@ import { useAuth } from "@/lib/supabase-auth";
 import { ORG_SCOPED_ROLES } from "@/lib/constants";
 import type { RoleName } from "@/types";
 
+// Extracted component for supernumerary debug info
+interface SupernumeraryDebugInfoProps {
+  selectedUnit: string;
+  selectedUnitOrganizationId: string | null;
+  startDate: string;
+}
+
+function SupernumeraryDebugInfo({ selectedUnit, selectedUnitOrganizationId, startDate }: SupernumeraryDebugInfoProps) {
+  const dutyTypes = getDutyTypesByUnitWithDescendants(selectedUnit);
+  const supernumeraryTypes = dutyTypes.filter(dt => dt.is_active && dt.requires_supernumerary);
+
+  return (
+    <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+      <h4 className="text-sm font-medium text-blue-400 mb-1">Supernumerary Debug Info</h4>
+      <ul className="text-xs text-blue-300 space-y-1">
+        <li>Organization ID: {selectedUnitOrganizationId || "Not set"}</li>
+        <li>Total duty types: {dutyTypes.length}</li>
+        <li>With supernumerary enabled: {supernumeraryTypes.length}</li>
+        {supernumeraryTypes.map(dt => {
+          const personnel = getPersonnelByUnitWithDescendants(dt.unit_section_id);
+          const rankFiltered = personnel.filter(p => {
+            if (!dt.rank_filter_mode || dt.rank_filter_mode === 'none') return true;
+            const values = dt.rank_filter_values || [];
+            return dt.rank_filter_mode === 'include'
+              ? values.includes(p.rank)
+              : !values.includes(p.rank);
+          });
+          const existingSuper = getActiveSupernumeraryForDutyType(dt.id, startDate as `${number}-${number}-${number}`);
+          return (
+            <li key={dt.id} className="ml-4">
+              • {dt.duty_name}: count={dt.supernumerary_count}, period={dt.supernumerary_period_days}d
+              <br />
+              <span className="ml-4">unit_section_id: {dt.unit_section_id}</span>
+              <br />
+              <span className="ml-4">Personnel in unit: {personnel.length}, After rank filter: {rankFiltered.length}</span>
+              <br />
+              <span className="ml-4">Existing supernumerary: {existingSuper.length}</span>
+              <br />
+              <span className="ml-4">Rank filter: {dt.rank_filter_mode || 'none'} {JSON.stringify(dt.rank_filter_values)}</span>
+            </li>
+          );
+        })}
+        {supernumeraryTypes.length === 0 && (
+          <li className="text-yellow-400">No duty types have supernumerary enabled!</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 // Enriched supernumerary assignment for display
 interface EnrichedSupernumeraryAssignment extends SupernumeraryAssignment {
   duty_type_name: string;
@@ -487,47 +537,13 @@ export default function SchedulerPage() {
           )}
 
           {/* Debug: Supernumerary Info */}
-          {result.preview && selectedUnit && (() => {
-            const dutyTypes = getDutyTypesByUnitWithDescendants(selectedUnit);
-            const supernumeraryTypes = dutyTypes.filter(dt => dt.is_active && dt.requires_supernumerary);
-            return (
-              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                <h4 className="text-sm font-medium text-blue-400 mb-1">Supernumerary Debug Info</h4>
-                <ul className="text-xs text-blue-300 space-y-1">
-                  <li>Organization ID: {selectedUnitOrganizationId || "Not set"}</li>
-                  <li>Total duty types: {dutyTypes.length}</li>
-                  <li>With supernumerary enabled: {supernumeraryTypes.length}</li>
-                  {supernumeraryTypes.map(dt => {
-                    const personnel = getPersonnelByUnitWithDescendants(dt.unit_section_id);
-                    const rankFiltered = personnel.filter(p => {
-                      if (!dt.rank_filter_mode || dt.rank_filter_mode === 'none') return true;
-                      const values = dt.rank_filter_values || [];
-                      return dt.rank_filter_mode === 'include'
-                        ? values.includes(p.rank)
-                        : !values.includes(p.rank);
-                    });
-                    const existingSuper = getActiveSupernumeraryForDutyType(dt.id, startDate as `${number}-${number}-${number}`);
-                    return (
-                      <li key={dt.id} className="ml-4">
-                        • {dt.duty_name}: count={dt.supernumerary_count}, period={dt.supernumerary_period_days}d
-                        <br />
-                        <span className="ml-4">unit_section_id: {dt.unit_section_id}</span>
-                        <br />
-                        <span className="ml-4">Personnel in unit: {personnel.length}, After rank filter: {rankFiltered.length}</span>
-                        <br />
-                        <span className="ml-4">Existing supernumerary: {existingSuper.length}</span>
-                        <br />
-                        <span className="ml-4">Rank filter: {dt.rank_filter_mode || 'none'} {JSON.stringify(dt.rank_filter_values)}</span>
-                      </li>
-                    );
-                  })}
-                  {supernumeraryTypes.length === 0 && (
-                    <li className="text-yellow-400">No duty types have supernumerary enabled!</li>
-                  )}
-                </ul>
-              </div>
-            );
-          })()}
+          {result.preview && selectedUnit && (
+            <SupernumeraryDebugInfo
+              selectedUnit={selectedUnit}
+              selectedUnitOrganizationId={selectedUnitOrganizationId}
+              startDate={startDate}
+            />
+          )}
 
           {/* Errors */}
           {result.errors.length > 0 && (

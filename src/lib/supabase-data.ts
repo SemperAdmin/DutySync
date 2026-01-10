@@ -1959,19 +1959,27 @@ export async function updateDutyType(
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
+  // Map camelCase update keys to snake_case Supabase column names
+  const keyMap: Record<string, string> = {
+    name: 'name',
+    description: 'description',
+    personnelRequired: 'personnel_required',
+    rankFilterMode: 'rank_filter_mode',
+    rankFilterValues: 'rank_filter_values',
+    sectionFilterMode: 'section_filter_mode',
+    sectionFilterValues: 'section_filter_values',
+    requiresSupernumerary: 'requires_supernumerary',
+    supernumeraryCount: 'supernumerary_count',
+    supernumeraryPeriodDays: 'supernumerary_period_days',
+    supernumeraryValue: 'supernumerary_value',
+  };
+
   const supabaseUpdates: Record<string, unknown> = {};
-  if (updates.name !== undefined) supabaseUpdates.name = updates.name;
-  if (updates.description !== undefined) supabaseUpdates.description = updates.description;
-  if (updates.personnelRequired !== undefined) supabaseUpdates.personnel_required = updates.personnelRequired;
-  if (updates.rankFilterMode !== undefined) supabaseUpdates.rank_filter_mode = updates.rankFilterMode;
-  if (updates.rankFilterValues !== undefined) supabaseUpdates.rank_filter_values = updates.rankFilterValues;
-  if (updates.sectionFilterMode !== undefined) supabaseUpdates.section_filter_mode = updates.sectionFilterMode;
-  if (updates.sectionFilterValues !== undefined) supabaseUpdates.section_filter_values = updates.sectionFilterValues;
-  // Supernumerary fields
-  if (updates.requiresSupernumerary !== undefined) supabaseUpdates.requires_supernumerary = updates.requiresSupernumerary;
-  if (updates.supernumeraryCount !== undefined) supabaseUpdates.supernumerary_count = updates.supernumeraryCount;
-  if (updates.supernumeraryPeriodDays !== undefined) supabaseUpdates.supernumerary_period_days = updates.supernumeraryPeriodDays;
-  if (updates.supernumeraryValue !== undefined) supabaseUpdates.supernumerary_value = updates.supernumeraryValue;
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined && key in keyMap) {
+      supabaseUpdates[keyMap[key]] = value;
+    }
+  }
 
   if (Object.keys(supabaseUpdates).length === 0) return null;
 
