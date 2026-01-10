@@ -7,6 +7,7 @@ import {
   getUnitSections,
   getDutyTypeById,
   getPersonnelById,
+  getDutyTypesByUnitWithDescendants,
   type EnrichedSlot,
 } from "@/lib/client-stores";
 import {
@@ -482,6 +483,30 @@ export default function SchedulerPage() {
               </ul>
             </div>
           )}
+
+          {/* Debug: Supernumerary Info */}
+          {result.preview && selectedUnit && (() => {
+            const dutyTypes = getDutyTypesByUnitWithDescendants(selectedUnit);
+            const supernumeraryTypes = dutyTypes.filter(dt => dt.is_active && dt.requires_supernumerary);
+            return (
+              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <h4 className="text-sm font-medium text-blue-400 mb-1">Supernumerary Debug Info</h4>
+                <ul className="text-xs text-blue-300 space-y-1">
+                  <li>Organization ID: {selectedUnitOrganizationId || "Not set"}</li>
+                  <li>Total duty types: {dutyTypes.length}</li>
+                  <li>With supernumerary enabled: {supernumeraryTypes.length}</li>
+                  {supernumeraryTypes.map(dt => (
+                    <li key={dt.id} className="ml-4">
+                      • {dt.duty_name}: requires_supernumerary={String(dt.requires_supernumerary)}, count={dt.supernumerary_count}
+                    </li>
+                  ))}
+                  {supernumeraryTypes.length === 0 && (
+                    <li className="text-yellow-400">No duty types have supernumerary enabled!</li>
+                  )}
+                </ul>
+              </div>
+            );
+          })()}
 
           {/* Errors */}
           {result.errors.length > 0 && (
