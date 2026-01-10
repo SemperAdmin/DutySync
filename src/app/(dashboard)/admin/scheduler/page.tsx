@@ -47,7 +47,7 @@ function SupernumeraryDebugInfo({ selectedUnit, selectedUnitOrganizationId, star
         {supernumeraryTypes.map(dt => {
           const personnel = getPersonnelByUnitWithDescendants(dt.unit_section_id);
           const rankFiltered = personnel.filter(p => {
-            if (!dt.rank_filter_mode || dt.rank_filter_mode === 'none') return true;
+            if (!dt.rank_filter_mode) return true;
             const values = dt.rank_filter_values || [];
             return dt.rank_filter_mode === 'include'
               ? values.includes(p.rank)
