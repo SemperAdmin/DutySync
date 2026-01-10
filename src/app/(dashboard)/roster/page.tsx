@@ -1518,6 +1518,9 @@ export default function RosterPage() {
     const midMonthDate = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 15));
     const assignments = getActiveSupernumeraryAssignments(midMonthDate);
 
+    // Get the set of duty type IDs that are visible based on unit selection
+    const visibleDutyTypeIds = new Set(filteredDutyTypes.map(dt => dt.id));
+
     // Enrich with names
     return assignments.map(assignment => {
       const dutyType = getDutyTypeById(assignment.duty_type_id);
@@ -1529,11 +1532,13 @@ export default function RosterPage() {
         personnelRank: personnel?.rank || '',
       };
     }).filter(a => {
-      // Only show supernumerary for duty types visible in current filter
+      // Only show supernumerary for duty types in the selected unit
+      if (!visibleDutyTypeIds.has(a.duty_type_id)) return false;
+      // Also respect the user's duty type filter if set
       if (dutyTypeFilter.size === 0) return true;
       return dutyTypeFilter.has(a.duty_type_id);
     });
-  }, [currentDate, dutyTypeFilter]);
+  }, [currentDate, dutyTypeFilter, filteredDutyTypes]);
 
   return (
     <div className="space-y-6">
