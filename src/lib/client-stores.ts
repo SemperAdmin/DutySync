@@ -2201,6 +2201,15 @@ export function getActiveSupernumeraryAssignments(dateStr: DateString): Supernum
   );
 }
 
+// Get supernumerary assignments that overlap with a date range
+// An assignment overlaps if its period intersects with the given range
+export function getSupernumeraryAssignmentsInRange(startDate: DateString, endDate: DateString): SupernumeraryAssignment[] {
+  return getAllSupernumeraryAssignments().filter((sa) =>
+    // Assignment overlaps if: assignment starts before range ends AND assignment ends after range starts
+    sa.period_start <= endDate && sa.period_end >= startDate
+  );
+}
+
 // Get active supernumerary for a specific duty type on a date
 export function getActiveSupernumeraryForDutyType(dutyTypeId: string, dateStr: DateString): SupernumeraryAssignment[] {
   return getAllSupernumeraryAssignments().filter((sa) =>
