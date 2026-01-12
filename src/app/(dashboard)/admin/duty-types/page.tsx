@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
-import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty, RoleName, NonAvailability } from "@/types";
+import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty, RoleName, NonAvailability, FilterMode } from "@/types";
 import {
   getUnitSections,
   getEnrichedDutyTypes,
