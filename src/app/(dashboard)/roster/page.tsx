@@ -2749,22 +2749,25 @@ export default function RosterPage() {
                   selectedSlot.duty_type_id,
                   selectedSlot.date_assigned
                 ).filter(sa => sa.personnel_id !== selectedSlot.personnel_id);
-                return availableSuper.length > 0;
-              })() && (
-                <Button
-                  variant="secondary"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => {
-                    setSuperReplacementModal({
-                      isOpen: true,
-                      slot: selectedSlot,
-                      selectedSupernumeraryId: null,
-                    });
-                  }}
-                >
-                  Replace with Standby
-                </Button>
-              )}
+                const hasAvailable = availableSuper.length > 0;
+                return (
+                  <Button
+                    variant="secondary"
+                    className={hasAvailable ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
+                    disabled={!hasAvailable}
+                    title={hasAvailable ? "Replace this duty assignee with a standby person" : "No standby personnel available for this duty type on this date"}
+                    onClick={() => {
+                      setSuperReplacementModal({
+                        isOpen: true,
+                        slot: selectedSlot,
+                        selectedSupernumeraryId: null,
+                      });
+                    }}
+                  >
+                    Replace with Standby
+                  </Button>
+                );
+              })()}
               <Button variant="ghost" onClick={() => setSelectedSlot(null)}>
                 Close
               </Button>
