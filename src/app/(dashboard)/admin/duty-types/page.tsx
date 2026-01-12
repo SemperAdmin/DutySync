@@ -136,6 +136,8 @@ export default function DutyTypesPage() {
     supernumerary_count: "2",
     supernumerary_period_type: "half_month" as SupernumeraryPeriodType,
     supernumerary_value: "0.5",
+    // Display options
+    show_phone_numbers: false,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -326,6 +328,7 @@ export default function DutyTypesPage() {
       supernumerary_count: "2",
       supernumerary_period_type: "half_month" as SupernumeraryPeriodType,
       supernumerary_value: "0.5",
+      show_phone_numbers: false,
     });
     setError("");
   }
@@ -354,6 +357,7 @@ export default function DutyTypesPage() {
       supernumerary_count: (dutyType.supernumerary_count || 2).toString(),
       supernumerary_period_type: dutyType.supernumerary_period_type || "half_month",
       supernumerary_value: (dutyType.supernumerary_value || 0.5).toString(),
+      show_phone_numbers: dutyType.show_phone_numbers || false,
     });
     setError("");
     setIsEditModalOpen(true);
@@ -494,6 +498,7 @@ export default function DutyTypesPage() {
         supernumerary_period_type: formData.supernumerary_period_type,
         supernumerary_period_days: SUPERNUMERARY_PERIOD_DAYS[formData.supernumerary_period_type],
         supernumerary_value: (v => Number.isFinite(v) ? v : 0.5)(parseFloat(formData.supernumerary_value)),
+        show_phone_numbers: formData.show_phone_numbers,
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -541,6 +546,7 @@ export default function DutyTypesPage() {
         supernumerary_period_type: formData.supernumerary_period_type,
         supernumerary_period_days: SUPERNUMERARY_PERIOD_DAYS[formData.supernumerary_period_type],
         supernumerary_value: (v => Number.isFinite(v) ? v : 0.5)(parseFloat(formData.supernumerary_value)),
+        show_phone_numbers: formData.show_phone_numbers,
       });
 
       // Update duty value
@@ -1206,6 +1212,25 @@ export default function DutyTypesPage() {
                 )}
               </div>
 
+              {/* Display Options */}
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">Show Phone Numbers</h3>
+                    <p className="text-xs text-foreground-muted">Display personnel phone numbers on roster and exports</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.show_phone_numbers}
+                      onChange={(e) => setFormData({ ...formData, show_phone_numbers: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-surface-elevated peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground-muted after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-white"></div>
+                  </label>
+                </div>
+              </div>
+
               {/* Duty Type Notes */}
               <div className="border-t border-border pt-4">
                 <label className="block text-sm font-medium text-foreground mb-1">
@@ -1543,6 +1568,25 @@ export default function DutyTypesPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Display Options */}
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">Show Phone Numbers</h3>
+                    <p className="text-xs text-foreground-muted">Display personnel phone numbers on roster and exports</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.show_phone_numbers}
+                      onChange={(e) => setFormData({ ...formData, show_phone_numbers: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-surface-elevated peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground-muted after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-white"></div>
+                  </label>
+                </div>
               </div>
 
               {/* Duty Type Notes */}

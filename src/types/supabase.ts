@@ -277,6 +277,7 @@ export interface Database {
           supernumerary_period_type: SupernumeraryPeriodType;
           supernumerary_period_days: number;
           supernumerary_value: number;
+          show_phone_numbers: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -296,6 +297,7 @@ export interface Database {
           supernumerary_period_type?: SupernumeraryPeriodType;
           supernumerary_period_days?: number;
           supernumerary_value?: number;
+          show_phone_numbers?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -315,6 +317,7 @@ export interface Database {
           supernumerary_period_type?: SupernumeraryPeriodType;
           supernumerary_period_days?: number;
           supernumerary_value?: number;
+          show_phone_numbers?: boolean;
           created_at?: string;
           updated_at?: string;
         };
