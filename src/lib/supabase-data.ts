@@ -1980,7 +1980,7 @@ export async function updateDutyType(
   const supabaseUpdates: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(updates)) {
     if (value !== undefined && key in keyMap) {
-      supabaseUpdates[keyMap[key]] = value;
+      supabaseUpdates[keyMap[key as keyof DutyTypeUpdatePayload]] = value;
     }
   }
 
