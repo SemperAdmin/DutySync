@@ -898,6 +898,14 @@ export default function RosterPage() {
 
     // Check if roster is approved (locked)
     if (rosterApproval) {
+      // For approved rosters, managers can view slot details (for replacement options)
+      if (isManager) {
+        const existingSlots = getSlotsForDateAndType(dateStr, dutyType.id);
+        if (existingSlots.length > 0 && existingSlots[0].personnel_id) {
+          setSelectedSlot(existingSlots[0]);
+          return;
+        }
+      }
       toast.warning("This roster has been approved and is locked for editing.");
       return;
     }
