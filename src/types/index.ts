@@ -94,6 +94,15 @@ export const SUPERNUMERARY_PERIOD_LABELS: Record<SupernumeraryPeriodType, string
   bi_weekly: 'Bi-Weekly (Every 2 Weeks)',
 };
 
+// Number of periods per month for each period type
+// Used to calculate total supernumerary needed: supernumerary_count * periods_per_month
+export const SUPERNUMERARY_PERIODS_PER_MONTH: Record<SupernumeraryPeriodType, number> = {
+  full_month: 1,   // 1 period per month
+  half_month: 2,   // 2 periods per month (1st-15th, 16th-end)
+  weekly: 4,       // ~4 periods per month (using 4 as standard)
+  bi_weekly: 2,    // 2 periods per month
+};
+
 // Duty Type
 export interface DutyType {
   id: UUID;
