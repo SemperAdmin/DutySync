@@ -56,6 +56,7 @@ export interface User {
   personnel_id: UUID | null; // Links to personnel table
   edipi: string; // 10-digit Electronic Data Interchange Personal Identifier
   email: string;
+  phone_number: string | null; // User's contact phone number
   password_hash: string;
   created_at: Date;
   updated_at: Date;
