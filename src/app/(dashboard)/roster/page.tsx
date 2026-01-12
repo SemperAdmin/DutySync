@@ -36,7 +36,7 @@ import {
   buildUserAssignedByInfo,
   calculateDutyScoreFromSlots,
   markDutyAsCompleted,
-  getActiveSupernumeraryAssignments,
+  getSupernumeraryAssignmentsInRange,
   getActiveSupernumeraryForDutyType,
   incrementSupernumeraryActivation,
   deleteSupernumeraryAssignment,
@@ -1552,9 +1552,11 @@ export default function RosterPage() {
     }, 0);
 
     // Get supernumerary assignments that match the filtered duty types
+    // Use the full month range to capture all periods (including half-month, weekly, etc.)
     const filteredDutyTypeIds = new Set(filteredDutyTypes.map(dt => dt.id));
-    const midMonthDate = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 15));
-    const currentSupernumerary = getActiveSupernumeraryAssignments(midMonthDate)
+    const monthStart = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+    const monthEnd = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
+    const currentSupernumerary = getSupernumeraryAssignmentsInRange(monthStart as DateString, monthEnd as DateString)
       .filter(sa => filteredDutyTypeIds.has(sa.duty_type_id));
 
     const assignedSupernumerary = currentSupernumerary.length;
@@ -1667,9 +1669,10 @@ export default function RosterPage() {
   // Get active supernumerary assignments for the current month
   // Enriched with duty type name and personnel info
   const activeSupernumerary: EnrichedSupernumerary[] = useMemo(() => {
-    // Get assignments active during the current month
-    const midMonthDate = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 15));
-    const assignments = getActiveSupernumeraryAssignments(midMonthDate);
+    // Get assignments that overlap with the current month (including partial periods)
+    const monthStart = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+    const monthEnd = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
+    const assignments = getSupernumeraryAssignmentsInRange(monthStart as DateString, monthEnd as DateString);
 
     // Get the set of duty type IDs that are visible based on unit selection
     const visibleDutyTypeIds = new Set(filteredDutyTypes.map(dt => dt.id));
