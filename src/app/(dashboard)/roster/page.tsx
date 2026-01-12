@@ -2167,8 +2167,8 @@ export default function RosterPage() {
             </span>
           </div>
         </div>
-        <div className="bg-surface rounded-lg border border-border border-blue-500/30">
-          <div className="p-4 border-b border-border">
+        <div className="bg-surface rounded-lg border border-blue-500/30 overflow-hidden">
+          <div className="p-4 border-b border-border bg-blue-500/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2176,7 +2176,7 @@ export default function RosterPage() {
                 </svg>
                 <h3 className="text-lg font-semibold text-foreground">Supernumerary (Standby Personnel)</h3>
               </div>
-              <span className="text-sm text-foreground-muted">
+              <span className="text-sm text-blue-400 font-medium">
                 {activeSupernumerary.length} active
               </span>
             </div>
@@ -2184,36 +2184,59 @@ export default function RosterPage() {
               Personnel on standby who can be activated if regular duty personnel are unavailable.
             </p>
           </div>
-          <div className="p-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {activeSupernumerary.map((assignment) => (
-                <div
-                  key={assignment.id}
-                  className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-3"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-blue-400">
-                        {assignment.dutyTypeName}
-                      </span>
+          {/* Group by duty type for cleaner display */}
+          <div className="divide-y divide-border">
+            {(() => {
+              // Group supernumerary by duty type
+              const groupedByDutyType = activeSupernumerary.reduce((acc, assignment) => {
+                const key = assignment.duty_type_id;
+                if (!acc[key]) {
+                  acc[key] = {
+                    dutyTypeName: assignment.dutyTypeName,
+                    dutyTypeId: assignment.duty_type_id,
+                    personnel: [],
+                    // Use the first assignment's period (they should all be the same for a duty type)
+                    periodStart: assignment.period_start,
+                    periodEnd: assignment.period_end,
+                  };
+                }
+                acc[key].personnel.push(assignment);
+                return acc;
+              }, {} as Record<string, { dutyTypeName: string; dutyTypeId: string; personnel: typeof activeSupernumerary; periodStart: string; periodEnd: string }>);
+
+              return Object.values(groupedByDutyType).map((group) => (
+                <div key={group.dutyTypeId} className="flex flex-col sm:flex-row">
+                  {/* Duty Type Column */}
+                  <div className="sm:w-48 flex-shrink-0 p-4 bg-blue-500/10 border-b sm:border-b-0 sm:border-r border-blue-500/20">
+                    <div className="font-semibold text-blue-400">{group.dutyTypeName}</div>
+                    <div className="text-xs text-foreground-muted mt-1">
+                      {formatDateForDisplay(group.periodStart)} - {formatDateForDisplay(group.periodEnd)}
                     </div>
-                    <p className="text-sm text-foreground mt-1">
-                      {assignment.personnelRank} {assignment.personnelName}
-                    </p>
-                    <p className="text-xs text-foreground-muted mt-1">
-                      {formatDateForDisplay(assignment.period_start)} - {formatDateForDisplay(assignment.period_end)}
-                    </p>
                   </div>
-                  {assignment.activation_count > 0 && (
-                    <div className="text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">
-                        {assignment.activation_count}x activated
-                      </span>
+                  {/* Personnel Column */}
+                  <div className="flex-1 p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {group.personnel.map((assignment) => (
+                        <div
+                          key={assignment.id}
+                          className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2"
+                        >
+                          <span className="text-blue-400">🔷</span>
+                          <span className="text-sm text-foreground">
+                            {assignment.personnelRank} {assignment.personnelName}
+                          </span>
+                          {assignment.activation_count > 0 && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                              {assignment.activation_count}x
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
                 </div>
-              ))}
-            </div>
+              ));
+            })()}
           </div>
         </div>
         </>
