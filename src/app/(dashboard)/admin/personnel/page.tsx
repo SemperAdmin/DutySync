@@ -16,6 +16,7 @@ import {
   exportUnitStructure,
   exportUnitMembers,
   createPersonnel,
+  updatePersonnel,
 } from "@/lib/client-stores";
 import {
   getAllPersonnel,
@@ -67,6 +68,8 @@ export default function PersonnelPage() {
   const [error, setError] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null);
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"self" | "scope">("scope"); // Default to scope for managers/admins
@@ -575,6 +578,23 @@ export default function PersonnelPage() {
         />
       )}
 
+      {/* Edit Modal */}
+      {showEditModal && editingPersonnel && (
+        <EditPersonnelModal
+          personnel={editingPersonnel}
+          units={units}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingPersonnel(null);
+          }}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setEditingPersonnel(null);
+            fetchData();
+          }}
+        />
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -712,6 +732,12 @@ export default function PersonnelPage() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Duty Score
                     </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Phone
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -744,6 +770,34 @@ export default function PersonnelPage() {
                           <span className="text-highlight font-medium">
                             {(dutyScoreMap.get(person.id) || 0).toFixed(1)}
                           </span>
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {person.phone_number || "-"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingPersonnel(person);
+                              setShowEditModal(true);
+                            }}
+                          >
+                            <svg
+                              className="w-4 h-4 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                            Edit
+                          </Button>
                         </td>
                       </tr>
                     );
@@ -1316,6 +1370,163 @@ function AddPersonnelModal({
                 className="flex-1"
               >
                 Add Personnel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function EditPersonnelModal({
+  personnel,
+  units,
+  onClose,
+  onSuccess,
+}: {
+  personnel: Personnel;
+  units: UnitSection[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    first_name: personnel.first_name,
+    last_name: personnel.last_name,
+    rank: personnel.rank,
+    phone_number: personnel.phone_number || "",
+    unit_section_id: personnel.unit_section_id,
+  });
+
+  // Build hierarchical unit options for the dropdown
+  const hierarchicalUnits = useMemo(() => {
+    return buildHierarchicalUnitOptions(units);
+  }, [units]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      updatePersonnel(personnel.id, {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        rank: formData.rank,
+        phone_number: formData.phone_number || null,
+        unit_section_id: formData.unit_section_id,
+      });
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card variant="elevated" className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Edit Personnel</CardTitle>
+          <CardDescription>
+            Update information for {personnel.rank} {personnel.last_name}, {personnel.first_name}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="First Name"
+                placeholder="John"
+                value={formData.first_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, first_name: e.target.value })
+                }
+                required
+                disabled={isSubmitting}
+              />
+              <Input
+                label="Last Name"
+                placeholder="Doe"
+                value={formData.last_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, last_name: e.target.value })
+                }
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <Input
+              label="Rank"
+              placeholder="e.g., SGT, CPL, PFC"
+              value={formData.rank}
+              onChange={(e) =>
+                setFormData({ ...formData, rank: e.target.value.toUpperCase() })
+              }
+              required
+              disabled={isSubmitting}
+            />
+
+            <Input
+              label="Phone Number"
+              placeholder="e.g., (555) 123-4567"
+              value={formData.phone_number}
+              onChange={(e) =>
+                setFormData({ ...formData, phone_number: e.target.value })
+              }
+              disabled={isSubmitting}
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Unit
+              </label>
+              <select
+                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-mono"
+                value={formData.unit_section_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, unit_section_id: e.target.value })
+                }
+                required
+                disabled={isSubmitting}
+              >
+                <option value="">Select a unit...</option>
+                {hierarchicalUnits.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {formatUnitOptionLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="accent"
+                isLoading={isSubmitting}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Save Changes
               </Button>
             </div>
           </form>
