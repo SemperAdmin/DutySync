@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { PageSpinner } from "@/components/ui/Spinner";
 import type { UnitSection, DutyType, Personnel, RoleName, BlockedDuty, DateString, SupernumeraryAssignment } from "@/types";
+import { SUPERNUMERARY_PERIODS_PER_MONTH } from "@/types";
 import {
   getUnitSections,
   getUnitSectionById,
@@ -1541,9 +1542,13 @@ export default function RosterPage() {
     // Get duty types that require supernumerary
     const supernumeraryDutyTypes = filteredDutyTypes.filter(dt => dt.requires_supernumerary);
 
-    // Total supernumerary required = sum of (supernumerary_count) for each duty type that requires it
+    // Total supernumerary required = sum of (supernumerary_count * periods_per_month) for each duty type
+    // e.g., 1 slot with half_month period = 1 * 2 = 2 supernumerary needed for the month
     const totalSupernumeraryRequired = supernumeraryDutyTypes.reduce((sum, dt) => {
-      return sum + (dt.supernumerary_count || 0);
+      const periodsPerMonth = dt.supernumerary_period_type
+        ? SUPERNUMERARY_PERIODS_PER_MONTH[dt.supernumerary_period_type]
+        : 1;
+      return sum + ((dt.supernumerary_count || 0) * periodsPerMonth);
     }, 0);
 
     // Get supernumerary assignments that match the filtered duty types
