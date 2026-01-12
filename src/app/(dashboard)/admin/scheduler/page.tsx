@@ -18,7 +18,7 @@ import {
   previewSupernumeraryAssignments,
   applySupernumeraryAssignments,
 } from "@/lib/duty-thruster";
-import type { DutySlot, SupernumeraryAssignment } from "@/types";
+import type { DateString, DutySlot, SupernumeraryAssignment } from "@/types";
 import { useSyncRefresh } from "@/hooks/useSync";
 import { buildHierarchicalUnitOptions, formatUnitOptionLabel } from "@/lib/unit-hierarchy";
 import { parseLocalDate, formatDateToString } from "@/lib/date-utils";
@@ -30,7 +30,7 @@ import type { RoleName } from "@/types";
 interface SupernumeraryDebugInfoProps {
   selectedUnit: string;
   selectedUnitOrganizationId: string | null;
-  startDate: string;
+  startDate: DateString;
 }
 
 function SupernumeraryDebugInfo({ selectedUnit, selectedUnitOrganizationId, startDate }: SupernumeraryDebugInfoProps) {
@@ -47,7 +47,7 @@ function SupernumeraryDebugInfo({ selectedUnit, selectedUnitOrganizationId, star
         {supernumeraryTypes.map(dt => {
           const personnel = getPersonnelByUnitWithDescendants(dt.unit_section_id);
           const rankFiltered = personnel.filter(p => {
-            if (!dt.rank_filter_mode) return true;
+            if (!dt.rank_filter_mode || dt.rank_filter_mode === 'none') return true;
             const values = dt.rank_filter_values || [];
             return dt.rank_filter_mode === 'include'
               ? values.includes(p.rank)
@@ -56,15 +56,11 @@ function SupernumeraryDebugInfo({ selectedUnit, selectedUnitOrganizationId, star
           const existingSuper = getActiveSupernumeraryForDutyType(dt.id, startDate as `${number}-${number}-${number}`);
           return (
             <li key={dt.id} className="ml-4">
-              • {dt.duty_name}: count={dt.supernumerary_count}, period={dt.supernumerary_period_days}d
-              <br />
-              <span className="ml-4">unit_section_id: {dt.unit_section_id}</span>
-              <br />
-              <span className="ml-4">Personnel in unit: {personnel.length}, After rank filter: {rankFiltered.length}</span>
-              <br />
-              <span className="ml-4">Existing supernumerary: {existingSuper.length}</span>
-              <br />
-              <span className="ml-4">Rank filter: {dt.rank_filter_mode || 'none'} {JSON.stringify(dt.rank_filter_values)}</span>
+              <div>• {dt.duty_name}: count={dt.supernumerary_count}, period={dt.supernumerary_period_days}d</div>
+              <div className="ml-4">unit_section_id: {dt.unit_section_id}</div>
+              <div className="ml-4">Personnel in unit: {personnel.length}, After rank filter: {rankFiltered.length}</div>
+              <div className="ml-4">Existing supernumerary: {existingSuper.length}</div>
+              <div className="ml-4">Rank filter: {dt.rank_filter_mode || 'none'} {JSON.stringify(dt.rank_filter_values)}</div>
             </li>
           );
         })}

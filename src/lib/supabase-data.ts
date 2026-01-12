@@ -1938,29 +1938,32 @@ export async function createDutyType(
   return data as DutyType;
 }
 
+// Payload type for duty type updates (camelCase keys)
+export interface DutyTypeUpdatePayload {
+  name?: string;
+  description?: string | null;
+  personnelRequired?: number;
+  rankFilterMode?: "none" | "include" | "exclude";
+  rankFilterValues?: string[] | null;
+  sectionFilterMode?: "none" | "include" | "exclude";
+  sectionFilterValues?: string[] | null;
+  // Supernumerary options
+  requiresSupernumerary?: boolean;
+  supernumeraryCount?: number;
+  supernumeraryPeriodDays?: number;
+  supernumeraryValue?: number;
+}
+
 // Update an existing duty type
 export async function updateDutyType(
   id: string,
-  updates: {
-    name?: string;
-    description?: string | null;
-    personnelRequired?: number;
-    rankFilterMode?: "none" | "include" | "exclude";
-    rankFilterValues?: string[] | null;
-    sectionFilterMode?: "none" | "include" | "exclude";
-    sectionFilterValues?: string[] | null;
-    // Supernumerary options
-    requiresSupernumerary?: boolean;
-    supernumeraryCount?: number;
-    supernumeraryPeriodDays?: number;
-    supernumeraryValue?: number;
-  }
+  updates: DutyTypeUpdatePayload
 ): Promise<DutyType | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
 
   // Map camelCase update keys to snake_case Supabase column names
-  const keyMap: Record<string, string> = {
+  const keyMap: Record<keyof DutyTypeUpdatePayload, string> = {
     name: 'name',
     description: 'description',
     personnelRequired: 'personnel_required',
