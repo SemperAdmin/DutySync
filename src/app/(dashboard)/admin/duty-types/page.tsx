@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Button from "@/components/ui/Button";
-import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty, RoleName, NonAvailability, FilterMode } from "@/types";
+import type { DutyType, DutyValue, UnitSection, Personnel, BlockedDuty, RoleName, NonAvailability, FilterMode, SupernumeraryPeriodType } from "@/types";
+import { SUPERNUMERARY_PERIOD_DAYS, SUPERNUMERARY_PERIOD_LABELS } from "@/types";
 import {
   getUnitSections,
   getEnrichedDutyTypes,
@@ -133,7 +134,7 @@ export default function DutyTypesPage() {
     // Supernumerary settings
     requires_supernumerary: false,
     supernumerary_count: "2",
-    supernumerary_period_days: "15",
+    supernumerary_period_type: "half_month" as SupernumeraryPeriodType,
     supernumerary_value: "0.5",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -323,7 +324,7 @@ export default function DutyTypesPage() {
       holiday_multiplier: "2.0",
       requires_supernumerary: false,
       supernumerary_count: "2",
-      supernumerary_period_days: "15",
+      supernumerary_period_type: "half_month" as SupernumeraryPeriodType,
       supernumerary_value: "0.5",
     });
     setError("");
@@ -351,7 +352,7 @@ export default function DutyTypesPage() {
       holiday_multiplier: dutyType.duty_value?.holiday_multiplier.toString() || "2.0",
       requires_supernumerary: dutyType.requires_supernumerary || false,
       supernumerary_count: (dutyType.supernumerary_count || 2).toString(),
-      supernumerary_period_days: (dutyType.supernumerary_period_days || 15).toString(),
+      supernumerary_period_type: dutyType.supernumerary_period_type || "half_month",
       supernumerary_value: (dutyType.supernumerary_value || 0.5).toString(),
     });
     setError("");
@@ -490,7 +491,8 @@ export default function DutyTypesPage() {
         is_active: true,
         requires_supernumerary: formData.requires_supernumerary,
         supernumerary_count: (v => Number.isFinite(v) ? v : 2)(parseInt(formData.supernumerary_count)),
-        supernumerary_period_days: (v => Number.isFinite(v) ? v : 15)(parseInt(formData.supernumerary_period_days)),
+        supernumerary_period_type: formData.supernumerary_period_type,
+        supernumerary_period_days: SUPERNUMERARY_PERIOD_DAYS[formData.supernumerary_period_type],
         supernumerary_value: (v => Number.isFinite(v) ? v : 0.5)(parseFloat(formData.supernumerary_value)),
         created_at: new Date(),
         updated_at: new Date(),
@@ -536,7 +538,8 @@ export default function DutyTypesPage() {
         section_filter_values: formData.section_filter_values.length > 0 ? formData.section_filter_values : null,
         requires_supernumerary: formData.requires_supernumerary,
         supernumerary_count: (v => Number.isFinite(v) ? v : 2)(parseInt(formData.supernumerary_count)),
-        supernumerary_period_days: (v => Number.isFinite(v) ? v : 15)(parseInt(formData.supernumerary_period_days)),
+        supernumerary_period_type: formData.supernumerary_period_type,
+        supernumerary_period_days: SUPERNUMERARY_PERIOD_DAYS[formData.supernumerary_period_type],
         supernumerary_value: (v => Number.isFinite(v) ? v : 0.5)(parseFloat(formData.supernumerary_value)),
       });
 
@@ -845,7 +848,7 @@ export default function DutyTypesPage() {
                         Slots: {dutyType.supernumerary_count}/mo
                       </span>
                       <span className="text-foreground">
-                        Period: {dutyType.supernumerary_period_days}d
+                        Period: {dutyType.supernumerary_period_type ? SUPERNUMERARY_PERIOD_LABELS[dutyType.supernumerary_period_type] : `${dutyType.supernumerary_period_days}d`}
                       </span>
                       <span className="text-foreground">
                         Value: {dutyType.supernumerary_value}
@@ -1170,17 +1173,20 @@ export default function DutyTypesPage() {
                     </div>
                     <div>
                       <label className="block text-sm text-foreground-muted mb-1">
-                        Period (Days)
+                        Period Type
                       </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={formData.supernumerary_period_days}
-                        onChange={(e) => setFormData({ ...formData, supernumerary_period_days: e.target.value })}
+                      <select
+                        value={formData.supernumerary_period_type}
+                        onChange={(e) => setFormData({ ...formData, supernumerary_period_type: e.target.value as SupernumeraryPeriodType })}
                         className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <p className="text-xs text-foreground-muted mt-1">15 = half-month</p>
+                      >
+                        {(Object.keys(SUPERNUMERARY_PERIOD_LABELS) as SupernumeraryPeriodType[]).map((type) => (
+                          <option key={type} value={type}>
+                            {SUPERNUMERARY_PERIOD_LABELS[type]}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-foreground-muted mt-1">{SUPERNUMERARY_PERIOD_DAYS[formData.supernumerary_period_type]} days per period</p>
                     </div>
                     <div>
                       <label className="block text-sm text-foreground-muted mb-1">
@@ -1506,17 +1512,20 @@ export default function DutyTypesPage() {
                     </div>
                     <div>
                       <label className="block text-sm text-foreground-muted mb-1">
-                        Period (Days)
+                        Period Type
                       </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={formData.supernumerary_period_days}
-                        onChange={(e) => setFormData({ ...formData, supernumerary_period_days: e.target.value })}
+                      <select
+                        value={formData.supernumerary_period_type}
+                        onChange={(e) => setFormData({ ...formData, supernumerary_period_type: e.target.value as SupernumeraryPeriodType })}
                         className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <p className="text-xs text-foreground-muted mt-1">15 = half-month</p>
+                      >
+                        {(Object.keys(SUPERNUMERARY_PERIOD_LABELS) as SupernumeraryPeriodType[]).map((type) => (
+                          <option key={type} value={type}>
+                            {SUPERNUMERARY_PERIOD_LABELS[type]}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-foreground-muted mt-1">{SUPERNUMERARY_PERIOD_DAYS[formData.supernumerary_period_type]} days per period</p>
                     </div>
                     <div>
                       <label className="block text-sm text-foreground-muted mb-1">

@@ -26,6 +26,7 @@ export type DutySlotStatus = "scheduled" | "approved" | "completed" | "missed" |
 export type RequestStatus = "pending" | "recommended" | "approved" | "rejected";
 export type SwapApproverType = "work_section_manager" | "section_manager" | "company_manager";
 export type SwapRecommendationType = "recommend" | "not_recommend";
+export type SupernumeraryPeriodType = "full_month" | "half_month" | "weekly" | "bi_weekly";
 
 export interface Database {
   public: {
@@ -273,6 +274,7 @@ export interface Database {
           section_filter_values: string[] | null;
           requires_supernumerary: boolean;
           supernumerary_count: number;
+          supernumerary_period_type: SupernumeraryPeriodType;
           supernumerary_period_days: number;
           supernumerary_value: number;
           created_at: string;
@@ -291,6 +293,7 @@ export interface Database {
           section_filter_values?: string[] | null;
           requires_supernumerary?: boolean;
           supernumerary_count?: number;
+          supernumerary_period_type?: SupernumeraryPeriodType;
           supernumerary_period_days?: number;
           supernumerary_value?: number;
           created_at?: string;
@@ -309,6 +312,7 @@ export interface Database {
           section_filter_values?: string[] | null;
           requires_supernumerary?: boolean;
           supernumerary_count?: number;
+          supernumerary_period_type?: SupernumeraryPeriodType;
           supernumerary_period_days?: number;
           supernumerary_value?: number;
           created_at?: string;
@@ -677,6 +681,7 @@ export interface Database {
       request_status: RequestStatus;
       swap_approver_type: SwapApproverType;
       swap_recommendation_type: SwapRecommendationType;
+      supernumerary_period_type: SupernumeraryPeriodType;
     };
   };
 }

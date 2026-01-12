@@ -1865,6 +1865,7 @@ export async function createDutyType(
     // Supernumerary options
     requiresSupernumerary?: boolean;
     supernumeraryCount?: number;
+    supernumeraryPeriodType?: "full_month" | "half_month" | "weekly" | "bi_weekly";
     supernumeraryPeriodDays?: number;
     supernumeraryValue?: number;
   }
@@ -1919,6 +1920,7 @@ export async function createDutyType(
       section_filter_values: options?.sectionFilterValues || null,
       requires_supernumerary: options?.requiresSupernumerary ?? false,
       supernumerary_count: options?.supernumeraryCount ?? 2,
+      supernumerary_period_type: options?.supernumeraryPeriodType ?? "half_month",
       supernumerary_period_days: options?.supernumeraryPeriodDays ?? 15,
       supernumerary_value: options?.supernumeraryValue ?? 0.5,
     } as never, { onConflict: 'id' })
@@ -1950,6 +1952,7 @@ export interface DutyTypeUpdatePayload {
   // Supernumerary options
   requiresSupernumerary?: boolean;
   supernumeraryCount?: number;
+  supernumeraryPeriodType?: "full_month" | "half_month" | "weekly" | "bi_weekly";
   supernumeraryPeriodDays?: number;
   supernumeraryValue?: number;
 }
@@ -1973,6 +1976,7 @@ export async function updateDutyType(
     sectionFilterValues: 'section_filter_values',
     requiresSupernumerary: 'requires_supernumerary',
     supernumeraryCount: 'supernumerary_count',
+    supernumeraryPeriodType: 'supernumerary_period_type',
     supernumeraryPeriodDays: 'supernumerary_period_days',
     supernumeraryValue: 'supernumerary_value',
   };
