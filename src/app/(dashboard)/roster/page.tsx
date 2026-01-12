@@ -2382,23 +2382,17 @@ export default function RosterPage() {
                     dutyTypeName: assignment.dutyTypeName,
                     dutyTypeId: assignment.duty_type_id,
                     personnel: [],
-                    // Use the first assignment's period (they should all be the same for a duty type)
-                    periodStart: assignment.period_start,
-                    periodEnd: assignment.period_end,
                   };
                 }
                 acc[key].personnel.push(assignment);
                 return acc;
-              }, {} as Record<string, { dutyTypeName: string; dutyTypeId: string; personnel: typeof activeSupernumerary; periodStart: string; periodEnd: string }>);
+              }, {} as Record<string, { dutyTypeName: string; dutyTypeId: string; personnel: typeof activeSupernumerary }>);
 
               return Object.values(groupedByDutyType).map((group) => (
                 <div key={group.dutyTypeId} className="flex flex-col sm:flex-row">
                   {/* Duty Type Column */}
                   <div className="sm:w-48 flex-shrink-0 p-4 bg-blue-500/10 border-b sm:border-b-0 sm:border-r border-blue-500/20">
                     <div className="font-semibold text-blue-400">{group.dutyTypeName}</div>
-                    <div className="text-xs text-foreground-muted mt-1">
-                      {formatDateForDisplay(group.periodStart)} - {formatDateForDisplay(group.periodEnd)}
-                    </div>
                   </div>
                   {/* Personnel Column */}
                   <div className="flex-1 p-4">
@@ -2406,26 +2400,31 @@ export default function RosterPage() {
                       {group.personnel.map((assignment) => (
                         <div
                           key={assignment.id}
-                          className={`inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2 ${
+                          className={`inline-flex flex-col bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2 ${
                             isManager ? 'cursor-pointer hover:bg-blue-500/20 transition-colors' : ''
                           }`}
                           onClick={isManager ? () => openSupernumeraryModal(assignment) : undefined}
                           title={isManager ? 'Click to manage' : undefined}
                         >
-                          <span className="text-blue-400">🔷</span>
-                          <span className="text-sm text-foreground">
-                            {assignment.personnelRank} {assignment.personnelName}
-                          </span>
-                          {assignment.activation_count > 0 && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
-                              {assignment.activation_count}x
+                          <div className="flex items-center gap-2">
+                            <span className="text-blue-400">🔷</span>
+                            <span className="text-sm text-foreground">
+                              {assignment.personnelRank} {assignment.personnelName}
                             </span>
-                          )}
-                          {isManager && (
-                            <svg className="w-4 h-4 text-blue-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                            </svg>
-                          )}
+                            {assignment.activation_count > 0 && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                                {assignment.activation_count}x
+                              </span>
+                            )}
+                            {isManager && (
+                              <svg className="w-4 h-4 text-blue-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="text-xs text-foreground-muted mt-1 ml-6">
+                            {formatDateForDisplay(assignment.period_start)} - {formatDateForDisplay(assignment.period_end)}
+                          </div>
                         </div>
                       ))}
                     </div>
