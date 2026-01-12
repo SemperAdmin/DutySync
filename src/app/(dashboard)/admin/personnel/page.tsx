@@ -1391,13 +1391,13 @@ function EditPersonnelModal({
   const [error, setError] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState(personnel.phone_number || "");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
     try {
-      updatePersonnel(personnel.id, {
+      await updatePersonnel(personnel.id, {
         phone_number: phoneNumber || null,
       });
       onSuccess();

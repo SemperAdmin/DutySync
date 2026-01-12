@@ -1372,15 +1372,15 @@ export default function RosterPage() {
       const originalPersonScore = originalPerson?.current_duty_score;
       const supernumeraryPersonScore = supernumeraryPerson.current_duty_score;
 
-      // 1. Update the duty slot - assign supernumerary, record original person
-      updateDutySlot(slot.id, {
-        personnel_id: supernumeraryAssignment.personnel_id,
-        swapped_from_personnel_id: slot.personnel_id,
-        swapped_at: new Date(),
-        status: 'swapped',
-      });
-
       try {
+        // 1. Update the duty slot - assign supernumerary, record original person
+        updateDutySlot(slot.id, {
+          personnel_id: supernumeraryAssignment.personnel_id,
+          swapped_from_personnel_id: slot.personnel_id,
+          swapped_at: new Date(),
+          status: 'swapped',
+        });
+
         // 2. Remove duty points from original person's score (if they had any)
         if (originalPerson && dutyPoints > 0) {
           const newScore = Math.max(0, originalPerson.current_duty_score - dutyPoints);
@@ -1397,12 +1397,17 @@ export default function RosterPage() {
         incrementSupernumeraryActivation(supernumeraryAssignmentId);
       } catch (updateError) {
         // Rollback the duty slot update and personnel scores
-        console.error("Error during point transfer, rolling back:", updateError);
-        updateDutySlot(slot.id, originalSlotData);
-        if (originalPerson && originalPersonScore !== undefined) {
-          updatePersonnel(originalPerson.id, { current_duty_score: originalPersonScore });
+        console.error("Error during supernumerary replacement, rolling back:", updateError);
+        try {
+          updateDutySlot(slot.id, originalSlotData);
+          if (originalPerson && originalPersonScore !== undefined) {
+            updatePersonnel(originalPerson.id, { current_duty_score: originalPersonScore });
+          }
+          updatePersonnel(supernumeraryPerson.id, { current_duty_score: supernumeraryPersonScore });
+        } catch (rollbackError) {
+          console.error("Rollback failed:", rollbackError);
+          // Log but don't throw - the original error is more important
         }
-        updatePersonnel(supernumeraryPerson.id, { current_duty_score: supernumeraryPersonScore });
         throw updateError;
       }
 
