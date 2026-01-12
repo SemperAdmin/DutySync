@@ -110,6 +110,7 @@ function convertDutyType(dt: SupabaseDbDutyType): DutyType {
     // Supernumerary fields from Supabase (with fallback defaults)
     requires_supernumerary: dt.requires_supernumerary ?? false,
     supernumerary_count: dt.supernumerary_count ?? 2,
+    supernumerary_period_type: dt.supernumerary_period_type ?? "half_month",
     supernumerary_period_days: dt.supernumerary_period_days ?? 15,
     supernumerary_value: dt.supernumerary_value ?? 0.5,
     created_at: new Date(dt.created_at),

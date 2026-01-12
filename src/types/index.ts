@@ -74,6 +74,26 @@ export interface UserRole {
 // 'none' represents no filtering (equivalent to null, but stored as string in some cases)
 export type FilterMode = 'none' | 'include' | 'exclude';
 
+// Supernumerary period type presets
+// Defines how supernumerary coverage periods are divided within a month
+export type SupernumeraryPeriodType = 'full_month' | 'half_month' | 'weekly' | 'bi_weekly';
+
+// Helper to get period days from period type
+export const SUPERNUMERARY_PERIOD_DAYS: Record<SupernumeraryPeriodType, number> = {
+  full_month: 31,  // Entire month
+  half_month: 15,  // ~15 days (1st-15th, 16th-end)
+  weekly: 7,       // 7 days
+  bi_weekly: 14,   // 14 days
+};
+
+// Display labels for period types
+export const SUPERNUMERARY_PERIOD_LABELS: Record<SupernumeraryPeriodType, string> = {
+  full_month: 'Full Month',
+  half_month: 'Half Month (1st-15th, 16th-End)',
+  weekly: 'Weekly',
+  bi_weekly: 'Bi-Weekly (Every 2 Weeks)',
+};
+
 // Duty Type
 export interface DutyType {
   id: UUID;
@@ -93,7 +113,8 @@ export interface DutyType {
   // Supernumerary configuration
   requires_supernumerary: boolean;  // Whether this duty type needs supernumerary coverage
   supernumerary_count: number;  // How many supernumerary slots needed per period (e.g., 2)
-  supernumerary_period_days: number;  // Coverage period in days (e.g., 15 for half-month)
+  supernumerary_period_type: SupernumeraryPeriodType;  // Period type preset (full_month, half_month, weekly, bi_weekly)
+  supernumerary_period_days: number;  // Coverage period in days - derived from period_type, kept for backwards compat
   supernumerary_value: number;  // Duty score value for being on standby (e.g., 0.5)
   created_at: Date;
   updated_at: Date;
