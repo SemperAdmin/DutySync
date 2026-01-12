@@ -71,7 +71,8 @@ export interface UserRole {
 }
 
 // Filter mode for duty type filters
-export type FilterMode = 'include' | 'exclude';
+// 'none' represents no filtering (equivalent to null, but stored as string in some cases)
+export type FilterMode = 'none' | 'include' | 'exclude';
 
 // Duty Type
 export interface DutyType {
