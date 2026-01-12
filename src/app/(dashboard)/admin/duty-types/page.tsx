@@ -61,8 +61,6 @@ const RANK_ORDER = [
   "GEN",    // O-10
 ];
 
-type FilterMode = 'include' | 'exclude' | null;
-
 // Extended duty type with blocks info
 interface DutyTypeWithBlocks extends EnrichedDutyType {
   activeBlocks: BlockedDuty[];
