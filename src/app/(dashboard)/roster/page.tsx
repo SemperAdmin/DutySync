@@ -1363,6 +1363,33 @@ export default function RosterPage() {
   // Export uses the same filtered duty types as the view
   const exportDutyTypes = filteredDutyTypes;
 
+  // Helper to get supernumerary for exports - fetches directly to avoid any filtering issues
+  function getSupernumeraryForExport(): EnrichedSupernumerary[] {
+    const monthStart = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+    const monthEnd = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
+    const assignments = getSupernumeraryAssignmentsInRange(monthStart as DateString, monthEnd as DateString);
+
+    // Filter to only include supernumerary for duty types being exported
+    const exportDutyTypeIds = new Set(exportDutyTypes.map(dt => dt.id));
+
+    return assignments
+      .filter(a => exportDutyTypeIds.has(a.duty_type_id))
+      .map(assignment => {
+        const dutyType = getDutyTypeById(assignment.duty_type_id);
+        const personnel = getPersonnelById(assignment.personnel_id);
+        return {
+          ...assignment,
+          dutyTypeName: dutyType?.duty_name || 'Unknown Duty',
+          personnelName: personnel ? `${personnel.last_name}, ${personnel.first_name}` : 'Unknown',
+          personnelRank: personnel?.rank || '',
+        };
+      })
+      .sort((a, b) => {
+        if (a.dutyTypeName !== b.dutyTypeName) return a.dutyTypeName.localeCompare(b.dutyTypeName);
+        return a.period_start.localeCompare(b.period_start);
+      });
+  }
+
   // Export to CSV
   function exportToCSV() {
     if (exportDutyTypes.length === 0) return;
@@ -1396,19 +1423,14 @@ export default function RosterPage() {
     ];
 
     // Add supernumerary section if there are any
-    if (activeSupernumerary.length > 0) {
+    const supernumeraryForExport = getSupernumeraryForExport();
+    if (supernumeraryForExport.length > 0) {
       csvRows.push(""); // Blank row separator
       csvRows.push(""); // Another blank row
       csvRows.push("STANDBY PERSONNEL (SUPERNUMERARY)");
       csvRows.push(["Duty Type", "Rank", "Name", "Period Start", "Period End", "Activations"].map(escapeCsvCell).join(","));
 
-      // Sort by duty type then by period start
-      const sortedSupernumerary = [...activeSupernumerary].sort((a, b) => {
-        if (a.dutyTypeName !== b.dutyTypeName) return a.dutyTypeName.localeCompare(b.dutyTypeName);
-        return a.period_start.localeCompare(b.period_start);
-      });
-
-      for (const assignment of sortedSupernumerary) {
+      for (const assignment of supernumeraryForExport) {
         csvRows.push([
           assignment.dutyTypeName,
           assignment.personnelRank,
@@ -1518,7 +1540,10 @@ export default function RosterPage() {
               }).join("")}
             </tbody>
           </table>
-          ${activeSupernumerary.length > 0 ? `
+          ${(() => {
+            const supernumeraryForPrint = getSupernumeraryForExport();
+            if (supernumeraryForPrint.length === 0) return '';
+            return `
           <h3 style="margin-top: 30px; color: #1565C0; font-size: 14px; border-bottom: 2px solid #1565C0; padding-bottom: 5px;">
             Standby Personnel (Supernumerary)
           </h3>
@@ -1533,13 +1558,7 @@ export default function RosterPage() {
               </tr>
             </thead>
             <tbody>
-              ${(() => {
-                // Sort by duty type then by period start
-                const sorted = [...activeSupernumerary].sort((a, b) => {
-                  if (a.dutyTypeName !== b.dutyTypeName) return a.dutyTypeName.localeCompare(b.dutyTypeName);
-                  return a.period_start.localeCompare(b.period_start);
-                });
-                return sorted.map(assignment => `
+              ${supernumeraryForPrint.map(assignment => `
                   <tr>
                     <td style="background-color: #E3F2FD;">${assignment.dutyTypeName}</td>
                     <td>${assignment.personnelRank}</td>
@@ -1547,11 +1566,11 @@ export default function RosterPage() {
                     <td>${formatDateForDisplay(assignment.period_start, 'short')} - ${formatDateForDisplay(assignment.period_end, 'short')}</td>
                     <td>${assignment.activation_count}</td>
                   </tr>
-                `).join('');
-              })()}
+                `).join('')}
             </tbody>
           </table>
-          ` : ''}
+            `;
+          })()}
           <p style="margin-top: 20px; text-align: center; color: #666; font-size: 10px;">
             Generated on ${new Date().toLocaleString()} by Duty Sync
           </p>
