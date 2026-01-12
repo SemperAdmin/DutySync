@@ -703,6 +703,7 @@ export interface SeedUser {
   id: string;
   edipi: string;
   email: string;
+  phone_number: string | null;
   personnel_id: string | null;
   can_approve_non_availability?: boolean;
   roles: Array<{
@@ -722,6 +723,7 @@ export async function loadUsers(): Promise<SeedUser[]> {
       id: user.id,
       edipi: user.edipi,
       email: user.email,
+      phone_number: user.phone_number || null,
       personnel_id: user.personnel_id,
       can_approve_non_availability: user.can_approve_non_availability || false,
       roles: roles.map(r => ({

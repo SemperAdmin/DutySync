@@ -45,6 +45,7 @@ interface UserData {
   id: string;
   edipi: string;
   email: string;
+  phone_number: string | null;
   personnel_id: string | null;
   can_approve_non_availability: boolean;
   roles: UserRole[];
@@ -147,6 +148,7 @@ export default function UsersPage() {
         id: u.id,
         edipi: u.edipi,
         email: u.email,
+        phone_number: u.phone_number || null,
         personnel_id: u.personnel_id || null,
         can_approve_non_availability: false,
         roles: (u.roles || []).map(r => ({
@@ -383,6 +385,9 @@ export default function UsersPage() {
                       Email
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Phone
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Roles
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
@@ -416,6 +421,9 @@ export default function UsersPage() {
                         </td>
                         <td className="py-3 px-4 text-foreground-muted">
                           {user.email}
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {user.phone_number || "-"}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex flex-wrap gap-1">

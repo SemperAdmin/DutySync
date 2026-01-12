@@ -140,6 +140,7 @@ export interface Database {
           email: string;
           password_hash: string;
           personnel_id: string | null;
+          phone_number: string | null;
           can_approve_non_availability: boolean;
           created_at: string;
           updated_at: string;
@@ -150,6 +151,7 @@ export interface Database {
           email: string;
           password_hash: string;
           personnel_id?: string | null;
+          phone_number?: string | null;
           can_approve_non_availability?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -160,6 +162,7 @@ export interface Database {
           email?: string;
           password_hash?: string;
           personnel_id?: string | null;
+          phone_number?: string | null;
           can_approve_non_availability?: boolean;
           created_at?: string;
           updated_at?: string;
