@@ -38,6 +38,8 @@ import {
   getActiveSupernumeraryAssignments,
   getActiveSupernumeraryForDutyType,
   incrementSupernumeraryActivation,
+  deleteSupernumeraryAssignment,
+  createSupernumeraryAssignment,
   getDutyTypeById,
   type EnrichedSlot,
   type ApprovedRoster,
@@ -84,6 +86,13 @@ interface SelectedCell {
   dutyTypeId: string;
   date: DateString;
   dutyTypeName: string;
+}
+
+// Enriched supernumerary assignment with display info
+interface EnrichedSupernumerary extends SupernumeraryAssignment {
+  dutyTypeName: string;
+  personnelName: string;
+  personnelRank: string;
 }
 
 export default function RosterPage() {
@@ -161,6 +170,15 @@ export default function RosterPage() {
     reason: string;
   }>({ isOpen: false, originalSlot: null, step: 'select', targetSlot: null, reason: '' });
   const [submittingSwap, setSubmittingSwap] = useState(false);
+
+  // Supernumerary management modal state
+  const [supernumeraryModal, setSupernumeraryModal] = useState<{
+    isOpen: boolean;
+    assignment: EnrichedSupernumerary | null;
+    mode: 'view' | 'replace';
+    replacementPersonnelId: string | null;
+  }>({ isOpen: false, assignment: null, mode: 'view', replacementPersonnelId: null });
+  const [managingSupernumerary, setManagingSupernumerary] = useState(false);
 
   // Sync with view mode from localStorage
   useEffect(() => {
@@ -1155,6 +1173,118 @@ export default function RosterPage() {
     }
   }
 
+  // Handle opening the supernumerary management modal
+  function openSupernumeraryModal(assignment: EnrichedSupernumerary) {
+    setSupernumeraryModal({
+      isOpen: true,
+      assignment,
+      mode: 'view',
+      replacementPersonnelId: null,
+    });
+  }
+
+  // Handle removing a supernumerary assignment
+  function handleRemoveSupernumerary() {
+    if (!supernumeraryModal.assignment || !user) return;
+
+    setManagingSupernumerary(true);
+    try {
+      const success = deleteSupernumeraryAssignment(supernumeraryModal.assignment.id);
+      if (success) {
+        toast.success("Supernumerary assignment removed");
+        setSupernumeraryModal({ isOpen: false, assignment: null, mode: 'view', replacementPersonnelId: null });
+        fetchData();
+      } else {
+        toast.error("Failed to remove supernumerary assignment");
+      }
+    } catch (err) {
+      console.error("Error removing supernumerary:", err);
+      toast.error("Failed to remove supernumerary assignment");
+    } finally {
+      setManagingSupernumerary(false);
+    }
+  }
+
+  // Handle replacing a supernumerary assignment
+  function handleReplaceSupernumerary() {
+    if (!supernumeraryModal.assignment || !supernumeraryModal.replacementPersonnelId || !user) return;
+
+    setManagingSupernumerary(true);
+    try {
+      const oldAssignment = supernumeraryModal.assignment;
+
+      // Delete the old assignment
+      const deleted = deleteSupernumeraryAssignment(oldAssignment.id);
+      if (!deleted) {
+        toast.error("Failed to remove old assignment");
+        setManagingSupernumerary(false);
+        return;
+      }
+
+      // Create the new assignment with the same period
+      const newAssignment: SupernumeraryAssignment = {
+        id: crypto.randomUUID(),
+        duty_type_id: oldAssignment.duty_type_id,
+        personnel_id: supernumeraryModal.replacementPersonnelId,
+        organization_id: oldAssignment.organization_id,
+        period_start: oldAssignment.period_start,
+        period_end: oldAssignment.period_end,
+        activation_count: 0,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      createSupernumeraryAssignment(newAssignment);
+
+      toast.success("Supernumerary replacement completed");
+      setSupernumeraryModal({ isOpen: false, assignment: null, mode: 'view', replacementPersonnelId: null });
+      fetchData();
+    } catch (err) {
+      console.error("Error replacing supernumerary:", err);
+      toast.error("Failed to replace supernumerary");
+    } finally {
+      setManagingSupernumerary(false);
+    }
+  }
+
+  // Get eligible personnel for supernumerary replacement
+  const eligibleReplacements = useMemo(() => {
+    if (!supernumeraryModal.assignment || supernumeraryModal.mode !== 'replace') return [];
+
+    const dutyType = getDutyTypeById(supernumeraryModal.assignment.duty_type_id);
+    if (!dutyType) return [];
+
+    // Get all personnel from units that can be assigned to this duty
+    const allPersonnel = getAllPersonnel();
+
+    // Filter to eligible personnel
+    return allPersonnel.filter(person => {
+      // Can't replace with the same person
+      if (person.id === supernumeraryModal.assignment!.personnel_id) return false;
+
+      // Check rank filter
+      if (!matchesFilter(dutyType.rank_filter_mode, dutyType.rank_filter_values, person.rank)) {
+        return false;
+      }
+
+      // Check section filter
+      if (!matchesFilter(dutyType.section_filter_mode, dutyType.section_filter_values, person.unit_section_id)) {
+        return false;
+      }
+
+      // Check if not already assigned as supernumerary for this duty type in the same period
+      const existingAssignments = getActiveSupernumeraryForDutyType(
+        supernumeraryModal.assignment!.duty_type_id,
+        supernumeraryModal.assignment!.period_start
+      );
+      if (existingAssignments.some(a => a.personnel_id === person.id)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [supernumeraryModal.assignment, supernumeraryModal.mode]);
+
   // Open swap request modal
   function openSwapModal(slot: EnrichedSlot) {
     setSwapModal({
@@ -1407,6 +1537,24 @@ export default function RosterPage() {
     // Remaining to assign
     const remainingDuties = Math.max(0, totalRequiredDuties - assignedDuties);
 
+    // Calculate supernumerary statistics
+    // Get duty types that require supernumerary
+    const supernumeraryDutyTypes = filteredDutyTypes.filter(dt => dt.requires_supernumerary);
+
+    // Total supernumerary required = sum of (supernumerary_count) for each duty type that requires it
+    const totalSupernumeraryRequired = supernumeraryDutyTypes.reduce((sum, dt) => {
+      return sum + (dt.supernumerary_count || 0);
+    }, 0);
+
+    // Get supernumerary assignments that match the filtered duty types
+    const filteredDutyTypeIds = new Set(filteredDutyTypes.map(dt => dt.id));
+    const midMonthDate = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 15));
+    const currentSupernumerary = getActiveSupernumeraryAssignments(midMonthDate)
+      .filter(sa => filteredDutyTypeIds.has(sa.duty_type_id));
+
+    const assignedSupernumerary = currentSupernumerary.length;
+    const remainingSupernumerary = Math.max(0, totalSupernumeraryRequired - assignedSupernumerary);
+
     return {
       totalDays,
       totalDutyTypes,
@@ -1415,8 +1563,13 @@ export default function RosterPage() {
       totalRequiredDuties,
       assignedDuties,
       remainingDuties,
+      // Supernumerary stats
+      supernumeraryDutyTypesCount: supernumeraryDutyTypes.length,
+      totalSupernumeraryRequired,
+      assignedSupernumerary,
+      remainingSupernumerary,
     };
-  }, [monthDays, filteredDutyTypes, blockedDuties, startDate, endDate, slots]);
+  }, [monthDays, filteredDutyTypes, blockedDuties, startDate, endDate, slots, currentDate]);
 
   // Calculate personnel breakdown by unit hierarchy (Company, Section, WorkSection)
   // Filtered by selected duty type(s)
@@ -1508,11 +1661,6 @@ export default function RosterPage() {
 
   // Get active supernumerary assignments for the current month
   // Enriched with duty type name and personnel info
-  interface EnrichedSupernumerary extends SupernumeraryAssignment {
-    dutyTypeName: string;
-    personnelName: string;
-    personnelRank: string;
-  }
   const activeSupernumerary: EnrichedSupernumerary[] = useMemo(() => {
     // Get assignments active during the current month
     const midMonthDate = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 15));
@@ -2084,6 +2232,37 @@ export default function RosterPage() {
         </div>
       </div>
 
+      {/* Supernumerary Stats (only shown if there are duty types requiring supernumerary) */}
+      {dutyStats.totalSupernumeraryRequired > 0 && (
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <h3 className="text-sm font-semibold text-blue-400">Supernumerary (Standby Personnel)</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-xl font-bold text-foreground">{dutyStats.totalSupernumeraryRequired}</div>
+              <div className="text-xs text-foreground-muted">Required</div>
+              <div className="text-xs text-foreground-muted mt-0.5">
+                ({dutyStats.supernumeraryDutyTypesCount} duty type{dutyStats.supernumeraryDutyTypesCount !== 1 ? 's' : ''})
+              </div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-blue-400">{dutyStats.assignedSupernumerary}</div>
+              <div className="text-xs text-foreground-muted">Assigned</div>
+            </div>
+            <div>
+              <div className={`text-xl font-bold ${dutyStats.remainingSupernumerary > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                {dutyStats.remainingSupernumerary}
+              </div>
+              <div className="text-xs text-foreground-muted">Remaining</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Personnel Breakdown by Unit */}
       <div className="grid gap-4 md:grid-cols-3">
         {/* Company Breakdown */}
@@ -2219,7 +2398,11 @@ export default function RosterPage() {
                       {group.personnel.map((assignment) => (
                         <div
                           key={assignment.id}
-                          className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2"
+                          className={`inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2 ${
+                            isManager ? 'cursor-pointer hover:bg-blue-500/20 transition-colors' : ''
+                          }`}
+                          onClick={isManager ? () => openSupernumeraryModal(assignment) : undefined}
+                          title={isManager ? 'Click to manage' : undefined}
                         >
                           <span className="text-blue-400">🔷</span>
                           <span className="text-sm text-foreground">
@@ -2229,6 +2412,11 @@ export default function RosterPage() {
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
                               {assignment.activation_count}x
                             </span>
+                          )}
+                          {isManager && (
+                            <svg className="w-4 h-4 text-blue-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
                           )}
                         </div>
                       ))}
@@ -3161,6 +3349,135 @@ export default function RosterPage() {
               >
                 {approving ? "Approving..." : "Approve Roster"}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supernumerary Management Modal */}
+      {supernumeraryModal.isOpen && supernumeraryModal.assignment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-lg border border-border w-full max-w-md">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                {supernumeraryModal.mode === 'replace' ? 'Replace Supernumerary' : 'Manage Supernumerary'}
+              </h2>
+              <button
+                onClick={() => setSupernumeraryModal({ isOpen: false, assignment: null, mode: 'view', replacementPersonnelId: null })}
+                className="text-foreground-muted hover:text-foreground"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Current Assignment Info */}
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-sm text-foreground-muted mb-2">Current Assignment:</p>
+                <div className="space-y-1">
+                  <p className="text-foreground font-medium">
+                    {supernumeraryModal.assignment.personnelRank} {supernumeraryModal.assignment.personnelName}
+                  </p>
+                  <p className="text-sm text-blue-400">{supernumeraryModal.assignment.dutyTypeName}</p>
+                  <p className="text-xs text-foreground-muted">
+                    Period: {formatDateForDisplay(supernumeraryModal.assignment.period_start)} - {formatDateForDisplay(supernumeraryModal.assignment.period_end)}
+                  </p>
+                  {supernumeraryModal.assignment.activation_count > 0 && (
+                    <p className="text-xs text-yellow-400">
+                      Activated {supernumeraryModal.assignment.activation_count} time{supernumeraryModal.assignment.activation_count > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {supernumeraryModal.mode === 'view' && (
+                <div className="space-y-2">
+                  <p className="text-sm text-foreground-muted">What would you like to do?</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setSupernumeraryModal(prev => ({ ...prev, mode: 'replace' }))}
+                      className="p-3 rounded-lg border border-border bg-surface-elevated hover:bg-surface transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        Replace
+                      </div>
+                      <p className="text-xs text-foreground-muted mt-1">Assign different personnel</p>
+                    </button>
+                    <button
+                      onClick={handleRemoveSupernumerary}
+                      disabled={managingSupernumerary}
+                      className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2 text-red-400 font-medium text-sm">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        {managingSupernumerary ? 'Removing...' : 'Remove'}
+                      </div>
+                      <p className="text-xs text-red-400/70 mt-1">Delete this assignment</p>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {supernumeraryModal.mode === 'replace' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Select Replacement Personnel
+                    </label>
+                    {eligibleReplacements.length === 0 ? (
+                      <p className="text-sm text-foreground-muted p-3 bg-surface-elevated rounded-lg border border-border">
+                        No eligible personnel available for replacement.
+                      </p>
+                    ) : (
+                      <div className="max-h-48 overflow-y-auto border border-border rounded-lg">
+                        {eligibleReplacements.map((person) => (
+                          <button
+                            key={person.id}
+                            onClick={() => setSupernumeraryModal(prev => ({ ...prev, replacementPersonnelId: person.id }))}
+                            className={`w-full text-left px-3 py-2 border-b border-border last:border-b-0 transition-colors ${
+                              supernumeraryModal.replacementPersonnelId === person.id
+                                ? 'bg-primary/20 text-primary'
+                                : 'hover:bg-surface-elevated'
+                            }`}
+                          >
+                            <span className="font-medium">{person.rank} {person.last_name}, {person.first_name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setSupernumeraryModal(prev => ({ ...prev, mode: 'view', replacementPersonnelId: null }))}
+                    className="text-sm text-foreground-muted hover:text-foreground"
+                  >
+                    ← Back to options
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-border flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setSupernumeraryModal({ isOpen: false, assignment: null, mode: 'view', replacementPersonnelId: null })}
+                disabled={managingSupernumerary}
+              >
+                Cancel
+              </Button>
+              {supernumeraryModal.mode === 'replace' && supernumeraryModal.replacementPersonnelId && (
+                <Button
+                  variant="primary"
+                  onClick={handleReplaceSupernumerary}
+                  disabled={managingSupernumerary}
+                >
+                  {managingSupernumerary ? 'Replacing...' : 'Confirm Replacement'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
