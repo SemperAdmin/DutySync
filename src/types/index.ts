@@ -125,6 +125,8 @@ export interface DutyType {
   supernumerary_period_type: SupernumeraryPeriodType;  // Period type preset (full_month, half_month, weekly, bi_weekly)
   supernumerary_period_days: number;  // Coverage period in days - derived from period_type, kept for backwards compat
   supernumerary_value: number;  // Duty score value for being on standby (e.g., 0.5)
+  // Display options
+  show_phone_numbers: boolean;  // Whether to show personnel phone numbers on roster and exports
   created_at: Date;
   updated_at: Date;
 }

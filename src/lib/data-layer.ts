@@ -113,6 +113,8 @@ function convertDutyType(dt: SupabaseDbDutyType): DutyType {
     supernumerary_period_type: dt.supernumerary_period_type ?? "half_month",
     supernumerary_period_days: dt.supernumerary_period_days ?? 15,
     supernumerary_value: dt.supernumerary_value ?? 0.5,
+    // Display options
+    show_phone_numbers: dt.show_phone_numbers ?? false,
     created_at: new Date(dt.created_at),
     updated_at: new Date(dt.updated_at),
   };

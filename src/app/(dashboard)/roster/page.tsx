@@ -1053,7 +1053,7 @@ export default function RosterPage() {
       const newEnrichedSlot: EnrichedSlot = {
         ...newSlot,
         duty_type: { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id },
-        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank, unit_section_id: assignedPerson.unit_section_id } : null,
+        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank, unit_section_id: assignedPerson.unit_section_id, phone_number: assignedPerson.phone_number } : null,
         assigned_by_info,
       };
 
@@ -1166,7 +1166,7 @@ export default function RosterPage() {
       const newEnrichedSlot: EnrichedSlot = {
         ...newSlot,
         duty_type: { id: dutyType.id, duty_name: dutyType.duty_name, unit_section_id: dutyType.unit_section_id },
-        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank, unit_section_id: assignedPerson.unit_section_id } : null,
+        personnel: assignedPerson ? { id: assignedPerson.id, first_name: assignedPerson.first_name, last_name: assignedPerson.last_name, rank: assignedPerson.rank, unit_section_id: assignedPerson.unit_section_id, phone_number: assignedPerson.phone_number } : null,
         assigned_by_info,
       };
 
@@ -1513,7 +1513,14 @@ export default function RosterPage() {
         // Get all assigned personnel, filter out unassigned slots
         const assignedPersonnel = allSlots
           .filter(slot => slot.personnel)
-          .map(slot => `${slot.personnel!.rank} ${slot.personnel!.last_name}`);
+          .map(slot => {
+            const name = `${slot.personnel!.rank} ${slot.personnel!.last_name}`;
+            // Include phone number if duty type has show_phone_numbers enabled
+            if (dt.show_phone_numbers && slot.personnel!.phone_number) {
+              return `${name} (${slot.personnel!.phone_number})`;
+            }
+            return name;
+          });
         if (assignedPersonnel.length === 0) return "Unassigned";
         // Join multiple personnel with semicolon for CSV compatibility
         return assignedPersonnel.join("; ");
@@ -1636,7 +1643,14 @@ export default function RosterPage() {
                       // Get all assigned personnel
                       const assignedPersonnel = allSlots
                         .filter(slot => slot.personnel)
-                        .map(slot => `${slot.personnel!.rank} ${slot.personnel!.last_name}`);
+                        .map(slot => {
+                          const name = `${slot.personnel!.rank} ${slot.personnel!.last_name}`;
+                          // Include phone number if duty type has show_phone_numbers enabled
+                          if (dt.show_phone_numbers && slot.personnel!.phone_number) {
+                            return `${name}<br><span style="font-size: 9px; color: #666;">${slot.personnel!.phone_number}</span>`;
+                          }
+                          return name;
+                        });
                       if (assignedPersonnel.length === 0) return `<td style="${cellStyle}">${libertyDay ? libertyDay.type.toUpperCase() : 'Unassigned'}</td>`;
                       // Join multiple personnel with line break for print view
                       return `<td style="${cellStyle}">${assignedPersonnel.join('<br>')}</td>`;
@@ -2282,6 +2296,9 @@ export default function RosterPage() {
                                         <span className="flex flex-col">
                                           <span className="text-foreground-muted text-[10px]">{getPersonnelUnitName(slot.personnel.unit_section_id)}</span>
                                           <span>{slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}</span>
+                                          {dt.show_phone_numbers && slot.personnel.phone_number && (
+                                            <span className="text-foreground-muted text-[10px]">{slot.personnel.phone_number}</span>
+                                          )}
                                         </span>
                                       ) : (
                                         <span className="text-foreground-muted italic">Unassigned</span>
@@ -2333,6 +2350,9 @@ export default function RosterPage() {
                                           {slot.status === 'swapped' && <span className="text-blue-400">↔</span>}
                                           {slot.personnel.rank} {slot.personnel.last_name}, {slot.personnel.first_name}
                                         </span>
+                                        {dt.show_phone_numbers && slot.personnel.phone_number && (
+                                          <span className="text-foreground-muted text-[10px]">{slot.personnel.phone_number}</span>
+                                        )}
                                       </span>
                                     ) : (
                                       <span className="text-foreground-muted italic">Unassigned</span>
