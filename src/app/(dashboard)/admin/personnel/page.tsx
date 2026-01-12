@@ -16,6 +16,7 @@ import {
   exportUnitStructure,
   exportUnitMembers,
   createPersonnel,
+  updatePersonnel,
 } from "@/lib/client-stores";
 import {
   getAllPersonnel,
@@ -67,6 +68,8 @@ export default function PersonnelPage() {
   const [error, setError] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null);
   const [filterUnit, setFilterUnit] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"self" | "scope">("scope"); // Default to scope for managers/admins
@@ -575,6 +578,22 @@ export default function PersonnelPage() {
         />
       )}
 
+      {/* Edit Phone Number Modal */}
+      {showEditModal && editingPersonnel && (
+        <EditPersonnelModal
+          personnel={editingPersonnel}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingPersonnel(null);
+          }}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setEditingPersonnel(null);
+            fetchData();
+          }}
+        />
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -712,6 +731,12 @@ export default function PersonnelPage() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
                       Duty Score
                     </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Phone
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-foreground-muted">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -744,6 +769,34 @@ export default function PersonnelPage() {
                           <span className="text-highlight font-medium">
                             {(dutyScoreMap.get(person.id) || 0).toFixed(1)}
                           </span>
+                        </td>
+                        <td className="py-3 px-4 text-foreground-muted">
+                          {person.phone_number || "-"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingPersonnel(person);
+                              setShowEditModal(true);
+                            }}
+                          >
+                            <svg
+                              className="w-4 h-4 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                              />
+                            </svg>
+                            Edit Phone
+                          </Button>
                         </td>
                       </tr>
                     );
@@ -1316,6 +1369,89 @@ function AddPersonnelModal({
                 className="flex-1"
               >
                 Add Personnel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function EditPersonnelModal({
+  personnel,
+  onClose,
+  onSuccess,
+}: {
+  personnel: Personnel;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState(personnel.phone_number || "");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      updatePersonnel(personnel.id, {
+        phone_number: phoneNumber || null,
+      });
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card variant="elevated" className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle>Edit Phone Number</CardTitle>
+          <CardDescription>
+            {personnel.rank} {personnel.last_name}, {personnel.first_name}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm">
+                {error}
+              </div>
+            )}
+
+            <Input
+              label="Phone Number"
+              placeholder="e.g., (555) 123-4567"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              disabled={isSubmitting}
+              autoFocus
+            />
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="accent"
+                isLoading={isSubmitting}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Save
               </Button>
             </div>
           </form>
