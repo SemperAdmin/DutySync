@@ -1537,6 +1537,24 @@ export default function RosterPage() {
     // Remaining to assign
     const remainingDuties = Math.max(0, totalRequiredDuties - assignedDuties);
 
+    // Calculate supernumerary statistics
+    // Get duty types that require supernumerary
+    const supernumeraryDutyTypes = filteredDutyTypes.filter(dt => dt.requires_supernumerary);
+
+    // Total supernumerary required = sum of (supernumerary_count) for each duty type that requires it
+    const totalSupernumeraryRequired = supernumeraryDutyTypes.reduce((sum, dt) => {
+      return sum + (dt.supernumerary_count || 0);
+    }, 0);
+
+    // Get supernumerary assignments that match the filtered duty types
+    const filteredDutyTypeIds = new Set(filteredDutyTypes.map(dt => dt.id));
+    const midMonthDate = formatDateToString(new Date(currentDate.getFullYear(), currentDate.getMonth(), 15));
+    const currentSupernumerary = getActiveSupernumeraryAssignments(midMonthDate)
+      .filter(sa => filteredDutyTypeIds.has(sa.duty_type_id));
+
+    const assignedSupernumerary = currentSupernumerary.length;
+    const remainingSupernumerary = Math.max(0, totalSupernumeraryRequired - assignedSupernumerary);
+
     return {
       totalDays,
       totalDutyTypes,
@@ -1545,8 +1563,13 @@ export default function RosterPage() {
       totalRequiredDuties,
       assignedDuties,
       remainingDuties,
+      // Supernumerary stats
+      supernumeraryDutyTypesCount: supernumeraryDutyTypes.length,
+      totalSupernumeraryRequired,
+      assignedSupernumerary,
+      remainingSupernumerary,
     };
-  }, [monthDays, filteredDutyTypes, blockedDuties, startDate, endDate, slots]);
+  }, [monthDays, filteredDutyTypes, blockedDuties, startDate, endDate, slots, currentDate]);
 
   // Calculate personnel breakdown by unit hierarchy (Company, Section, WorkSection)
   // Filtered by selected duty type(s)
@@ -2208,6 +2231,37 @@ export default function RosterPage() {
           <div className="text-sm text-foreground-muted">Blocked Cells</div>
         </div>
       </div>
+
+      {/* Supernumerary Stats (only shown if there are duty types requiring supernumerary) */}
+      {dutyStats.totalSupernumeraryRequired > 0 && (
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <h3 className="text-sm font-semibold text-blue-400">Supernumerary (Standby Personnel)</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-xl font-bold text-foreground">{dutyStats.totalSupernumeraryRequired}</div>
+              <div className="text-xs text-foreground-muted">Required</div>
+              <div className="text-xs text-foreground-muted mt-0.5">
+                ({dutyStats.supernumeraryDutyTypesCount} duty type{dutyStats.supernumeraryDutyTypesCount !== 1 ? 's' : ''})
+              </div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-blue-400">{dutyStats.assignedSupernumerary}</div>
+              <div className="text-xs text-foreground-muted">Assigned</div>
+            </div>
+            <div>
+              <div className={`text-xl font-bold ${dutyStats.remainingSupernumerary > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                {dutyStats.remainingSupernumerary}
+              </div>
+              <div className="text-xs text-foreground-muted">Remaining</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Personnel Breakdown by Unit */}
       <div className="grid gap-4 md:grid-cols-3">
