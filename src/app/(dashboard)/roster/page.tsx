@@ -1389,10 +1389,38 @@ export default function RosterPage() {
       return [dateStr, dayName, dayStatus, ...dutyAssignments];
     });
 
-    const csv = [
+    // Build the main roster CSV
+    const csvRows = [
       headers.map(escapeCsvCell).join(","),
       ...rows.map((row) => row.map(escapeCsvCell).join(",")),
-    ].join("\n");
+    ];
+
+    // Add supernumerary section if there are any
+    if (activeSupernumerary.length > 0) {
+      csvRows.push(""); // Blank row separator
+      csvRows.push(""); // Another blank row
+      csvRows.push("STANDBY PERSONNEL (SUPERNUMERARY)");
+      csvRows.push(["Duty Type", "Rank", "Name", "Period Start", "Period End", "Activations"].map(escapeCsvCell).join(","));
+
+      // Sort by duty type then by period start
+      const sortedSupernumerary = [...activeSupernumerary].sort((a, b) => {
+        if (a.dutyTypeName !== b.dutyTypeName) return a.dutyTypeName.localeCompare(b.dutyTypeName);
+        return a.period_start.localeCompare(b.period_start);
+      });
+
+      for (const assignment of sortedSupernumerary) {
+        csvRows.push([
+          assignment.dutyTypeName,
+          assignment.personnelRank,
+          assignment.personnelName,
+          assignment.period_start,
+          assignment.period_end,
+          assignment.activation_count.toString(),
+        ].map(escapeCsvCell).join(","));
+      }
+    }
+
+    const csv = csvRows.join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -1490,6 +1518,40 @@ export default function RosterPage() {
               }).join("")}
             </tbody>
           </table>
+          ${activeSupernumerary.length > 0 ? `
+          <h3 style="margin-top: 30px; color: #1565C0; font-size: 14px; border-bottom: 2px solid #1565C0; padding-bottom: 5px;">
+            Standby Personnel (Supernumerary)
+          </h3>
+          <table style="margin-top: 10px;">
+            <thead>
+              <tr>
+                <th>Duty Type</th>
+                <th>Rank</th>
+                <th>Name</th>
+                <th>Period</th>
+                <th>Activations</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(() => {
+                // Sort by duty type then by period start
+                const sorted = [...activeSupernumerary].sort((a, b) => {
+                  if (a.dutyTypeName !== b.dutyTypeName) return a.dutyTypeName.localeCompare(b.dutyTypeName);
+                  return a.period_start.localeCompare(b.period_start);
+                });
+                return sorted.map(assignment => `
+                  <tr>
+                    <td style="background-color: #E3F2FD;">${assignment.dutyTypeName}</td>
+                    <td>${assignment.personnelRank}</td>
+                    <td style="text-align: left;">${assignment.personnelName}</td>
+                    <td>${formatDateForDisplay(assignment.period_start, 'short')} - ${formatDateForDisplay(assignment.period_end, 'short')}</td>
+                    <td>${assignment.activation_count}</td>
+                  </tr>
+                `).join('');
+              })()}
+            </tbody>
+          </table>
+          ` : ''}
           <p style="margin-top: 20px; text-align: center; color: #666; font-size: 10px;">
             Generated on ${new Date().toLocaleString()} by Duty Sync
           </p>
