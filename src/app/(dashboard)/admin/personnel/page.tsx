@@ -578,11 +578,10 @@ export default function PersonnelPage() {
         />
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Phone Number Modal */}
       {showEditModal && editingPersonnel && (
         <EditPersonnelModal
           personnel={editingPersonnel}
-          units={units}
           onClose={() => {
             setShowEditModal(false);
             setEditingPersonnel(null);
@@ -793,10 +792,10 @@ export default function PersonnelPage() {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                               />
                             </svg>
-                            Edit
+                            Edit Phone
                           </Button>
                         </td>
                       </tr>
@@ -1381,29 +1380,16 @@ function AddPersonnelModal({
 
 function EditPersonnelModal({
   personnel,
-  units,
   onClose,
   onSuccess,
 }: {
   personnel: Personnel;
-  units: UnitSection[];
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    first_name: personnel.first_name,
-    last_name: personnel.last_name,
-    rank: personnel.rank,
-    phone_number: personnel.phone_number || "",
-    unit_section_id: personnel.unit_section_id,
-  });
-
-  // Build hierarchical unit options for the dropdown
-  const hierarchicalUnits = useMemo(() => {
-    return buildHierarchicalUnitOptions(units);
-  }, [units]);
+  const [phoneNumber, setPhoneNumber] = useState(personnel.phone_number || "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1412,11 +1398,7 @@ function EditPersonnelModal({
 
     try {
       updatePersonnel(personnel.id, {
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        rank: formData.rank,
-        phone_number: formData.phone_number || null,
-        unit_section_id: formData.unit_section_id,
+        phone_number: phoneNumber || null,
       });
       onSuccess();
     } catch (err) {
@@ -1428,11 +1410,11 @@ function EditPersonnelModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card variant="elevated" className="w-full max-w-md">
+      <Card variant="elevated" className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Edit Personnel</CardTitle>
+          <CardTitle>Edit Phone Number</CardTitle>
           <CardDescription>
-            Update information for {personnel.rank} {personnel.last_name}, {personnel.first_name}
+            {personnel.rank} {personnel.last_name}, {personnel.first_name}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1443,73 +1425,16 @@ function EditPersonnelModal({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="First Name"
-                placeholder="John"
-                value={formData.first_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, first_name: e.target.value })
-                }
-                required
-                disabled={isSubmitting}
-              />
-              <Input
-                label="Last Name"
-                placeholder="Doe"
-                value={formData.last_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, last_name: e.target.value })
-                }
-                required
-                disabled={isSubmitting}
-              />
-            </div>
-
-            <Input
-              label="Rank"
-              placeholder="e.g., SGT, CPL, PFC"
-              value={formData.rank}
-              onChange={(e) =>
-                setFormData({ ...formData, rank: e.target.value.toUpperCase() })
-              }
-              required
-              disabled={isSubmitting}
-            />
-
             <Input
               label="Phone Number"
               placeholder="e.g., (555) 123-4567"
-              value={formData.phone_number}
-              onChange={(e) =>
-                setFormData({ ...formData, phone_number: e.target.value })
-              }
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
               disabled={isSubmitting}
+              autoFocus
             />
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
-                Unit
-              </label>
-              <select
-                className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-mono"
-                value={formData.unit_section_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, unit_section_id: e.target.value })
-                }
-                required
-                disabled={isSubmitting}
-              >
-                <option value="">Select a unit...</option>
-                {hierarchicalUnits.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {formatUnitOptionLabel(option)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-2">
               <Button
                 type="button"
                 variant="secondary"
@@ -1526,7 +1451,7 @@ function EditPersonnelModal({
                 disabled={isSubmitting}
                 className="flex-1"
               >
-                Save Changes
+                Save
               </Button>
             </div>
           </form>
