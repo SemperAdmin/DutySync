@@ -13,7 +13,7 @@
  * - Uses Map structures for efficient membership checks
  */
 
-import type { DutySlot, DutyType, Personnel, DutyValue, DateString, SupernumeraryAssignment } from "@/types";
+import type { DutySlot, DutyType, Personnel, DutyValue, DateString, SupernumeraryAssignment, FilterMode } from "@/types";
 import {
   getDutyTypesByUnitWithDescendants,
   getPersonnelByUnitWithDescendants,
@@ -239,11 +239,11 @@ function meetsRequirements(personnelId: string, dutyTypeId: string): boolean {
  * Returns true if the person passes the filter check
  */
 export function matchesFilter(
-  mode: 'include' | 'exclude' | null | undefined,
+  mode: FilterMode | null | undefined,
   values: string[] | null | undefined,
   personValue: string
 ): boolean {
-  if (!mode || !values || values.length === 0) {
+  if (!mode || mode === 'none' || !values || values.length === 0) {
     return true; // No filter applied, so person is eligible
   }
   const matches = values.includes(personValue);
