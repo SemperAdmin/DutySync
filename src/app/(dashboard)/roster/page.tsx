@@ -1331,7 +1331,46 @@ export default function RosterPage() {
         return;
       }
 
+      // Validate supernumerary personnel meets duty requirements
+      const dutyType = getDutyTypeById(slot.duty_type_id);
+      if (dutyType) {
+        const requirements = getDutyRequirements(dutyType.id);
+
+        // Check rank filter
+        if (!matchesFilter(dutyType.rank_filter_mode, dutyType.rank_filter_values, supernumeraryPerson.rank)) {
+          toast.error("Supernumerary personnel does not meet rank requirements for this duty");
+          return;
+        }
+
+        // Check section filter
+        if (!matchesFilter(dutyType.section_filter_mode, dutyType.section_filter_values, supernumeraryPerson.unit_section_id)) {
+          toast.error("Supernumerary personnel does not meet section requirements for this duty");
+          return;
+        }
+
+        // Check qualifications
+        if (requirements.length > 0) {
+          const hasAllQuals = requirements.every(req =>
+            hasQualification(supernumeraryPerson.id, req.required_qual_name)
+          );
+          if (!hasAllQuals) {
+            toast.error("Supernumerary personnel does not have required qualifications for this duty");
+            return;
+          }
+        }
+      }
+
       const dutyPoints = slot.points || 0;
+
+      // Store original values for potential rollback
+      const originalSlotData = {
+        personnel_id: slot.personnel_id,
+        swapped_from_personnel_id: slot.swapped_from_personnel_id,
+        swapped_at: slot.swapped_at,
+        status: slot.status,
+      };
+      const originalPersonScore = originalPerson?.current_duty_score;
+      const supernumeraryPersonScore = supernumeraryPerson.current_duty_score;
 
       // 1. Update the duty slot - assign supernumerary, record original person
       updateDutySlot(slot.id, {
@@ -1341,20 +1380,31 @@ export default function RosterPage() {
         status: 'swapped',
       });
 
-      // 2. Remove duty points from original person's score (if they had any)
-      if (originalPerson && dutyPoints > 0) {
-        const newScore = Math.max(0, originalPerson.current_duty_score - dutyPoints);
-        updatePersonnel(originalPerson.id, { current_duty_score: newScore });
-      }
+      try {
+        // 2. Remove duty points from original person's score (if they had any)
+        if (originalPerson && dutyPoints > 0) {
+          const newScore = Math.max(0, originalPerson.current_duty_score - dutyPoints);
+          updatePersonnel(originalPerson.id, { current_duty_score: newScore });
+        }
 
-      // 3. Add duty points to supernumerary's score
-      if (dutyPoints > 0) {
-        const newScore = supernumeraryPerson.current_duty_score + dutyPoints;
-        updatePersonnel(supernumeraryPerson.id, { current_duty_score: newScore });
-      }
+        // 3. Add duty points to supernumerary's score
+        if (dutyPoints > 0) {
+          const newScore = supernumeraryPerson.current_duty_score + dutyPoints;
+          updatePersonnel(supernumeraryPerson.id, { current_duty_score: newScore });
+        }
 
-      // 4. Increment supernumerary activation count
-      incrementSupernumeraryActivation(supernumeraryAssignmentId);
+        // 4. Increment supernumerary activation count
+        incrementSupernumeraryActivation(supernumeraryAssignmentId);
+      } catch (updateError) {
+        // Rollback the duty slot update and personnel scores
+        console.error("Error during point transfer, rolling back:", updateError);
+        updateDutySlot(slot.id, originalSlotData);
+        if (originalPerson && originalPersonScore !== undefined) {
+          updatePersonnel(originalPerson.id, { current_duty_score: originalPersonScore });
+        }
+        updatePersonnel(supernumeraryPerson.id, { current_duty_score: supernumeraryPersonScore });
+        throw updateError;
+      }
 
       toast.success(`Duty reassigned to ${supernumeraryPerson.rank} ${supernumeraryPerson.last_name}`);
       setSuperReplacementModal({ isOpen: false, slot: null, selectedSupernumeraryId: null });
@@ -1362,7 +1412,7 @@ export default function RosterPage() {
       fetchData();
     } catch (err) {
       console.error("Error replacing with supernumerary:", err);
-      toast.error("Failed to replace with supernumerary");
+      toast.error(err instanceof Error ? err.message : "Failed to replace with supernumerary");
     } finally {
       setReplacingWithSuper(false);
     }
